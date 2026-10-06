@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { SUBMIT_GRACE_MS } from "@/lib/access";
-import { game, notification, participant, turn } from "@/lib/db/schema";
+import { draft, game, notification, participant, turn } from "@/lib/db/schema";
 import { claimOpenCall, getGameView, listOpenCalls } from "@/lib/services/games";
-import { expireOverdue, expireTurn, getMyTurn, submitText } from "@/lib/services/turns";
+import { expireOverdue, expireTurn, getMyTurn, saveDraft, submitText } from "@/lib/services/turns";
 import { MemoryStorage } from "@/lib/storage/memory";
 import { makeUser, resetDb, testDb } from "../helpers/db";
 import { activeTurn, startedGame, textParams } from "../helpers/games";
@@ -137,5 +137,32 @@ describe("expireOverdue", () => {
     const effects = await expireOverdue(db, after(t.deadline!));
     expect(effects.length).toBeGreaterThan(0);
     expect((await activeTurn(db, gameId)).attempts).toBe(1);
+  });
+});
+
+describe("brouillons et expiration", () => {
+  it("le brouillon de l'ancien joueur est supprimé à l'échange et jamais servi au nouveau", async () => {
+    const { gameId } = await startedGame(db, textParams(3));
+    const t = await activeTurn(db, gameId);
+    await saveDraft(db, { userId: t.assignedUserId, gameId, content: { text: "secret A" } });
+    await expireTurn(db, { turnId: t.id, deadline: t.deadline!, now: after(t.deadline!) });
+    expect(await db.select().from(draft).where(eq(draft.turnId, t.id))).toHaveLength(0);
+    const t2 = await activeTurn(db, gameId);
+    expect(t2.assignedUserId).not.toBe(t.assignedUserId);
+    // upsert périmé de A, arrivé après l'échange
+    await db.insert(draft).values({ turnId: t.id, userId: t.assignedUserId!, content: { text: "secret A" } });
+    const mine = await getMyTurn(db, new MemoryStorage(), { userId: t2.assignedUserId, gameId, now: t2.startedAt! });
+    expect(mine).not.toBeNull();
+    expect(mine!.draft).toBeNull();
+  });
+
+  it("le brouillon est supprimé quand le dernier tour passe en appel à participation", async () => {
+    const g = await startedGame(db, textParams(2));
+    const t1 = await activeTurn(db, g.gameId);
+    await submitText(db, { userId: t1.assignedUserId, gameId: g.gameId, text: "un deux" });
+    const t2 = await activeTurn(db, g.gameId);
+    await saveDraft(db, { userId: t2.assignedUserId, gameId: g.gameId, content: { text: "x" } });
+    await expireTurn(db, { turnId: t2.id, deadline: t2.deadline!, now: after(t2.deadline!) });
+    expect(await db.select().from(draft).where(eq(draft.turnId, t2.id))).toHaveLength(0);
   });
 });

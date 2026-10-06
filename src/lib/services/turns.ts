@@ -55,7 +55,7 @@ export async function getMyTurn(db: Db, storage: Storage, p: { userId: string; g
     if (g.type === "drawing" && prev?.stripKey) stripUrl = await storage.signedUrl(prev.stripKey, 300);
     if (g.type === "text" && prev?.text != null) excerpt = extractExcerpt(prev.text, excerptRule(g));
   }
-  const [d] = await db.select().from(draft).where(eq(draft.turnId, t.id));
+  const [d] = await db.select().from(draft).where(and(eq(draft.turnId, t.id), eq(draft.userId, p.userId)));
   return { turnId: t.id, rank: t.rank, total: g.turns, deadline: t.deadline!, game: publicGame(g), stripUrl, excerpt, draft: d?.content ?? null };
 }
 
@@ -144,16 +144,26 @@ export async function submitDrawing(
 
 export async function saveDraft(db: Db, p: { userId: string; gameId: string; content: unknown; now?: Date }): Promise<void> {
   const now = p.now ?? new Date();
-  if (JSON.stringify(p.content).length > MAX_DRAFT_BYTES) throw new DomainError("draft_too_large", "Brouillon trop volumineux.", 413);
-  const [t] = await db
-    .select()
-    .from(turn)
-    .where(and(eq(turn.gameId, p.gameId), eq(turn.assignedUserId, p.userId), eq(turn.status, "active")));
-  if (!t || !canActOnTurn(t, p.userId, now)) throw new DomainError("not_your_turn", "Ce n'est pas votre tour.", 409);
-  await db
-    .insert(draft)
-    .values({ turnId: t.id, userId: p.userId, content: p.content as object, updatedAt: now })
-    .onConflictDoUpdate({ target: draft.turnId, set: { content: p.content as object, updatedAt: now } });
+  let json: string | undefined;
+  try {
+    json = JSON.stringify(p.content);
+  } catch {
+    json = undefined;
+  }
+  if (json === undefined) throw new DomainError("invalid_draft", "Brouillon invalide.", 400);
+  if (Buffer.byteLength(json) > MAX_DRAFT_BYTES) throw new DomainError("draft_too_large", "Brouillon trop volumineux.", 413);
+  await db.transaction(async (tx) => {
+    const [t] = await tx
+      .select()
+      .from(turn)
+      .where(and(eq(turn.gameId, p.gameId), eq(turn.assignedUserId, p.userId), eq(turn.status, "active")))
+      .for("update");
+    if (!t || !canActOnTurn(t, p.userId, now)) throw new DomainError("not_your_turn", "Ce n'est pas votre tour.", 409);
+    await tx
+      .insert(draft)
+      .values({ turnId: t.id, userId: p.userId, content: p.content as object, updatedAt: now })
+      .onConflictDoUpdate({ target: draft.turnId, set: { userId: p.userId, content: p.content as object, updatedAt: now } });
+  });
 }
 
 export async function expireTurn(db: Db, p: { turnId: string; deadline: Date; now?: Date }): Promise<Effect[]> {
@@ -213,6 +223,12 @@ export async function expireOverdue(db: Db, now = new Date()): Promise<Effect[]>
     .from(turn)
     .where(and(eq(turn.status, "active"), lt(turn.deadline, new Date(now.getTime() - SUBMIT_GRACE_MS))));
   const effects: Effect[] = [];
-  for (const t of overdue) effects.push(...(await expireTurn(db, { turnId: t.id, deadline: t.deadline!, now })));
+  for (const t of overdue) {
+    try {
+      effects.push(...(await expireTurn(db, { turnId: t.id, deadline: t.deadline!, now })));
+    } catch (err) {
+      console.error(`expireOverdue: échec pour le tour ${t.id}`, err);
+    }
+  }
   return effects;
 }

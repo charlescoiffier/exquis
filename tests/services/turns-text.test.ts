@@ -101,4 +101,9 @@ describe("brouillon", () => {
     const t1 = await activeTurn(db, gameId);
     await expect(saveDraft(db, { userId: t1.assignedUserId, gameId, content: { text: "x".repeat(3_000_000) } })).rejects.toMatchObject({ code: "draft_too_large" });
   });
+  it("refuse un brouillon invalide (undefined)", async () => {
+    const { gameId } = await startedGame(db, textParams(2));
+    const t1 = await activeTurn(db, gameId);
+    await expect(saveDraft(db, { userId: t1.assignedUserId, gameId, content: undefined })).rejects.toMatchObject({ code: "invalid_draft" });
+  });
 });
