@@ -28,21 +28,21 @@ export async function POST(req: Request) {
     }
     claimed = true;
   }
+  const ctx: { code: string; userId?: string } = { code: invitationCode ?? "" };
+  let res: Response;
   try {
-    const res = await inviteContext.run({ code: invitationCode ?? "" }, () =>
-      auth.api.signUpEmail({ body: rest, asResponse: true }),
-    );
-    if (!res.ok) {
-      if (claimed) await releaseInvitation(db, invitationCode!);
-      return res;
-    }
-    if (claimed) {
-      const data = (await res.clone().json()) as { user?: { id: string } };
-      if (data.user) await markInvitationUsed(db, invitationCode!, data.user.id);
-    }
-    return res;
+    res = await inviteContext.run(ctx, () => auth.api.signUpEmail({ body: rest, asResponse: true }));
   } catch {
-    if (claimed) await releaseInvitation(db, invitationCode!);
+    // Ne libère que si aucun compte n'a été créé par cette requête.
+    if (claimed && !ctx.userId) await releaseInvitation(db, invitationCode!);
+    else if (claimed) await markInvitationUsed(db, invitationCode!, ctx.userId!).catch(() => {});
     return Response.json({ error: "Création du compte impossible." }, { status: 400 });
   }
+  if (claimed) {
+    // Better Auth peut répondre 200 avec un faux utilisateur (email déjà pris) : seul un compte
+    // réellement créé par cette requête (ctx.userId) consomme l'invitation. Réponse inchangée.
+    if (ctx.userId) await markInvitationUsed(db, invitationCode!, ctx.userId);
+    else await releaseInvitation(db, invitationCode!);
+  }
+  return res;
 }

@@ -1,4 +1,4 @@
-import { and, count, eq, gt, isNull } from "drizzle-orm";
+import { and, count, eq, gt, isNull, lt, or } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { invitation } from "@/lib/db/schema";
 import type { Db } from "@/lib/db/client";
@@ -6,6 +6,7 @@ import { DomainError } from "@/lib/errors";
 
 export const MAX_OPEN_INVITATIONS = 5;
 const INVITATION_TTL_MS = 7 * 86400_000;
+const CLAIM_TTL_MS = 5 * 60_000;
 
 export async function createInvitation(db: Db, createdBy: string | null, now = new Date()): Promise<string> {
   if (createdBy) {
@@ -20,12 +21,14 @@ export async function createInvitation(db: Db, createdBy: string | null, now = n
   return code;
 }
 
-/** Réclamation atomique : renvoie true pour un seul appelant. */
+/** Réclamation atomique : renvoie true pour un seul appelant. Une réclamation de plus de 5 min non aboutie est reprise. */
 export async function claimInvitation(db: Db, code: string, now = new Date()): Promise<boolean> {
   const rows = await db
     .update(invitation)
     .set({ claimedAt: now })
-    .where(and(eq(invitation.code, code), isNull(invitation.claimedAt), gt(invitation.expiresAt, now)))
+    .where(and(eq(invitation.code, code), isNull(invitation.usedBy),
+        or(isNull(invitation.claimedAt), lt(invitation.claimedAt, new Date(now.getTime() - CLAIM_TTL_MS))),
+        gt(invitation.expiresAt, now)))
     .returning({ code: invitation.code });
   return rows.length === 1;
 }

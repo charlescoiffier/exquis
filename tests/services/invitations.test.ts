@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+import { invitation } from "@/lib/db/schema";
 import { beforeEach, describe, expect, it } from "vitest";
 import { claimInvitation, createInvitation, MAX_OPEN_INVITATIONS, markInvitationUsed, releaseInvitation } from "@/lib/services/invitations";
 import { makeUser, resetDb, testDb } from "../helpers/db";
@@ -37,6 +39,25 @@ describe("invitations", () => {
     const code = await createInvitation(db, null);
     await claimInvitation(db, code);
     await markInvitationUsed(db, code, u);
+    expect(await claimInvitation(db, code)).toBe(false);
+  });
+});
+
+describe("réclamations périmées", () => {
+  it("reprend une réclamation de plus de 5 min, mais pas une récente", async () => {
+    const code = await createInvitation(db, null);
+    expect(await claimInvitation(db, code)).toBe(true);
+    expect(await claimInvitation(db, code)).toBe(false);
+    await db.update(invitation).set({ claimedAt: new Date(Date.now() - 6 * 60_000) }).where(eq(invitation.code, code));
+    expect(await claimInvitation(db, code)).toBe(true);
+    expect(await claimInvitation(db, code)).toBe(false);
+  });
+  it("ne reprend pas une invitation déjà utilisée", async () => {
+    const u = await makeUser(db, "a");
+    const code = await createInvitation(db, null);
+    await claimInvitation(db, code);
+    await markInvitationUsed(db, code, u);
+    await db.update(invitation).set({ claimedAt: new Date(Date.now() - 6 * 60_000) }).where(eq(invitation.code, code));
     expect(await claimInvitation(db, code)).toBe(false);
   });
 });

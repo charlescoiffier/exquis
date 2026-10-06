@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { inviteContext } from "@/lib/invite-context";
 import { profile } from "@/lib/db/schema";
 import { user } from "@/lib/db/auth-schema";
 import { resetDb, testDb } from "../helpers/db";
+
+vi.mock("@/lib/notifications/mailer", () => ({ getMailer: () => ({ send: async () => {} }) }));
 
 const db = testDb();
 beforeEach(() => resetDb(db));

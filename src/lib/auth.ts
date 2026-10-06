@@ -44,6 +44,8 @@ export const auth = betterAuth({
           return { data: u };
         },
         after: async (u) => {
+          const store = inviteContext.getStore();
+          if (store) store.userId = u.id;
           await getDb().insert(profile).values({ userId: u.id }).onConflictDoNothing();
         },
       },
