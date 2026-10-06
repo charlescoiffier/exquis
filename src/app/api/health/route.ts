@@ -11,7 +11,8 @@ export async function GET() {
   try {
     await db.execute(sql`select 1`);
   } catch (e) {
-    return Response.json({ db: false, worker: false, error: String(e) }, { status: 503 });
+    console.error("[health] base injoignable", e);
+    return Response.json({ db: false, worker: false }, { status: 503 });
   }
 
   // Vivacité du worker : dernier balayage `turn-sweep` terminé. Si le schéma pgboss n'existe pas encore

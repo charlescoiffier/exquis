@@ -1,21 +1,52 @@
+# DATABASE_URL (.env.production) doit utiliser le même mot de passe que DB_PASSWORD :
+#   postgres://exquis:${DB_PASSWORD}@db:5432/exquis
+x-app: &app
+  build: .
+  image: exquis:latest
+  env_file: .env.production
+  restart: unless-stopped
+  environment:
+    STORAGE_DIR: /app/.storage
+  volumes:
+    - storage:/app/.storage
+
 services:
+  migrate:
+    <<: *app
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: node_modules/.bin/tsx src/lib/db/migrate.ts
   web:
-    build: .
-    env_file: .env.production
+    <<: *app
     ports: ["3000:3000"]
-    depends_on: [db]
-    command: sh -c "npx tsx src/lib/db/migrate.ts && node server.js"
+    environment:
+      STORAGE_DIR: /app/.storage
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: node server.js
   worker:
-    build: .
-    env_file: .env.production
-    depends_on: [db]
-    command: npx tsx src/worker.ts
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: node_modules/.bin/tsx src/worker.ts
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: exquis
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: exquis
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exquis -d exquis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     volumes: [dbdata:/var/lib/postgresql/data]
 volumes:
   dbdata:
+  storage:

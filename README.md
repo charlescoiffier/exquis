@@ -84,7 +84,7 @@ L'éditeur de dessin charge la bande précédente avec `img.crossOrigin = "anony
 
 (Cloudflare R2 : Settings > CORS policy ; AWS S3 : Permissions > CORS ; Backblaze B2 : règles CORS du bucket.)
 
-Avec le stockage local (`STORAGE_DRIVER=local`), les fichiers sont servis par l'application elle-même (même origine) : pas de CORS. En production avec plusieurs conteneurs (web et worker), préférer S3, car le dossier `.storage` n'est pas partagé entre conteneurs par `docker-compose.prod.yml`.
+Avec le stockage local (`STORAGE_DRIVER=local`), les fichiers sont servis par l'application elle-même (même origine) : pas de CORS. `docker-compose.prod.yml` monte un volume nommé `storage` (`/app/.storage`, `STORAGE_DIR` fixé) partagé par `web` et `worker` : cela fonctionne sur un seul hôte. S3 est **obligatoire** dès que web et worker tournent sur des hôtes différents (le worker assemble les œuvres à partir des PNG écrits par le web).
 
 ## Déploiement (Docker)
 
@@ -94,13 +94,13 @@ export DB_PASSWORD=...            # même mot de passe que dans DATABASE_URL
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-`DATABASE_URL` doit pointer vers l'hôte `db`, par exemple `postgres://exquis:<DB_PASSWORD>@db:5432/exquis`. Le service `web` applique les migrations au démarrage, puis lance le serveur Next.js (sortie `standalone`) ; le service `worker` exécute les tâches de fond. Mettre un reverse proxy HTTPS devant le port 3000.
+`DATABASE_URL` doit pointer vers l'hôte `db`, par exemple `postgres://exquis:<DB_PASSWORD>@db:5432/exquis`. La base a un healthcheck (`pg_isready`) ; un service one-shot `migrate` applique les migrations, puis `web` (serveur Next.js standalone, `HOSTNAME=0.0.0.0`) et `worker` (tâches de fond) démarrent une fois la migration terminée. Les services redémarrent automatiquement (`unless-stopped`) et l'image s'exécute en utilisateur non-root `node`. Mettre un reverse proxy HTTPS devant le port 3000.
 
 Remarque : le `Dockerfile` et `docker-compose.prod.yml` n'ont pas pu être exécutés lors de leur rédaction (pas de démon Docker disponible) ; seuls la sortie `standalone` et le démarrage de `node .next/standalone/server.js` ont été vérifiés.
 
 ### Santé et observabilité
 
-`GET /api/health` renvoie `200` quand la base répond **et** que le worker a terminé un balayage `turn-sweep` il y a moins de 5 minutes ; sinon `503` avec le détail JSON (`db`, `worker`, `lastSweep`). À brancher sur la supervision (healthcheck, UptimeRobot, etc.). La journalisation se fait sur la sortie console (`docker compose logs`). Sentry est optionnel et n'est pas installé (il demande un compte et un DSN).
+`GET /api/health` renvoie `200` quand la base répond **et** que le worker a terminé un balayage `turn-sweep` il y a moins de 5 minutes ; sinon `503` avec un JSON `{db, worker, lastSweep}` (sans détail d'erreur ; il est journalisé côté serveur). Attention : il renvoie 503 tant que le worker n'a pas fait de balayage, ne pas conditionner le démarrage du worker à cette santé. À brancher sur la supervision (healthcheck, UptimeRobot, etc.). La journalisation se fait sur la sortie console (`docker compose logs`). Sentry est optionnel et n'est pas installé (il demande un compte et un DSN).
 
 ### Sauvegardes
 
