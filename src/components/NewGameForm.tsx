@@ -31,10 +31,15 @@ export function NewGameForm() {
             excerptMode,
             ...(excerptMode === "words" ? { excerptWords: Number(f.get("excerptWords")) } : {}),
           };
-    const res = await fetch("/api/games", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    const data = await res.json();
-    if (!res.ok) return setError(data.error);
-    router.push(`/games/${data.gameId}`);
+    setError(null);
+    try {
+      const res = await fetch("/api/games", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return setError(data.error ?? "Création impossible.");
+      router.push(`/games/${data.gameId}`);
+    } catch {
+      setError("Création impossible.");
+    }
   }
 
   return (

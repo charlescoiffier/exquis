@@ -10,14 +10,21 @@ export function JoinButton({ gameId, token, claim = false }: { gameId: string; t
 
   async function join() {
     setBusy(true);
-    const res = await fetch(`/api/games/${gameId}/${claim ? "claim" : "join"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
-    if (!res.ok) {
-      setError((await res.json()).error ?? "Impossible de rejoindre.");
+    setError(null);
+    try {
+      const res = await fetch(`/api/games/${gameId}/${claim ? "claim" : "join"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Impossible de rejoindre.");
+        setBusy(false);
+        return;
+      }
+      router.push(`/games/${gameId}`);
+      router.refresh();
+    } catch {
+      setError("Impossible de rejoindre.");
       setBusy(false);
-      return;
     }
-    router.push(`/games/${gameId}`);
-    router.refresh();
   }
 
   return (
