@@ -1,0 +1,35 @@
+import { redirect } from "next/navigation";
+import { FinalViewer } from "@/components/FinalViewer";
+import { getDb } from "@/lib/db/client";
+import { DomainError } from "@/lib/errors";
+import { getFinal } from "@/lib/services/final-work";
+import { getSession } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
+
+export default async function FinalPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const { id } = await params;
+  let view;
+  try {
+    view = await getFinal(getDb(), { userId: session.user.id, gameId: id });
+  } catch (e) {
+    if (e instanceof DomainError) return <main><h1>Œuvre indisponible</h1><p>{e.message}</p></main>;
+    throw e;
+  }
+  return (
+    <main>
+      <h1>Œuvre finale</h1>
+      <h2>{view.name}</h2>
+      {view.type === "drawing" ? (
+        view.ready ? <FinalViewer gameId={id} direction={view.direction!} width={view.width!} height={view.height!} joints={view.joints} /> : <p>L&apos;œuvre est en cours d&apos;assemblage, revenez dans un instant.</p>
+      ) : (
+        <ol>{view.contributions.map((c) => <li key={c.rank}><strong>{c.author}</strong><p style={{ whiteSpace: "pre-wrap" }}>{c.text}</p></li>)}</ol>
+      )}
+      {view.type === "drawing" && (
+        <p className="muted">Auteurs : {view.contributions.map((c) => `${c.rank}. ${c.author}`).join(" · ")}</p>
+      )}
+    </main>
+  );
+}
