@@ -14,5 +14,6 @@ export function canActOnTurn(
 }
 
 export function canViewFinal(game: { status: string }, participantUserIds: string[], userId: string): boolean {
-  return game.status === "completed" && participantUserIds.includes(userId);
+  // Une partie annulée reste consultable : les contributions déjà faites restent visibles (spec §5.4).
+  return (game.status === "completed" || game.status === "cancelled") && participantUserIds.includes(userId);
 }

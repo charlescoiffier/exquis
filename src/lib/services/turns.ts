@@ -198,7 +198,8 @@ export async function expireTurn(db: Db, p: { turnId: string; deadline: Date; no
       await tx.update(game).set({ status: "cancelled" }).where(eq(game.id, g.id));
       const ps = await tx.select().from(participant).where(eq(participant.gameId, g.id));
       for (const part of ps) await queueNotification(tx, { userId: part.userId, type: "game_cancelled", gameId: g.id });
-      return [{ kind: "flush-notifications" }];
+      // Assemblage de ce qui existe déjà (dessins) : les contributions restent visibles aux participants.
+      return [{ kind: "finalize-game", gameId: g.id }, { kind: "flush-notifications" }];
     }
 
     const target = pending.find((x) => x.id === decision.withTurnId)!;

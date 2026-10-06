@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { SUBMIT_GRACE_MS } from "@/lib/access";
+import type { Effect } from "@/lib/effects";
 import { draft, game, notification, participant, turn } from "@/lib/db/schema";
 import { claimOpenCall, getGameView, listOpenCalls } from "@/lib/services/games";
 import { expireOverdue, expireTurn, getMyTurn, saveDraft, submitText } from "@/lib/services/turns";
@@ -38,11 +39,14 @@ describe("expireTurn", () => {
 
   it("annule la partie après 2 remises en jeu", async () => {
     const { gameId } = await startedGame(db, textParams(3));
+    let last: Effect[] = [];
     for (let i = 0; i < 3; i++) {
       const t = await activeTurn(db, gameId);
       if (!t) break;
-      await expireTurn(db, { turnId: t.id, deadline: t.deadline!, now: after(t.deadline!) });
+      last = await expireTurn(db, { turnId: t.id, deadline: t.deadline!, now: after(t.deadline!) });
     }
+    // L'annulation demande l'assemblage de ce qui existe (dessins) et l'envoi des notifications.
+    expect(last).toEqual([{ kind: "finalize-game", gameId }, { kind: "flush-notifications" }]);
     const [g] = await db.select().from(game).where(eq(game.id, gameId));
     expect(g.status).toBe("cancelled");
     expect(await db.select().from(notification).where(eq(notification.type, "game_cancelled"))).toHaveLength(3);

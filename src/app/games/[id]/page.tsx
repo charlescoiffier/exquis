@@ -55,7 +55,12 @@ export default async function GamePage({ params, searchParams }: { params: Promi
       )}
       {game.status === "in_progress" && view.isParticipant && (await renderTurn(db, id, session.user.id))}
       {game.status === "completed" && <p><Link href={`/games/${game.id}/final`}>Voir l&apos;œuvre finale</Link></p>}
-      {game.status === "cancelled" && <p>Cette partie a été annulée faute de joueurs actifs.</p>}
+      {game.status === "cancelled" && (
+        <>
+          <p>Cette partie a été annulée faute de joueurs actifs.</p>
+          {view.isParticipant && <p><Link href={`/games/${game.id}/final`}>Voir ce qui a été réalisé</Link></p>}
+        </>
+      )}
     </main>
   );
 }

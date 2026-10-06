@@ -13,7 +13,8 @@ const guidesKey = (id: string) => `games/${id}/final/guides.png`;
 
 export async function assembleFinalWork(db: Db, storage: Storage, gameId: string): Promise<void> {
   const [g] = await db.select().from(game).where(eq(game.id, gameId));
-  if (!g || g.status !== "completed") return;
+  if (!g || (g.status !== "completed" && g.status !== "cancelled")) return;
+  const cancelled = g.status === "cancelled";
   const [existing] = await db.select().from(finalWork).where(eq(finalWork.gameId, gameId));
   if (existing) return;
 
@@ -24,13 +25,20 @@ export async function assembleFinalWork(db: Db, storage: Storage, gameId: string
       .innerJoin(turn, eq(contribution.turnId, turn.id))
       .where(eq(turn.gameId, gameId))
       .orderBy(asc(turn.rank));
-    const pngs = await Promise.all(rows.map((r) => storage.get(r.imageKey!)));
-    const out = await assembleDrawing(pngs, g.direction!);
-    await storage.put(cleanKey(gameId), out.image, "image/png");
-    await db.insert(finalWork).values({ gameId, imageKey: cleanKey(gameId), width: out.width, height: out.height, joints: out.joints }).onConflictDoNothing();
+    // Partie annulée : seules les contributions existantes (tours « done ») sont assemblées, éventuellement aucune.
+    if (rows.length === 0) {
+      await db.insert(finalWork).values({ gameId }).onConflictDoNothing();
+    } else {
+      const pngs = await Promise.all(rows.map((r) => storage.get(r.imageKey!)));
+      const out = await assembleDrawing(pngs, g.direction!);
+      await storage.put(cleanKey(gameId), out.image, "image/png");
+      await db.insert(finalWork).values({ gameId, imageKey: cleanKey(gameId), width: out.width, height: out.height, joints: out.joints }).onConflictDoNothing();
+    }
   } else {
     await db.insert(finalWork).values({ gameId }).onConflictDoNothing();
   }
+  // Partie annulée : game_cancelled est déjà parti, pas de work_ready.
+  if (cancelled) return;
   const ps = await db.select().from(participant).where(eq(participant.gameId, gameId));
   await db.transaction(async (tx) => {
     for (const p of ps) await queueNotification(tx, { userId: p.userId, type: "work_ready", gameId });
@@ -49,6 +57,7 @@ export type FinalView = {
   type: "drawing" | "text";
   name: string;
   ready: boolean;
+  cancelled: boolean;
   direction: "down" | "right" | null;
   width: number | null;
   height: number | null;
@@ -70,6 +79,7 @@ export async function getFinal(db: Db, p: { userId: string; gameId: string }): P
     type: g.type,
     name: g.name,
     ready: !!fw,
+    cancelled: g.status === "cancelled",
     direction: g.direction,
     width: fw?.width ?? null,
     height: fw?.height ?? null,

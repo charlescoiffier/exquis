@@ -18,5 +18,10 @@ describe("canViewFinal", () => {
     expect(canViewFinal({ status: "completed" }, ["u1"], "u1")).toBe(true);
     expect(canViewFinal({ status: "in_progress" }, ["u1"], "u1")).toBe(false);
     expect(canViewFinal({ status: "completed" }, ["u1"], "u2")).toBe(false);
+    expect(canViewFinal({ status: "open" }, ["u1"], "u1")).toBe(false);
+  });
+  it("participant d'une partie annulée : les contributions déjà faites restent visibles", () => {
+    expect(canViewFinal({ status: "cancelled" }, ["u1"], "u1")).toBe(true);
+    expect(canViewFinal({ status: "cancelled" }, ["u1"], "u2")).toBe(false);
   });
 });
