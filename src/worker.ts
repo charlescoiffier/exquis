@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db/client";
 import { env } from "@/lib/env";
 import type { Effect } from "@/lib/effects";
 import { handleExpire, handleFinalize, handleFlush, handleRemind, handleSweep, type Deps } from "@/lib/jobs/handlers";
-import { QUEUES, createQueues, runEffects } from "@/lib/jobs/queue";
+import { QUEUES, createQueues, runEffectsWithRetry } from "@/lib/jobs/queue";
 import { getMailer } from "@/lib/notifications/mailer";
 import { getStorage } from "@/lib/storage";
 
@@ -19,7 +19,10 @@ async function main() {
     async (jobs: { data: T }[]) => {
       for (const job of jobs) {
         const effects = await fn(deps, job.data);
-        if (effects?.length) await runEffects(boss, effects);
+        // Le handler a déjà commité : relancer le job ne retrouverait pas les effets (le tour a avancé).
+        // On réessaie donc l'envoi ici, sans relancer le job en cas d'échec final. Filet de sécurité :
+        // le balayage (turn-expire) et le cron de flush récupèrent expirations et emails ; les rappels sont best-effort.
+        if (effects?.length) await runEffectsWithRetry(boss, effects);
       }
     };
 
@@ -30,6 +33,12 @@ async function main() {
   await boss.work(QUEUES.sweep, wrap(async (d: Deps) => handleSweep(d)));
   await boss.schedule(QUEUES.sweep, "* * * * *");
   await boss.schedule(QUEUES.flush, "* * * * *");
+
+  const shutdown = () => {
+    boss.stop().finally(() => process.exit(0));
+  };
+  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", shutdown);
 
   console.log("worker démarré");
 }

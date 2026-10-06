@@ -14,6 +14,7 @@ export async function flushNotifications(db: Db, mailer: Mailer, now = new Date(
     .innerJoin(user, eq(user.id, notification.userId))
     .innerJoin(game, eq(game.id, notification.gameId))
     .where(and(eq(notification.emailPending, true), isNull(notification.emailedAt)))
+    .orderBy(notification.createdAt)
     .limit(50);
   let sent = 0;
   for (const r of rows) {
