@@ -36,7 +36,7 @@ Cas implicites de la spec, chacun couvert par un test dans la tâche indiquée :
 1. Fichier envoyé qui n'est pas un PNG, trop volumineux ou de mauvaises dimensions : refusé avec `invalid_image`, rien n'est stocké (tâches 3 et 8).
 2. Texte vide ou fait d'espaces, avec accents/emoji, ou **sans saut de paragraphe** (le « dernier paragraphe » serait alors tout le texte) : comptage correct et extrait plafonné à 150 mots (tâche 2).
 3. Double clic sur « Envoyer » ou deux requêtes simultanées : une seule contribution, la seconde reçoit `not_your_turn` (tâche 8).
-4. Deux joueurs prennent simultanément le dernier siège : un seul réussit, l'autre reçoit `game_full` (tâche 7).
+4. Deux joueurs prennent simultanément le dernier siège : un seul réussit, l'autre reçoit un 409 (`game_full` ou `game_not_open` selon qu'il voit la partie déjà démarrée) (tâche 7).
 5. Soumission juste après l'échéance (dans la tolérance) acceptée, après la tolérance refusée, et job d'expiration sur un tour déjà soumis sans effet (tâche 8).
 6. Deux volontaires qui reprennent simultanément l'appel à participation : un seul réussit ; un participant existant ne peut pas le reprendre ; un appel non repris n'est pas touché par le balayage (tâche 8).
 
@@ -1961,7 +1961,8 @@ describe("joinGame", () => {
     const results = await Promise.allSettled([joinGame(db, { userId: b, gameId }), joinGame(db, { userId: c, gameId })]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
-    expect(rejected.reason).toMatchObject({ code: "game_full" });
+    expect(rejected.reason).toMatchObject({ status: 409 });
+    expect(["game_full", "game_not_open"]).toContain(rejected.reason.code);
     expect(await db.select().from(participant).where(eq(participant.gameId, gameId))).toHaveLength(2);
   });
   it("refuse de rejoindre une partie sur invitation sans jeton", async () => {
