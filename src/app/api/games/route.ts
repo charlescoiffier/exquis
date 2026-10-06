@@ -1,4 +1,4 @@
-import { route } from "@/lib/api";
+import { readJson, route } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { createGame, listMyGames, listOpenCalls, listOpenGames } from "@/lib/services/games";
 import { requireUser } from "@/lib/session";
@@ -14,7 +14,7 @@ export const GET = route(async () => {
 export const POST = route(
   async (req) => {
     const user = await requireUser();
-    return createGame(getDb(), user.id, await req.json());
+    return createGame(getDb(), user.id, await readJson(req));
   },
   { limit: { name: "create-game", max: 10, windowMs: 3600_000 } },
 );

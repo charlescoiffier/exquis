@@ -1,4 +1,4 @@
-import { route } from "@/lib/api";
+import { parseId, route } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { getFinalImage } from "@/lib/services/final-work";
 import { requireUser } from "@/lib/session";
@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 export const GET = route(async (req, ctx) => {
   const user = await requireUser();
-  const { id } = await ctx.params;
+  const id = await parseId(ctx);
   const url = new URL(req.url);
   const guides = url.searchParams.get("guides") === "1";
   const png = await getFinalImage(getDb(), getStorage(), { userId: user.id, gameId: id, guides });
