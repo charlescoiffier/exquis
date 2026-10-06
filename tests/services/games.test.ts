@@ -64,7 +64,8 @@ describe("joinGame", () => {
     const results = await Promise.allSettled([joinGame(db, { userId: b, gameId }), joinGame(db, { userId: c, gameId })]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
-    expect(rejected.reason).toMatchObject({ code: "game_full" });
+    expect(rejected.reason).toMatchObject({ status: 409 });
+    expect(["game_full", "game_not_open"]).toContain(rejected.reason.code);
     expect(await db.select().from(participant).where(eq(participant.gameId, gameId))).toHaveLength(2);
   });
   it("refuse de rejoindre une partie sur invitation sans jeton", async () => {

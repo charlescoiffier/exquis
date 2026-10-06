@@ -90,39 +90,15 @@ async function startGame(tx: Tx, g: GameRow, now: Date, rand?: () => number): Pr
   ];
 }
 
-const inflightJoins = new Map<string, number>();
-
 export async function joinGame(
   db: Db,
   p: { userId: string; gameId: string; token?: string; now?: Date; rand?: () => number },
 ): Promise<{ started: boolean; effects: Effect[] }> {
   const now = p.now ?? new Date();
-  // Un join concurrent déjà en cours sur la même partie (même processus) : si la partie
-  // s'est fermée entre-temps, le dernier siège nous a été pris -> "game_full" plutôt que "game_not_open".
-  const contended = (inflightJoins.get(p.gameId) ?? 0) > 0;
-  inflightJoins.set(p.gameId, (inflightJoins.get(p.gameId) ?? 0) + 1);
-  try {
-    return await joinGameTx(db, p, now, contended);
-  } finally {
-    const left = (inflightJoins.get(p.gameId) ?? 1) - 1;
-    if (left <= 0) inflightJoins.delete(p.gameId);
-    else inflightJoins.set(p.gameId, left);
-  }
-}
-
-async function joinGameTx(
-  db: Db,
-  p: { userId: string; gameId: string; token?: string; rand?: () => number },
-  now: Date,
-  contended: boolean,
-): Promise<{ started: boolean; effects: Effect[] }> {
   return db.transaction(async (tx) => {
     const [g] = await tx.select().from(game).where(eq(game.id, p.gameId)).for("update");
     if (!g) throw new DomainError("not_found", "Partie introuvable.", 404);
-    if (g.status !== "open") {
-      if (contended) throw new DomainError("game_full", "La partie est complète.", 409);
-      throw new DomainError("game_not_open", "Cette partie n'accepte plus de joueurs.", 409);
-    }
+    if (g.status !== "open") throw new DomainError("game_not_open", "Cette partie n'accepte plus de joueurs.", 409);
     if (g.visibility === "invite" && g.creatorId !== p.userId && p.token !== g.inviteToken) {
       throw new DomainError("forbidden", "Invitation requise.", 403);
     }
