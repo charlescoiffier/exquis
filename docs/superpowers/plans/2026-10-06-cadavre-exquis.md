@@ -20,8 +20,9 @@
 ## Global Constraints
 
 - 2 à 8 participants et autant de tours par partie ; durée de tour de 30 s à 604800 s (7 jours).
-- Types de partie : `drawing` ou `text`. Statuts de partie : `open`, `in_progress`, `completed`, `cancelled`. Statuts de tour : `pending`, `active`, `done`, `expired`.
+- Types de partie : `drawing` ou `text`. Statuts de partie : `open`, `in_progress`, `completed`, `cancelled`. Statuts de tour : `pending`, `active`, `done`, `expired`, `open_call`.
 - Plafond de remises en jeu par tour : 2. Limite de parties actives par joueur : 5. Limite de parties créées par jour : 10.
+- **Dernier tour expiré** : la partie n'est pas annulée. Le tour passe en `open_call` (appel à participation, sans joueur assigné ni échéance) et la partie apparaît sur l'accueil dans une section « Appels à participation » avec un logo spécial (📣). Tout utilisateur qui n'est pas déjà participant peut reprendre ce tour ; s'il le laisse expirer à son tour, l'appel est relancé sans limite de tentatives.
 - Aucun joueur ne reçoit jamais l'œuvre en cours : seulement la bande (dessin) ou l'extrait (texte) du tour précédent. Aucune URL publique vers le stockage : URL signées de 300 s maximum.
 - Les guides pointillés ne sont jamais incrustés dans les images stockées ; l'image assemblée « clean » est la référence.
 - Emails uniquement si la durée du tour est ≥ 300 s et que le joueur n'a pas désactivé l'email. Rappel envoyé à 75 % du temps écoulé, seulement pour les tours ≥ 120 s (afin de garantir au moins 30 s de préavis).
@@ -37,6 +38,7 @@ Cas implicites de la spec, chacun couvert par un test dans la tâche indiquée :
 3. Double clic sur « Envoyer » ou deux requêtes simultanées : une seule contribution, la seconde reçoit `not_your_turn` (tâche 8).
 4. Deux joueurs prennent simultanément le dernier siège : un seul réussit, l'autre reçoit `game_full` (tâche 7).
 5. Soumission juste après l'échéance (dans la tolérance) acceptée, après la tolérance refusée, et job d'expiration sur un tour déjà soumis sans effet (tâche 8).
+6. Deux volontaires qui reprennent simultanément l'appel à participation : un seul réussit ; un participant existant ne peut pas le reprendre ; un appel non repris n'est pas touché par le balayage (tâche 8).
 
 ---
 
@@ -225,7 +227,7 @@ git add -A && git commit -m "chore: scaffold Next.js, Vitest et PostgreSQL local
   - `countWords(text: string): number`, `sanitizeText(input: string): string`
   - `type ExcerptRule = { mode: "paragraph" } | { mode: "words"; count: number }`, `extractExcerpt(text: string, rule: ExcerptRule): string`, `PARAGRAPH_EXCERPT_CAP = 150`
   - `gameParamsSchema` (zod), `type GameParams`, `parseGameParams(input: unknown): GameParams` (lève `DomainError("invalid_params", …, 400)`), `shuffle<T>(items: T[], rand?: () => number): T[]`
-  - `MAX_ATTEMPTS = 2`, `decideOnExpiry(args: { attempts: number; pending: { id: string; rank: number }[] }): { kind: "swap"; withTurnId: string } | { kind: "cancel"; reason: "max_attempts" | "no_candidate" }`
+  - `MAX_ATTEMPTS = 2`, `decideOnExpiry(args: { attempts: number; pending: { id: string; rank: number }[] }): { kind: "swap"; withTurnId: string } | { kind: "open_call" } | { kind: "cancel"; reason: "max_attempts" }` (`open_call` dès qu'il n'y a plus de tour en attente, quel que soit `attempts`)
   - `formatDuration(seconds: number): string`
 
 - [ ] **Step 1: Écrire les tests de texte**
@@ -368,11 +370,14 @@ describe("decideOnExpiry", () => {
     const d = decideOnExpiry({ attempts: 0, pending: [{ id: "b", rank: 3 }, { id: "a", rank: 2 }] });
     expect(d).toEqual({ kind: "swap", withTurnId: "a" });
   });
-  it("annule au-delà de 2 remises en jeu", () => {
+  it("annule au-delà de 2 remises en jeu s'il reste des tours en attente", () => {
     expect(decideOnExpiry({ attempts: 2, pending: [{ id: "a", rank: 2 }] })).toEqual({ kind: "cancel", reason: "max_attempts" });
   });
-  it("annule s'il n'y a plus de candidat", () => {
-    expect(decideOnExpiry({ attempts: 0, pending: [] })).toEqual({ kind: "cancel", reason: "no_candidate" });
+  it("lance un appel à participation quand il n'y a plus de tour en attente (dernier tour)", () => {
+    expect(decideOnExpiry({ attempts: 0, pending: [] })).toEqual({ kind: "open_call" });
+  });
+  it("relance l'appel sans limite de tentatives", () => {
+    expect(decideOnExpiry({ attempts: 7, pending: [] })).toEqual({ kind: "open_call" });
   });
 });
 ```
@@ -458,14 +463,15 @@ export const MAX_ATTEMPTS = 2;
 
 export type ExpiryDecision =
   | { kind: "swap"; withTurnId: string }
-  | { kind: "cancel"; reason: "max_attempts" | "no_candidate" };
+  | { kind: "open_call" }
+  | { kind: "cancel"; reason: "max_attempts" };
 
 export function decideOnExpiry(args: {
   attempts: number;
   pending: { id: string; rank: number }[];
 }): ExpiryDecision {
+  if (args.pending.length === 0) return { kind: "open_call" };
   if (args.attempts >= MAX_ATTEMPTS) return { kind: "cancel", reason: "max_attempts" };
-  if (args.pending.length === 0) return { kind: "cancel", reason: "no_candidate" };
   const next = [...args.pending].sort((a, b) => a.rank - b.rank)[0];
   return { kind: "swap", withTurnId: next.id };
 }
@@ -913,7 +919,7 @@ import { user } from "./auth-schema";
 export const gameType = pgEnum("game_type", ["drawing", "text"]);
 export const gameStatus = pgEnum("game_status", ["open", "in_progress", "completed", "cancelled"]);
 export const gameVisibility = pgEnum("game_visibility", ["public", "invite"]);
-export const turnStatus = pgEnum("turn_status", ["pending", "active", "done", "expired"]);
+export const turnStatus = pgEnum("turn_status", ["pending", "active", "done", "expired", "open_call"]);
 export const drawDirection = pgEnum("draw_direction", ["down", "right"]);
 
 export const profile = pgTable("profile", {
@@ -961,7 +967,8 @@ export const turn = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     gameId: uuid("game_id").notNull().references(() => game.id, { onDelete: "cascade" }),
     rank: integer("rank").notNull(),
-    assignedUserId: text("assigned_user_id").notNull().references(() => user.id),
+    // null uniquement pendant un appel à participation (statut open_call)
+    assignedUserId: text("assigned_user_id").references(() => user.id),
     status: turnStatus("status").notNull().default("pending"),
     deadline: timestamp("deadline"),
     startedAt: timestamp("started_at"),
@@ -1742,7 +1749,9 @@ git add -A && git commit -m "feat: authentification Better Auth avec inscription
   - `joinGame(db, p: { userId: string; gameId: string; token?: string; now?: Date; rand?: () => number }): Promise<{ started: boolean; effects: Effect[] }>`
   - `listOpenGames(db): Promise<{ id: string; name: string; type: "drawing" | "text"; turns: number; turnDurationSeconds: number; language: string | null; participantCount: number }[]>`
   - `listMyGames(db, userId): Promise<{ id: string; name: string; type: string; status: string; turns: number; isMyTurn: boolean }[]>`
-  - `getGameView(db, p: { gameId: string; userId: string; token?: string }): Promise<GameView>` avec `GameView = { game: PublicGame; participantCount: number; isParticipant: boolean; isCreator: boolean; inviteToken: string | null }`
+  - `getGameView(db, p: { gameId: string; userId: string; token?: string }): Promise<GameView>` avec `GameView = { game: PublicGame; participantCount: number; isParticipant: boolean; isCreator: boolean; inviteToken: string | null; openCall: boolean }`
+  - `listOpenCalls(db): Promise<{ id: string; name: string; type: "drawing" | "text"; turns: number; turnDurationSeconds: number; language: string | null; rank: number }[]>` (parties publiques en cours dont le dernier tour est en `open_call`)
+  - `claimOpenCall(db, p: { userId: string; gameId: string; token?: string; now?: Date }): Promise<{ effects: Effect[] }>` (erreurs : `open_call_unavailable` 409, `already_joined` 409, `forbidden` 403, `active_limit` 429)
   - Helper de test `startedGame(db, opts)`.
 
 - [ ] **Step 1: Tests d'accès**
@@ -1780,7 +1789,7 @@ describe("canViewFinal", () => {
 export const SUBMIT_GRACE_MS = 5000;
 
 export function canActOnTurn(
-  t: { assignedUserId: string; status: string; deadline: Date | null },
+  t: { assignedUserId: string | null; status: string; deadline: Date | null },
   userId: string,
   now: Date,
 ): boolean {
@@ -1877,7 +1886,8 @@ export async function startedGame(db: Db, params: GameOpts, now = new Date()) {
 
 export async function activeTurn(db: Db, gameId: string) {
   const [t] = await db.select().from(turn).where(and(eq(turn.gameId, gameId), eq(turn.status, "active")));
-  return t;
+  // Un tour actif a toujours un joueur assigné (seul open_call a assignedUserId = null).
+  return t as typeof t & { assignedUserId: string };
 }
 ```
 
@@ -2144,12 +2154,66 @@ export async function listMyGames(db: Db, userId: string) {
   return rows.map(({ activeTurnId, ...r }) => ({ ...r, isMyTurn: activeTurnId !== null }));
 }
 
+export async function listOpenCalls(db: Db) {
+  return db
+    .select({
+      id: game.id,
+      name: game.name,
+      type: game.type,
+      turns: game.turns,
+      turnDurationSeconds: game.turnDurationSeconds,
+      language: game.language,
+      rank: turn.rank,
+    })
+    .from(turn)
+    .innerJoin(game, eq(turn.gameId, game.id))
+    .where(and(eq(turn.status, "open_call"), eq(game.status, "in_progress"), eq(game.visibility, "public")))
+    .orderBy(desc(game.createdAt));
+}
+
+/** Un volontaire (non participant) reprend le tour laissé vacant. */
+export async function claimOpenCall(
+  db: Db,
+  p: { userId: string; gameId: string; token?: string; now?: Date },
+): Promise<{ effects: Effect[] }> {
+  const now = p.now ?? new Date();
+  return db.transaction(async (tx) => {
+    const [g] = await tx.select().from(game).where(eq(game.id, p.gameId)).for("update");
+    if (!g) throw new DomainError("not_found", "Partie introuvable.", 404);
+    if (g.status !== "in_progress") throw new DomainError("open_call_unavailable", "Aucun tour disponible.", 409);
+    if (g.visibility === "invite" && g.creatorId !== p.userId && p.token !== g.inviteToken) {
+      throw new DomainError("forbidden", "Invitation requise.", 403);
+    }
+    const [t] = await tx
+      .select()
+      .from(turn)
+      .where(and(eq(turn.gameId, g.id), eq(turn.status, "open_call")))
+      .for("update");
+    if (!t) throw new DomainError("open_call_unavailable", "Ce tour a déjà été repris.", 409);
+    const ps = await tx.select().from(participant).where(eq(participant.gameId, g.id));
+    if (ps.some((x) => x.userId === p.userId)) throw new DomainError("already_joined", "Vous participez déjà à cette partie.", 409);
+    if ((await activeGameCount(tx, p.userId)) >= MAX_ACTIVE_GAMES) throw new DomainError("active_limit", "Trop de parties actives.", 429);
+
+    const deadline = new Date(now.getTime() + g.turnDurationSeconds * 1000);
+    await tx.insert(participant).values({ gameId: g.id, userId: p.userId, rank: t.rank });
+    await tx.update(turn).set({ assignedUserId: p.userId, status: "active", startedAt: now, deadline }).where(eq(turn.id, t.id));
+    await queueNotification(tx, { userId: p.userId, type: "your_turn", gameId: g.id, turnId: t.id, suffix: `open-${t.attempts}` });
+    return {
+      effects: [
+        { kind: "schedule-turn", turnId: t.id, deadline, durationSeconds: g.turnDurationSeconds },
+        { kind: "flush-notifications" },
+      ],
+    };
+  });
+}
+
 export type GameView = {
   game: PublicGame;
   participantCount: number;
   isParticipant: boolean;
   isCreator: boolean;
   inviteToken: string | null;
+  openCall: boolean;
 };
 
 export async function getGameView(db: Db, p: { gameId: string; userId: string; token?: string }): Promise<GameView> {
@@ -2161,7 +2225,18 @@ export async function getGameView(db: Db, p: { gameId: string; userId: string; t
   if (g.visibility === "invite" && !isParticipant && !isCreator && p.token !== g.inviteToken) {
     throw new DomainError("forbidden", "Invitation requise.", 403);
   }
-  return { game: publicGame(g), participantCount: ps.length, isParticipant, isCreator, inviteToken: isCreator ? g.inviteToken : null };
+  const [open] = await db
+    .select({ id: turn.id })
+    .from(turn)
+    .where(and(eq(turn.gameId, g.id), eq(turn.status, "open_call")));
+  return {
+    game: publicGame(g),
+    participantCount: ps.length,
+    isParticipant,
+    isCreator,
+    inviteToken: isCreator ? g.inviteToken : null,
+    openCall: !!open,
+  };
 }
 ```
 
@@ -2377,9 +2452,11 @@ describe("tour de dessin", () => {
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { SUBMIT_GRACE_MS } from "@/lib/access";
-import { game, notification, turn } from "@/lib/db/schema";
-import { expireOverdue, expireTurn, submitText } from "@/lib/services/turns";
-import { resetDb, testDb } from "../helpers/db";
+import { game, notification, participant, turn } from "@/lib/db/schema";
+import { claimOpenCall, getGameView, listOpenCalls } from "@/lib/services/games";
+import { expireOverdue, expireTurn, getMyTurn, submitText } from "@/lib/services/turns";
+import { MemoryStorage } from "@/lib/storage/memory";
+import { makeUser, resetDb, testDb } from "../helpers/db";
 import { activeTurn, startedGame, textParams } from "../helpers/games";
 
 const db = testDb();
@@ -2422,14 +2499,75 @@ describe("expireTurn", () => {
     expect(await db.select().from(notification).where(eq(notification.type, "game_cancelled"))).toHaveLength(3);
   });
 
-  it("annule quand le dernier tour expire (plus de candidat)", async () => {
-    const { gameId } = await startedGame(db, textParams(2));
-    const t1 = await activeTurn(db, gameId);
-    await submitText(db, { userId: t1.assignedUserId, gameId, text: "un deux" });
-    const t2 = await activeTurn(db, gameId);
-    await expireTurn(db, { turnId: t2.id, deadline: t2.deadline!, now: after(t2.deadline!) });
+  // Cas du dernier tour : voir aussi expireOverdue plus bas.
+  async function lastTurnExpired() {
+    const g = await startedGame(db, textParams(2));
+    const t1 = await activeTurn(db, g.gameId);
+    await submitText(db, { userId: t1.assignedUserId, gameId: g.gameId, text: "un deux" });
+    const t2 = await activeTurn(db, g.gameId);
+    const effects = await expireTurn(db, { turnId: t2.id, deadline: t2.deadline!, now: after(t2.deadline!) });
+    return { ...g, t2, effects };
+  }
+
+  it("lance un appel à participation quand le dernier tour expire (la partie n'est pas annulée)", async () => {
+    const { gameId, t2, effects } = await lastTurnExpired();
+    expect(effects).toEqual([{ kind: "flush-notifications" }]);
     const [g] = await db.select().from(game).where(eq(game.id, gameId));
-    expect(g.status).toBe("cancelled");
+    expect(g.status).toBe("in_progress");
+    const [t] = await db.select().from(turn).where(eq(turn.id, t2.id));
+    expect(t).toMatchObject({ status: "open_call", assignedUserId: null, deadline: null });
+    expect(await listOpenCalls(db)).toMatchObject([{ id: gameId, rank: 2, turns: 2 }]);
+    expect(await getMyTurn(db, new MemoryStorage(), { userId: t2.assignedUserId, gameId })).toBeNull();
+    expect(await db.select().from(notification).where(eq(notification.type, "turn_reassigned"))).toHaveLength(1);
+    const view = await getGameView(db, { gameId, userId: t2.assignedUserId });
+    expect(view.openCall).toBe(true);
+  });
+
+  it("un volontaire reprend le tour et peut terminer la partie", async () => {
+    const { gameId } = await lastTurnExpired();
+    const volunteer = await makeUser(db, "volontaire");
+    const { effects } = await claimOpenCall(db, { userId: volunteer, gameId });
+    expect(effects.map((e) => e.kind)).toEqual(["schedule-turn", "flush-notifications"]);
+    expect(await listOpenCalls(db)).toEqual([]);
+    expect(await db.select().from(participant).where(eq(participant.gameId, gameId))).toHaveLength(3);
+    const t = await activeTurn(db, gameId);
+    expect(t.assignedUserId).toBe(volunteer);
+    await submitText(db, { userId: volunteer, gameId, text: "trois quatre" });
+    const [g] = await db.select().from(game).where(eq(game.id, gameId));
+    expect(g.status).toBe("completed");
+  });
+
+  it("deux volontaires simultanés : un seul réussit", async () => {
+    const { gameId } = await lastTurnExpired();
+    const a = await makeUser(db, "va");
+    const b = await makeUser(db, "vb");
+    const results = await Promise.allSettled([claimOpenCall(db, { userId: a, gameId }), claimOpenCall(db, { userId: b, gameId })]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect((results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason).toMatchObject({ code: "open_call_unavailable" });
+  });
+
+  it("un participant existant ne peut pas reprendre l'appel", async () => {
+    const { gameId, users } = await lastTurnExpired();
+    await expect(claimOpenCall(db, { userId: users[0], gameId })).rejects.toMatchObject({ code: "already_joined" });
+  });
+
+  it("refuse la reprise quand aucun appel n'est ouvert", async () => {
+    const { gameId } = await startedGame(db, textParams(2));
+    const x = await makeUser(db, "x");
+    await expect(claimOpenCall(db, { userId: x, gameId })).rejects.toMatchObject({ code: "open_call_unavailable" });
+  });
+
+  it("le balayage ignore un appel non repris, et un volontaire qui laisse expirer relance l'appel", async () => {
+    const { gameId } = await lastTurnExpired();
+    expect(await expireOverdue(db, new Date(Date.now() + 10 * 86400_000))).toEqual([]);
+    const volunteer = await makeUser(db, "volontaire");
+    await claimOpenCall(db, { userId: volunteer, gameId });
+    const t = await activeTurn(db, gameId);
+    await expireTurn(db, { turnId: t.id, deadline: t.deadline!, now: after(t.deadline!) });
+    const [again] = await db.select().from(turn).where(eq(turn.id, t.id));
+    expect(again.status).toBe("open_call");
+    expect(again.attempts).toBeGreaterThanOrEqual(2);
+    expect(await listOpenCalls(db)).toHaveLength(1);
   });
 
   it("est sans effet sur un tour déjà soumis ou avec une échéance périmée", async () => {
@@ -2538,7 +2676,7 @@ async function finishTurn(tx: Tx, g: GameRow, t: TurnRow, now: Date): Promise<Ef
     .for("update");
   const deadline = new Date(now.getTime() + g.turnDurationSeconds * 1000);
   await tx.update(turn).set({ status: "active", startedAt: now, deadline }).where(eq(turn.id, next.id));
-  await queueNotification(tx, { userId: next.assignedUserId, type: "your_turn", gameId: g.id, turnId: next.id });
+  await queueNotification(tx, { userId: next.assignedUserId!, type: "your_turn", gameId: g.id, turnId: next.id });
   return [
     { kind: "schedule-turn", turnId: next.id, deadline, durationSeconds: g.turnDurationSeconds },
     { kind: "flush-notifications" },
@@ -2633,6 +2771,17 @@ export async function expireTurn(db: Db, p: { turnId: string; deadline: Date; no
       .orderBy(asc(turn.rank));
     const decision = decideOnExpiry({ attempts: t.attempts, pending });
 
+    if (decision.kind === "open_call") {
+      // Dernier tour : la partie continue, le tour est proposé à tous (appel à participation).
+      await tx
+        .update(turn)
+        .set({ status: "open_call", assignedUserId: null, deadline: null, startedAt: null, attempts: t.attempts + 1 })
+        .where(eq(turn.id, t.id));
+      await tx.delete(draft).where(eq(draft.turnId, t.id));
+      await queueNotification(tx, { userId: t.assignedUserId!, type: "turn_reassigned", gameId: g.id, turnId: t.id, suffix: String(t.attempts + 1) });
+      return [{ kind: "flush-notifications" }];
+    }
+
     if (decision.kind === "cancel") {
       await tx.update(turn).set({ status: "expired" }).where(eq(turn.id, t.id));
       await tx.update(game).set({ status: "cancelled" }).where(eq(game.id, g.id));
@@ -2647,8 +2796,8 @@ export async function expireTurn(db: Db, p: { turnId: string; deadline: Date; no
     await tx.update(turn).set({ assignedUserId: t.assignedUserId }).where(eq(turn.id, target.id));
     await tx.delete(draft).where(eq(draft.turnId, t.id));
     const suffix = String(t.attempts + 1);
-    await queueNotification(tx, { userId: target.assignedUserId, type: "your_turn", gameId: g.id, turnId: t.id, suffix });
-    await queueNotification(tx, { userId: t.assignedUserId, type: "turn_reassigned", gameId: g.id, turnId: t.id, suffix });
+    await queueNotification(tx, { userId: target.assignedUserId!, type: "your_turn", gameId: g.id, turnId: t.id, suffix });
+    await queueNotification(tx, { userId: t.assignedUserId!, type: "turn_reassigned", gameId: g.id, turnId: t.id, suffix });
     return [
       { kind: "schedule-turn", turnId: t.id, deadline, durationSeconds: g.turnDurationSeconds },
       { kind: "flush-notifications" },
@@ -2961,10 +3110,11 @@ export async function handleExpire(deps: Deps, data: { turnId: string; deadline:
 export async function handleRemind(deps: Deps, data: { turnId: string; deadline: string }): Promise<Effect[]> {
   const now = nowOf(deps);
   const [t] = await deps.db.select().from(turn).where(eq(turn.id, data.turnId));
-  if (!t || t.status !== "active" || t.deadline?.getTime() !== new Date(data.deadline).getTime()) return [];
-  if (!canActOnTurn(t, t.assignedUserId, now)) return [];
+  if (!t || t.status !== "active" || !t.assignedUserId || t.deadline?.getTime() !== new Date(data.deadline).getTime()) return [];
+  const userId = t.assignedUserId;
+  if (!canActOnTurn(t, userId, now)) return [];
   await deps.db.transaction((tx) =>
-    queueNotification(tx, { userId: t.assignedUserId, type: "turn_reminder", gameId: t.gameId, turnId: t.id, suffix: String(t.attempts) }),
+    queueNotification(tx, { userId, type: "turn_reminder", gameId: t.gameId, turnId: t.id, suffix: String(t.attempts) }),
   );
   return [{ kind: "flush-notifications" }];
 }
@@ -3244,7 +3394,7 @@ git add -A && git commit -m "feat: assemblage de l'œuvre finale avec ou sans jo
 ### Task 11: API HTTP (couche mince) et limitation de débit
 
 **Files:**
-- Create: `src/lib/rate-limit.ts`, `src/lib/api.ts`, `src/app/api/games/route.ts`, `src/app/api/games/[id]/route.ts`, `src/app/api/games/[id]/join/route.ts`, `src/app/api/games/[id]/my-turn/route.ts`, `src/app/api/games/[id]/my-turn/draft/route.ts`, `src/app/api/games/[id]/my-turn/submit/route.ts`, `src/app/api/games/[id]/final/route.ts`, `src/app/api/games/[id]/final/image/route.ts`, `src/app/api/notifications/route.ts`, `src/app/api/profile/route.ts`
+- Create: `src/lib/rate-limit.ts`, `src/lib/api.ts`, `src/app/api/games/route.ts`, `src/app/api/games/[id]/route.ts`, `src/app/api/games/[id]/join/route.ts`, `src/app/api/games/[id]/claim/route.ts`, `src/app/api/games/[id]/my-turn/route.ts`, `src/app/api/games/[id]/my-turn/draft/route.ts`, `src/app/api/games/[id]/my-turn/submit/route.ts`, `src/app/api/games/[id]/final/route.ts`, `src/app/api/games/[id]/final/image/route.ts`, `src/app/api/notifications/route.ts`, `src/app/api/profile/route.ts`
 - Test: `tests/rate-limit.test.ts`, `tests/api.test.ts`
 
 **Interfaces:**
@@ -3354,7 +3504,7 @@ export function route(handler: (req: Request, ctx: Ctx) => Promise<unknown>, opt
 import { route } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { getBoss, runEffects } from "@/lib/jobs/queue";
-import { createGame, listMyGames, listOpenGames } from "@/lib/services/games";
+import { createGame, listMyGames, listOpenCalls, listOpenGames } from "@/lib/services/games";
 import { requireUser } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -3362,7 +3512,7 @@ export const runtime = "nodejs";
 export const GET = route(async () => {
   const user = await requireUser();
   const db = getDb();
-  return { open: await listOpenGames(db), mine: await listMyGames(db, user.id) };
+  return { open: await listOpenGames(db), openCalls: await listOpenCalls(db), mine: await listMyGames(db, user.id) };
 });
 
 export const POST = route(
@@ -3411,6 +3561,28 @@ export const POST = route(
     return { started };
   },
   { limit: { name: "join", max: 30, windowMs: 3600_000 } },
+);
+```
+`src/app/api/games/[id]/claim/route.ts` (reprise d'un appel à participation) :
+```ts
+import { route } from "@/lib/api";
+import { getDb } from "@/lib/db/client";
+import { getBoss, runEffects } from "@/lib/jobs/queue";
+import { claimOpenCall } from "@/lib/services/games";
+import { requireUser } from "@/lib/session";
+
+export const runtime = "nodejs";
+
+export const POST = route(
+  async (req, ctx) => {
+    const user = await requireUser();
+    const { id } = await ctx.params;
+    const body = (await req.json().catch(() => ({}))) as { token?: string };
+    const { effects } = await claimOpenCall(getDb(), { userId: user.id, gameId: id, token: body.token });
+    await runEffects(await getBoss(), effects);
+    return { ok: true };
+  },
+  { limit: { name: "claim", max: 30, windowMs: 3600_000 } },
 );
 ```
 `src/app/api/games/[id]/my-turn/route.ts` :
@@ -3716,14 +3888,15 @@ export default function RegisterPage() {
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function JoinButton({ gameId, token }: { gameId: string; token?: string }) {
+/** `claim` : reprise d'un appel à participation (dernier tour laissé vacant) au lieu d'une inscription classique. */
+export function JoinButton({ gameId, token, claim = false }: { gameId: string; token?: string; claim?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function join() {
     setBusy(true);
-    const res = await fetch(`/api/games/${gameId}/join`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
+    const res = await fetch(`/api/games/${gameId}/${claim ? "claim" : "join"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
     if (!res.ok) {
       setError((await res.json()).error ?? "Impossible de rejoindre.");
       setBusy(false);
@@ -3735,7 +3908,7 @@ export function JoinButton({ gameId, token }: { gameId: string; token?: string }
 
   return (
     <>
-      <button onClick={join} disabled={busy}>Rejoindre</button>
+      <button onClick={join} disabled={busy}>{claim ? "Reprendre le tour" : "Rejoindre"}</button>
       {error && <span className="error"> {error}</span>}
     </>
   );
@@ -3748,7 +3921,7 @@ import { redirect } from "next/navigation";
 import { JoinButton } from "@/components/JoinButton";
 import { getDb } from "@/lib/db/client";
 import { formatDuration } from "@/lib/format";
-import { listMyGames, listOpenGames } from "@/lib/services/games";
+import { listMyGames, listOpenCalls, listOpenGames } from "@/lib/services/games";
 import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -3757,7 +3930,7 @@ export default async function Home() {
   const session = await getSession();
   if (!session) redirect("/login");
   const db = getDb();
-  const [open, mine] = await Promise.all([listOpenGames(db), listMyGames(db, session.user.id)]);
+  const [open, openCalls, mine] = await Promise.all([listOpenGames(db), listOpenCalls(db), listMyGames(db, session.user.id)]);
   const mineIds = new Set(mine.map((g) => g.id));
 
   return (
@@ -3771,6 +3944,31 @@ export default async function Home() {
             </li>
           ))}
         </ul>
+      )}
+
+      {openCalls.length > 0 && (
+        <section aria-label="Appels à participation">
+          <h1><span role="img" aria-label="Appel à participation">📣</span> Appels à participation</h1>
+          <p className="muted">Ces parties attendent un volontaire pour leur dernier tour.</p>
+          <table>
+            <thead>
+              <tr><th /><th>Nom</th><th>Type</th><th>Tour à jouer</th><th>Durée</th><th>Langue</th><th /></tr>
+            </thead>
+            <tbody>
+              {openCalls.map((g) => (
+                <tr key={g.id} style={{ background: "#fff1f2" }}>
+                  <td><span role="img" aria-label="Appel à participation">📣</span></td>
+                  <td>{g.name}</td>
+                  <td>{g.type === "drawing" ? "Dessin" : "Texte"}</td>
+                  <td>{g.rank}/{g.turns}</td>
+                  <td>{formatDuration(g.turnDurationSeconds)}</td>
+                  <td>{g.type === "text" ? g.language : "—"}</td>
+                  <td>{mineIds.has(g.id) ? <Link href={`/games/${g.id}`}>Ouvrir</Link> : <JoinButton gameId={g.id} claim />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
 
       <h1>Parties ouvertes</h1>
@@ -4097,6 +4295,12 @@ export default async function GamePage({ params, searchParams }: { params: Promi
         </>
       )}
 
+      {game.status === "in_progress" && view.openCall && (
+        <p>
+          <span role="img" aria-label="Appel à participation">📣</span> Le dernier tour attend un volontaire.{" "}
+          {!view.isParticipant && <JoinButton gameId={game.id} token={token} claim />}
+        </p>
+      )}
       {game.status === "in_progress" && view.isParticipant && (await renderTurn(db, id, session.user.id))}
       {game.status === "completed" && <p><Link href={`/games/${game.id}/final`}>Voir l'œuvre finale</Link></p>}
       {game.status === "cancelled" && <p>Cette partie a été annulée faute de joueurs actifs.</p>}
@@ -4823,5 +5027,6 @@ git add -A && git commit -m "chore: déploiement Docker, santé, README et test 
 - Google OAuth reporté à l'ouverture des inscriptions (en mode invitation, tout compte passe par `/api/register`).
 - « Rappel avec minimum 30 s » interprété comme : pas de rappel pour les tours < 120 s.
 - Paragraphe unique très long : l'extrait est plafonné à 150 mots (le « dernier paragraphe » révélerait sinon tout le texte).
-- Si le dernier tour expire, la partie est annulée (plus aucun joueur éligible), les contributions restent consultables.
+- **Dernier tour expiré (décision validée)** : appel à participation (`open_call`) listé sur l'accueil avec le logo 📣, repris par n'importe quel non-participant ; relancé sans limite si le volontaire laisse aussi expirer. Les parties sur invitation n'apparaissent pas dans la liste publique mais l'appel reste repris via le lien d'invitation.
+- Un volontaire s'ajoute comme participant supplémentaire : une partie peut donc finir avec plus de participants que de tours, les auteurs révélés étant ceux des contributions.
 - Sur les calques de l'éditeur : la bande héritée est protégée par un `clip` sur la zone propre plutôt que par un calque séparé, car le pot de peinture doit travailler sur le rendu composite ; le serveur revérifie l'intégrité de la bande.

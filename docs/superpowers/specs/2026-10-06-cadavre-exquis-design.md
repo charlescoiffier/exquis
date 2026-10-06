@@ -48,7 +48,7 @@ Hors périmètre v1 : modération active (outils d'interface), Web Push, démarr
 - `invitation` : code ou jeton, créé par, utilisé par, expiration. Sert à l'inscription sur invitation.
 - `game` : créateur, nom, type, nombre de tours, durée de tour, sens de défilement, langue, paramètres texte, visibilité, statut (`open`, `in_progress`, `completed`, `cancelled`).
 - `participant` : partie, utilisateur, rang (tiré au démarrage).
-- `turn` : partie, rang, participant assigné, `deadline`, statut (`pending`, `active`, `done`, `expired`), nombre de tentatives.
+- `turn` : partie, rang, participant assigné (nul pendant un appel à participation), `deadline`, statut (`pending`, `active`, `done`, `expired`, `open_call`), nombre de tentatives.
 - `contribution` : tour, texte ou clé de l'image, clé de la bande de transition, date, `hidden_at` (pour la modération future). Une contribution par tour.
 - `draft` : tour, liste de traits (JSON) ou texte en cours, date de mise à jour.
 - `notification` : utilisateur, type, tour, lue ou non, clé unique `(type, turn_id, user_id)` contre les doublons.
@@ -57,13 +57,14 @@ Hors périmètre v1 : modération active (outils d'interface), Web Push, démarr
 
 ## 5. Cycle de vie d'une partie
 
-`open` → `in_progress` → `completed`. `cancelled` possible depuis `open` et en cas d'échecs répétés.
+`open` → `in_progress` → `completed`. `cancelled` possible depuis `open` et en cas d'échecs répétés sur un tour qui n'est pas le dernier.
 
 1. À la prise du dernier siège : tirage de l'ordre, tour 1 `active` avec échéance, job d'expiration et rappel planifiés, joueur notifié.
 2. À la soumission : tour `done`, tour suivant `active` avec son échéance et ses jobs, joueur suivant notifié.
 3. À l'échéance : le job passe le tour à `expired`. Le tour est **remis en jeu** : un autre inscrit qui n'a pas encore joué est assigné, avec une nouvelle échéance.
-4. Plafond de remises en jeu par tour : 2. Au-delà, la partie est `cancelled`, les contributions déjà faites restent visibles aux participants.
-5. Après le dernier tour `done` : partie `completed`, œuvre finale assemblée.
+4. Plafond de remises en jeu par tour : 2. Au-delà, si des tours restent en attente, la partie est `cancelled` et les contributions déjà faites restent visibles aux participants.
+5. **Dernier tour expiré** : la partie n'est pas annulée. Le tour passe en `open_call` (appel à participation, sans joueur assigné ni échéance). La partie apparaît sur la page principale dans une section « Appels à participation » avec un logo spécial (📣). Tout utilisateur non participant peut reprendre le tour (nouvelle échéance, ajout comme participant). Si le volontaire laisse aussi expirer, l'appel est relancé, sans limite de tentatives.
+6. Après le dernier tour `done` : partie `completed`, œuvre finale assemblée.
 
 ## 6. Flux de tour et filtrage serveur
 
