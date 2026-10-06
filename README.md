@@ -42,7 +42,7 @@ Les inscriptions sont sur invitation par défaut (`REGISTRATION_MODE=invite`). P
 npx tsx scripts/create-invite.ts
 ```
 
-Le script affiche un code à saisir sur `/register`. Ensuite, chaque joueur peut en générer depuis l'application.
+Le script affiche un code à saisir sur `/register`. Ensuite, chaque joueur peut en générer depuis l'application (bouton « Générer une invitation » sur la page `/inbox`, 5 invitations ouvertes au maximum).
 
 ## Modes d'inscription
 

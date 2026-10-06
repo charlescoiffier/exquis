@@ -2,6 +2,7 @@ import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { InboxActions } from "@/components/InboxActions";
+import { InviteButton } from "@/components/InviteButton";
 import { getDb } from "@/lib/db/client";
 import { profile } from "@/lib/db/schema";
 import { NOTIFICATION_LABELS } from "@/lib/notifications/render";
@@ -22,6 +23,8 @@ export default async function InboxPage() {
     <main>
       <h1>Notifications</h1>
       <InboxActions emailEnabled={p?.emailEnabled ?? true} />
+      <h2>Inviter des amis</h2>
+      <InviteButton />
       {items.length === 0 ? <p className="muted">Rien pour l&apos;instant.</p> : (
         <ul>
           {items.map((n) => (
