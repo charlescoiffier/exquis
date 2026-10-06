@@ -3,6 +3,7 @@ import { getStroke } from "perfect-freehand";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { floodFill, hexToRgba, isInsideOwnZone, sanitizeOps, type Op } from "@/lib/drawing/ops";
+import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 import { canvasSize, guideLines, guidesSvg, inheritedRect, ownRect, type Direction } from "@/lib/images/geometry";
 
 type Props = { gameId: string; direction: Direction; rank: number; total: number; stripUrl?: string; draft: unknown };
@@ -36,45 +37,8 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
   const [stripReady, setStripReady] = useState(rank === 1);
   const [stripError, setStripError] = useState(rank > 1 && !stripUrl);
 
-  // Sauvegarde du brouillon : dernier état en ref, un seul intervalle stable.
-  const opsRef = useRef<Op[]>(initial);
-  const lastSaved = useRef(JSON.stringify(initial));
-  const saving = useRef(false);
-  useEffect(() => {
-    opsRef.current = ops;
-  }, [ops]);
-
-  const saveDraft = useCallback(async () => {
-    if (saving.current) return;
-    const json = JSON.stringify(opsRef.current);
-    if (json === lastSaved.current) return;
-    saving.current = true;
-    try {
-      const res = await fetch(`/api/games/${gameId}/my-turn/draft`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ops: opsRef.current }),
-        keepalive: json.length < 60000,
-      });
-      if (res.ok) lastSaved.current = json;
-    } catch {
-      // échec : réessayé au prochain tick
-    } finally {
-      saving.current = false;
-    }
-  }, [gameId]);
-
-  useEffect(() => {
-    const id = setInterval(() => void saveDraft(), 5000);
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") void saveDraft();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [saveDraft]);
+  // Sauvegarde du brouillon : dernier état en ref, un seul intervalle stable (voir useDraftAutosave).
+  useDraftAutosave(gameId, { ops }, { ops: initial });
 
   useEffect(() => {
     if (rank === 1 || !stripUrl) return;

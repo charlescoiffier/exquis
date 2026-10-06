@@ -1,7 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { countWords } from "@/lib/domain/text";
+import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 
 type Props = { gameId: string; excerpt?: string; draft: { text?: string } | null; minWords: number; maxWords: number };
 
@@ -10,20 +11,8 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords }: Props) 
   const [text, setText] = useState(draft?.text ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const lastSaved = useRef(draft?.text ?? "");
   const words = countWords(text);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (text !== lastSaved.current) {
-        lastSaved.current = text;
-        fetch(`/api/games/${gameId}/my-turn/draft`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) }).catch(() => {
-          lastSaved.current = "\u0000unsaved";
-        });
-      }
-    }, 5000);
-    return () => clearInterval(id);
-  }, [text, gameId]);
+  useDraftAutosave(gameId, { text }, { text: draft?.text ?? "" });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
