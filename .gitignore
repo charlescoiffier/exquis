@@ -43,3 +43,7 @@ next-env.d.ts
 
 .storage/
 .env.local
+
+# local postgres
+.pgdata/
+.pgdata.log
