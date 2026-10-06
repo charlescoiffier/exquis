@@ -47,3 +47,11 @@ next-env.d.ts
 # local postgres
 .pgdata/
 .pgdata.log
+
+# playwright
+/test-results/
+/playwright-report/
+
+# local logs
+.dev.log
+.worker.log

@@ -1,0 +1,21 @@
+services:
+  web:
+    build: .
+    env_file: .env.production
+    ports: ["3000:3000"]
+    depends_on: [db]
+    command: sh -c "npx tsx src/lib/db/migrate.ts && node server.js"
+  worker:
+    build: .
+    env_file: .env.production
+    depends_on: [db]
+    command: npx tsx src/worker.ts
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: exquis
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: exquis
+    volumes: [dbdata:/var/lib/postgresql/data]
+volumes:
+  dbdata:

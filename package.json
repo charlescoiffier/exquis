@@ -1,5 +1,5 @@
 {
-  "name": "app",
+  "name": "exquis",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,8 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/lib/db/migrate.ts",
-    "worker": "tsx src/worker.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env.local src/lib/db/migrate.ts",
+    "worker": "tsx --env-file-if-exists=.env.local src/worker.ts",
+    "e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "db:dev": "tsx scripts/dev-db.ts"
   },

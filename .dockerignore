@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.storage
+.pgdata
+.env*
+!.env.example
+docs
+.superpowers
+*.log
