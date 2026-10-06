@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { floodFill, hexToRgba, isInsideOwnZone } from "@/lib/drawing/ops";
+import { floodFill, hexToRgba, isInsideOwnZone, sanitizeOps } from "@/lib/drawing/ops";
 
 function image(w: number, h: number, fill: [number, number, number, number] = [255, 255, 255, 255]) {
   const data = new Uint8ClampedArray(w * h * 4);
@@ -46,5 +46,58 @@ describe("isInsideOwnZone", () => {
   it("tour 2 : exclut la bande héritée (right)", () => {
     expect(isInsideOwnZone(100, 10, 2, "right")).toBe(false);
     expect(isInsideOwnZone(200, 10, 2, "right")).toBe(true);
+  });
+});
+
+describe("floodFill avec bounds", () => {
+  it("ne touche pas les pixels hors bounds même si la zone est connexe", () => {
+    const img = image(4, 4);
+    floodFill(img, 3, 3, [255, 0, 0, 255], 16, { left: 0, top: 2, width: 4, height: 2 });
+    expect(at(img, 0, 2)).toEqual([255, 0, 0, 255]);
+    expect(at(img, 3, 3)).toEqual([255, 0, 0, 255]);
+    expect(at(img, 0, 0)).toEqual([255, 255, 255, 255]);
+    expect(at(img, 3, 1)).toEqual([255, 255, 255, 255]);
+  });
+  it("ne fait rien si le point de départ est hors bounds", () => {
+    const img = image(4, 4);
+    floodFill(img, 0, 0, [255, 0, 0, 255], 16, { left: 0, top: 2, width: 4, height: 2 });
+    expect(at(img, 0, 3)).toEqual([255, 255, 255, 255]);
+    expect(at(img, 0, 0)).toEqual([255, 255, 255, 255]);
+  });
+  it("sans bounds, remplit tout le canvas", () => {
+    const img = image(4, 4);
+    floodFill(img, 0, 0, [0, 255, 0, 255]);
+    expect(at(img, 3, 3)).toEqual([0, 255, 0, 255]);
+    expect(at(img, 0, 0)).toEqual([0, 255, 0, 255]);
+  });
+});
+
+describe("sanitizeOps", () => {
+  const good = { kind: "stroke", tool: "brush", color: "#112233", size: 8, opacity: 1, points: [[1, 2, 0.5]] };
+  it("garde les opérations valides", () => {
+    const f = { kind: "fill", x: 3, y: 4, color: "#ffffff" };
+    expect(sanitizeOps([good, f])).toEqual([good, f]);
+  });
+  it("ignore tout ce qui n'est pas un tableau", () => {
+    expect(sanitizeOps(null)).toEqual([]);
+    expect(sanitizeOps({})).toEqual([]);
+  });
+  it("écarte silencieusement les opérations invalides", () => {
+    const bad = [
+      null, 3, { kind: "x" },
+      { ...good, color: "red" },
+      { ...good, tool: "spray" },
+      { ...good, size: NaN },
+      { ...good, opacity: "1" },
+      { ...good, points: [] },
+      { ...good, points: [[1, 2]] },
+      { ...good, points: [[1, 2, Infinity]] },
+      { kind: "fill", x: "1", y: 2, color: "#000000" },
+      { kind: "fill", x: 1, y: 2, color: "#zzzzzz" },
+    ];
+    expect(sanitizeOps([...bad, good])).toEqual([good]);
+  });
+  it("borne le nombre de points", () => {
+    expect(sanitizeOps([{ ...good, points: Array.from({ length: 20001 }, () => [0, 0, 1]) }])).toEqual([]);
   });
 });

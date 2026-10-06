@@ -2,7 +2,7 @@
 import { getStroke } from "perfect-freehand";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { floodFill, hexToRgba, isInsideOwnZone, type Op } from "@/lib/drawing/ops";
+import { floodFill, hexToRgba, isInsideOwnZone, sanitizeOps, type Op } from "@/lib/drawing/ops";
 import { canvasSize, guideLines, guidesSvg, inheritedRect, ownRect, type Direction } from "@/lib/images/geometry";
 
 type Props = { gameId: string; direction: Direction; rank: number; total: number; stripUrl?: string; draft: unknown };
@@ -22,10 +22,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stripRef = useRef<HTMLImageElement | null>(null);
   const { width, height } = canvasSize(direction);
-  const [initial] = useState<Op[]>(() => {
-    const ops = (draft as { ops?: unknown } | null)?.ops;
-    return Array.isArray(ops) ? (ops as Op[]) : [];
-  });
+  const [initial] = useState<Op[]>(() => sanitizeOps((draft as { ops?: unknown } | null)?.ops));
   const [history, setHistory] = useState<History>({ ops: initial, redo: [] });
   const { ops, redo } = history;
   const [current, setCurrent] = useState<Op | null>(null);
@@ -37,7 +34,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [stripReady, setStripReady] = useState(rank === 1);
-  const [stripError, setStripError] = useState(false);
+  const [stripError, setStripError] = useState(rank > 1 && !stripUrl);
 
   // Sauvegarde du brouillon : dernier état en ref, un seul intervalle stable.
   const opsRef = useRef<Op[]>(initial);
@@ -98,44 +95,93 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
     };
   }, [rank, stripUrl]);
 
-  const render = useCallback(
-    (all: Op[]) => {
+  // Cache bitmap des opérations validées (hors canvas visible) : reconstruit seulement quand `ops` change.
+  const cacheRef = useRef<HTMLCanvasElement | null>(null);
+  const cachedOps = useRef<Op[]>([]);
+  const cacheStrip = useRef(false);
+
+  const zone = useCallback(() => {
+    if (rank === 1) return { left: 0, top: 0, width, height };
+    return ownRect(direction);
+  }, [rank, direction, width, height]);
+
+  const applyOp = useCallback(
+    (ctx: CanvasRenderingContext2D, op: Op) => {
+      const z = zone();
+      if (op.kind === "stroke") {
+        const outline = getStroke(op.points, { size: op.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(z.left, z.top, z.width, z.height);
+        ctx.clip();
+        ctx.globalAlpha = op.opacity;
+        ctx.fillStyle = op.tool === "eraser" ? "#ffffff" : op.color;
+        ctx.fill(pathFromStroke(outline));
+        ctx.restore();
+      } else {
+        // putImageData ignore le clip : le remplissage est borné à la zone propre.
+        const img = ctx.getImageData(0, 0, width, height);
+        floodFill(img, op.x, op.y, hexToRgba(op.color), 16, z);
+        ctx.putImageData(img, 0, 0);
+      }
+    },
+    [zone, width, height],
+  );
+
+  const paint = useCallback(
+    (committed: Op[], live: Op | null) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
-      ctx.save();
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      if (stripRef.current) {
-        const r = inheritedRect(direction);
-        ctx.drawImage(stripRef.current, r.left, r.top);
+      if (!cacheRef.current) {
+        cacheRef.current = document.createElement("canvas");
+        cacheRef.current.width = width;
+        cacheRef.current.height = height;
       }
-      const own = ownRect(direction);
-      ctx.beginPath();
-      ctx.rect(rank === 1 ? 0 : own.left, rank === 1 ? 0 : own.top, rank === 1 ? width : own.width, rank === 1 ? height : own.height);
-      ctx.clip();
-      for (const op of all) {
-        if (op.kind === "stroke") {
-          const outline = getStroke(op.points, { size: op.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
-          ctx.globalAlpha = op.opacity;
-          ctx.fillStyle = op.tool === "eraser" ? "#ffffff" : op.color;
-          ctx.fill(pathFromStroke(outline));
-          ctx.globalAlpha = 1;
-        } else {
-          const img = ctx.getImageData(0, 0, width, height);
-          floodFill(img, op.x, op.y, hexToRgba(op.color));
-          ctx.putImageData(img, 0, 0);
+      const cache = cacheRef.current;
+      const cctx = cache.getContext("2d", { willReadFrequently: true })!;
+      const prev = cachedOps.current;
+      const incremental =
+        cacheStrip.current &&
+        committed.length === prev.length + 1 &&
+        (prev.length === 0 || committed[prev.length - 1] === prev[prev.length - 1]);
+      if (incremental) {
+        applyOp(cctx, committed[committed.length - 1]);
+      } else if (!(cacheStrip.current && committed === prev)) {
+        cctx.save();
+        cctx.globalAlpha = 1;
+        cctx.fillStyle = "#ffffff";
+        cctx.fillRect(0, 0, width, height);
+        if (stripRef.current) {
+          const r = inheritedRect(direction);
+          cctx.drawImage(stripRef.current, r.left, r.top);
         }
+        cctx.restore();
+        for (const op of committed) applyOp(cctx, op);
       }
-      ctx.restore();
+      cachedOps.current = committed;
+      cacheStrip.current = true;
+      const ctx = canvas.getContext("2d")!;
+      ctx.globalAlpha = 1;
+      ctx.drawImage(cache, 0, 0);
+      if (live && live.kind === "stroke") {
+        const z = zone();
+        const outline = getStroke(live.points, { size: live.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(z.left, z.top, z.width, z.height);
+        ctx.clip();
+        ctx.globalAlpha = live.opacity;
+        ctx.fillStyle = live.tool === "eraser" ? "#ffffff" : live.color;
+        ctx.fill(pathFromStroke(outline));
+        ctx.restore();
+      }
     },
-    [width, height, direction, rank],
+    [width, height, direction, applyOp, zone],
   );
 
   useEffect(() => {
-    if (stripReady) render(current ? [...ops, current] : ops);
-  }, [ops, current, stripReady, render]);
+    if (stripReady) paint(ops, current);
+  }, [ops, current, stripReady, paint]);
 
   function toCanvas(e: React.PointerEvent): [number, number, number] {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -146,7 +192,11 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
     if (!e.isPrimary || e.button !== 0 || !stripReady || currentRef.current) return;
     const [x, y, p] = toCanvas(e);
     if (!isInsideOwnZone(x, y, rank, direction)) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // pointeur déjà terminé : on continue sans capture
+    }
     if (tool === "fill") {
       setHistory((h) => ({ ops: [...h.ops, { kind: "fill", x, y, color }], redo: [] }));
       return;
@@ -213,7 +263,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
         <button type="button" className="secondary" onClick={undo} disabled={!ops.length}>Annuler</button>
         <button type="button" className="secondary" onClick={redoOp} disabled={!redo.length}>Rétablir</button>
       </div>
-      <div style={{ position: "relative", maxWidth: 720, touchAction: "none" }}>
+      <div style={{ position: "relative", maxWidth: 720, touchAction: "none", border: "1px solid var(--line)" }}>
         <canvas
           ref={canvasRef}
           width={width}
@@ -223,7 +273,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
           onPointerUp={endStroke}
           onPointerCancel={endStroke}
           onPointerLeave={endStroke}
-          style={{ width: "100%", height: "auto", border: "1px solid var(--line)", background: "#fff", display: "block", touchAction: "none" }}
+          style={{ width: "100%", height: "auto", background: "#fff", display: "block", touchAction: "none" }}
         />
         {/* Calque de guides : visuel uniquement, jamais exporté */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }} dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
