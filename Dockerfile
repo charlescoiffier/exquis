@@ -7,6 +7,11 @@ FROM node:22-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Valeurs factices, valables uniquement pour l'étape de build : src/lib/auth.ts valide l'environnement à l'import
+# et .dockerignore exclut les fichiers .env*. Ces variables n'existent pas dans l'image d'exécution (étape runtime).
+ENV DATABASE_URL=postgres://build:build@localhost:5432/build \
+    BETTER_AUTH_SECRET=build-time-placeholder-secret \
+    STORAGE_SECRET=build-time-placeholder-secret
 RUN npm run build
 
 FROM node:22-slim AS runtime
