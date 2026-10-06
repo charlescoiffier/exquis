@@ -10,7 +10,7 @@ export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export type Executor = Db | Tx;
 
 export function createDb(url: string): { db: Db; close: () => Promise<void> } {
-  const client = postgres(url, { max: 10 });
+  const client = postgres(url, { max: 10, onnotice: () => {} });
   return { db: drizzle(client, { schema: fullSchema }), close: () => client.end() };
 }
 
