@@ -1,95 +1,78 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { JoinButton } from "@/components/JoinButton";
+import { getDb } from "@/lib/db/client";
+import { formatDuration } from "@/lib/format";
+import { listMyGames, listOpenCalls, listOpenGames } from "@/lib/services/games";
+import { getSession } from "@/lib/session";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const db = getDb();
+  const [open, openCalls, mine] = await Promise.all([listOpenGames(db), listOpenCalls(db), listMyGames(db, session.user.id)]);
+  const mineIds = new Set(mine.map((g) => g.id));
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>src/app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <main>
+      <h1>Mes parties</h1>
+      {mine.length === 0 ? <p className="muted">Aucune partie pour l&apos;instant.</p> : (
+        <ul>
+          {mine.map((g) => (
+            <li key={g.id}>
+              <Link href={`/games/${g.id}`}>{g.name}</Link> — {g.status}{g.isMyTurn ? " — à vous de jouer !" : ""}
+            </li>
+          ))}
+        </ul>
+      )}
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      {openCalls.length > 0 && (
+        <section aria-label="Appels à participation">
+          <h1><span role="img" aria-label="Appel à participation">📣</span> Appels à participation</h1>
+          <p className="muted">Ces parties attendent un volontaire pour leur dernier tour.</p>
+          <table>
+            <thead>
+              <tr><th /><th>Nom</th><th>Type</th><th>Tour à jouer</th><th>Durée</th><th>Langue</th><th /></tr>
+            </thead>
+            <tbody>
+              {openCalls.map((g) => (
+                <tr key={g.id} style={{ background: "#fff1f2" }}>
+                  <td><span role="img" aria-label="Appel à participation">📣</span></td>
+                  <td>{g.name}</td>
+                  <td>{g.type === "drawing" ? "Dessin" : "Texte"}</td>
+                  <td>{g.rank}/{g.turns}</td>
+                  <td>{formatDuration(g.turnDurationSeconds)}</td>
+                  <td>{g.type === "text" ? g.language : "—"}</td>
+                  <td>{mineIds.has(g.id) ? <Link href={`/games/${g.id}`}>Ouvrir</Link> : <JoinButton gameId={g.id} claim />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      <h1>Parties ouvertes</h1>
+      <p><Link href="/games/new">Créer une partie</Link></p>
+      <table>
+        <thead>
+          <tr><th>Nom</th><th>Type</th><th>Tours</th><th>Durée / tour</th><th>Langue</th><th>Inscrits</th><th /></tr>
+        </thead>
+        <tbody>
+          {open.map((g) => (
+            <tr key={g.id}>
+              <td>{g.name}</td>
+              <td>{g.type === "drawing" ? "Dessin" : "Texte"}</td>
+              <td>{g.turns}</td>
+              <td>{formatDuration(g.turnDurationSeconds)}</td>
+              <td>{g.type === "text" ? g.language : "—"}</td>
+              <td>{g.participantCount}/{g.turns}</td>
+              <td>{mineIds.has(g.id) ? <Link href={`/games/${g.id}`}>Ouvrir</Link> : <JoinButton gameId={g.id} />}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </main>
   );
 }

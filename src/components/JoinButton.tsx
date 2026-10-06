@@ -1,0 +1,29 @@
+"use client";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+/** `claim` : reprise d'un appel à participation (dernier tour laissé vacant) au lieu d'une inscription classique. */
+export function JoinButton({ gameId, token, claim = false }: { gameId: string; token?: string; claim?: boolean }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function join() {
+    setBusy(true);
+    const res = await fetch(`/api/games/${gameId}/${claim ? "claim" : "join"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
+    if (!res.ok) {
+      setError((await res.json()).error ?? "Impossible de rejoindre.");
+      setBusy(false);
+      return;
+    }
+    router.push(`/games/${gameId}`);
+    router.refresh();
+  }
+
+  return (
+    <>
+      <button onClick={join} disabled={busy}>{claim ? "Reprendre le tour" : "Rejoindre"}</button>
+      {error && <span className="error"> {error}</span>}
+    </>
+  );
+}

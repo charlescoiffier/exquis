@@ -1,42 +1,14 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-}
+:root { --bg:#faf7f2; --fg:#1f1b16; --muted:#6b6258; --accent:#e11d48; --line:#e4ddd2; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+nav { display:flex; gap:16px; padding:12px 16px; border-bottom:1px solid var(--line); }
+a { color: var(--accent); }
+table { width:100%; border-collapse:collapse; }
+th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); }
+label { display:block; margin:12px 0 4px; font-weight:600; }
+input, select, textarea { width:100%; padding:8px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+button { padding:8px 16px; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+button.secondary { background:transparent; color:var(--fg); border:1px solid var(--line); }
+.error { color:#b91c1c; }
+.muted { color:var(--muted); }
