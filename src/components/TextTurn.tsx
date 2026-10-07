@@ -58,11 +58,11 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, exp
     <form onSubmit={submit}>
       {excerpt !== undefined && (
         <>
-          <p className="muted">Fin du texte précédent :</p>
-          <blockquote>{excerpt}</blockquote>
+          <p className="field-title">Fin du texte précédent</p>
+          <blockquote className="quote">{excerpt}</blockquote>
         </>
       )}
-      <label htmlFor="text">Votre texte</label>
+      <label htmlFor="text" className="field-title">Votre texte</label>
       <div className="mirror-wrap">
         <div className="mirror" ref={mirrorRef} aria-hidden="true" data-testid="mirror">
           {before && <span className="mirror-dim">{before}</span>}
@@ -94,7 +94,10 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, exp
         <p className="gauge-msg">{gauge.message}<span className="muted"> (entre {minWords} et {maxWords} mots)</span></p>
       </div>
       {error && <p className="error">{error}</p>}
-      <button type="submit" disabled={busy || !gauge.ok}>Envoyer</button>
+      <div className="turn-actions">
+        <button type="submit" disabled={busy || !gauge.ok}>Envoyer</button>
+        <span className="meta">Brouillon enregistré automatiquement</span>
+      </div>
       {expiry.active && !dismissed && (
         <ExpiryDialog
           question="Temps écoulé. Envoyer votre texte maintenant ?"

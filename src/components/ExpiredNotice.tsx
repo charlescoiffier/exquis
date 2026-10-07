@@ -31,11 +31,11 @@ export function ExpiredNotice({ gameId, serverNow }: { gameId: string; serverNow
   }, [gameId, serverNow]);
   if (!msg) return null;
   return (
-    <p role="status" className="error">
-      {msg}{" "}
+    <div role="status" className="notice error expired-notice">
+      <span>{msg}</span>
       <button type="button" className="secondary" onClick={() => { consumeExpired(gameId); setMsg(null); }}>
         Fermer
       </button>
-    </p>
+    </div>
   );
 }

@@ -1,13 +1,15 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { JoinButton } from "@/components/JoinButton";
 import { ExpiredNotice } from "@/components/ExpiredNotice";
 import { TurnEditor } from "@/components/TurnEditor";
+import { Banner } from "@/components/ui/Banner";
+import { ButtonLink } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { TurnTitle } from "@/components/TurnTitle";
 import { getDb } from "@/lib/db/client";
 import { DomainError } from "@/lib/errors";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, statusLabel } from "@/lib/format";
 import { getGameView } from "@/lib/services/games";
 import { getMyTurn } from "@/lib/services/turns";
 import { getSession } from "@/lib/session";
@@ -33,37 +35,56 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   }
   const { game } = view;
 
+  const typeText = game.type === "drawing" ? "Dessin" : `Texte (${game.language})`;
   return (
     <main>
       {game.status !== "completed" && game.status !== "cancelled" && <AutoRefresh />}
-      <h1>{game.name}</h1>
-      <p className="muted">
-        {game.type === "drawing" ? "Dessin" : `Texte (${game.language})`} — {game.turns} tours de {formatDuration(game.turnDurationSeconds)} — statut : {game.status}
+      <Banner title={game.name} />
+      <p className="game-meta">
+        <span className={`pill status status-${game.status}`}>{statusLabel(game.status)}</span>
+        <span className="meta">{typeText} · {game.turns} tours de {formatDuration(game.turnDurationSeconds)}</span>
       </p>
 
       {game.status === "open" && (
-        <>
-          <p>En attente de joueurs : {view.participantCount}/{game.turns}</p>
+        <Card>
+          <h2 className="card-title">En attente de joueurs</h2>
+          <p className="count-line">
+            <span className="count-num" aria-hidden="true">{view.participantCount}/{game.turns}</span>
+            <span className="count-label">joueurs inscrits</span>
+            <span className="sr-only"> : {view.participantCount} sur {game.turns}</span>
+          </p>
           {!view.isParticipant && <JoinButton gameId={game.id} token={token} />}
           {view.inviteToken && (
-            <p>Lien d&apos;invitation : <code>{`${env().APP_URL}/games/${game.id}?token=${view.inviteToken}`}</code></p>
+            <div className="invite">
+              <p className="hint">Lien d&apos;invitation</p>
+              <code className="invite-link">{`${env().APP_URL}/games/${game.id}?token=${view.inviteToken}`}</code>
+            </div>
           )}
-        </>
+        </Card>
       )}
 
       {game.status === "in_progress" && view.openCall && (
-        <p>
-          <span role="img" aria-label="Appel à participation">📣</span> Le dernier tour attend un volontaire.{" "}
+        <Card call>
+          <span className="pill call">Appel à participation</span>
+          <p className="call-text">
+            <span role="img" aria-label="Appel à participation">📣</span> Le dernier tour attend un volontaire.
+          </p>
           {!view.isParticipant && <JoinButton gameId={game.id} token={token} claim />}
-        </p>
+        </Card>
       )}
       {game.status === "in_progress" && view.isParticipant && (await renderTurn(db, id, session.user.id))}
-      {game.status === "completed" && <p><Link href={`/games/${game.id}/final`}>Voir l&apos;œuvre finale</Link></p>}
+      {game.status === "completed" && (
+        <Card>
+          <h2 className="card-title">Partie terminée</h2>
+          <ButtonLink href={`/games/${game.id}/final`}>Voir l&apos;œuvre finale</ButtonLink>
+        </Card>
+      )}
       {game.status === "cancelled" && (
-        <>
+        <Card>
+          <h2 className="card-title">Partie annulée</h2>
           <p>Cette partie a été annulée faute de joueurs actifs.</p>
-          {view.isParticipant && <p><Link href={`/games/${game.id}/final`}>Voir ce qui a été réalisé</Link></p>}
-        </>
+          {view.isParticipant && <ButtonLink href={`/games/${game.id}/final`} variant="secondary">Voir ce qui a été réalisé</ButtonLink>}
+        </Card>
       )}
     </main>
   );
@@ -71,7 +92,17 @@ export default async function GamePage({ params, searchParams }: { params: Promi
 
 async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: string) {
   const turn = await getMyTurn(db, getStorage(), { userId, gameId });
-  if (!turn) return <><ExpiredNotice gameId={gameId} serverNow={new Date().toISOString()} /><p>En attente des autres joueurs. Vous serez prévenu(e) quand ce sera votre tour.</p></>;
+  if (!turn) {
+    return (
+      <>
+        <ExpiredNotice gameId={gameId} serverNow={new Date().toISOString()} />
+        <Card>
+          <h2 className="card-title">En attente des autres joueurs</h2>
+          <p>Vous serez prévenu(e) quand ce sera votre tour.</p>
+        </Card>
+      </>
+    );
+  }
   // La clé garde l'état de l'éditeur lors d'un rafraîchissement tant que le tour (et son échéance) ne change pas.
   return (
     <>

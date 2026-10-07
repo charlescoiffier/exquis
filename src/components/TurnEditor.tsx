@@ -7,6 +7,7 @@ import { Countdown } from "./Countdown";
 import { DrawingEditor } from "./DrawingEditor";
 import { EDITOR_ROOT_ID } from "./ExpiryDialog";
 import { TextTurn } from "./TextTurn";
+import { Banner } from "./ui/Banner";
 
 export type SerializedTurn = {
   rank: number;
@@ -80,27 +81,40 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
     return () => clearInterval(id);
   }, [ready, lost, deadlineMs, gameId, turnKey, getNow, lose]);
 
-  const title = <h2>Tour {turn.rank} sur {turn.total}</h2>;
-  if (!ready) return <section>{title}</section>;
+  const heading = turn.game.type === "text" ? "À vous d'écrire" : "À vous de dessiner";
+  const rankLine = <p className="turn-rank">Tour {turn.rank} sur {turn.total}</p>;
+  if (!ready) {
+    return (
+      <section className="turn-panel">
+        <Banner as="h2" title={heading} />
+        <div className="turn-body">{rankLine}</div>
+      </section>
+    );
+  }
   if (lost) {
     return (
-      <section>
-        {title}
-        <p role="status" className="error">{lost === "abandoned" ? ABANDONED_MESSAGE : EXPIRED_MESSAGE}</p>
+      <section className="turn-panel">
+        <Banner as="h2" title={heading} />
+        <div className="turn-body">
+          {rankLine}
+          <p role="status" className="error">{lost === "abandoned" ? ABANDONED_MESSAGE : EXPIRED_MESSAGE}</p>
+        </div>
       </section>
     );
   }
 
   const expiry: Expiry = { active: phase !== "open", expiresAtMs: deadlineMs + CLIENT_GRACE_MS, getNow };
   return (
-    <section id={EDITOR_ROOT_ID}>
-      {title}
-      <Countdown deadline={turn.deadline} getNow={getNow} />
-      {turn.game.type === "text" ? (
-        <TextTurn gameId={gameId} excerpt={turn.excerpt} draft={turn.draft as { text?: string } | null} minWords={turn.game.minWords!} maxWords={turn.game.maxWords!} rule={turn.game.excerptMode === "words" ? { mode: "words", count: turn.game.excerptWords ?? 1 } : { mode: "paragraph" }} expiry={expiry} submitState={submitState} onLost={lose} />
-      ) : (
-        <DrawingEditor gameId={gameId} direction={turn.game.direction!} rank={turn.rank} total={turn.total} stripUrl={turn.stripUrl} draft={turn.draft} expiry={expiry} submitState={submitState} onLost={lose} />
-      )}
+    <section id={EDITOR_ROOT_ID} className="turn-panel">
+      <Banner as="h2" title={heading} action={<Countdown deadline={turn.deadline} getNow={getNow} />} />
+      <div className="turn-body">
+        {rankLine}
+        {turn.game.type === "text" ? (
+          <TextTurn gameId={gameId} excerpt={turn.excerpt} draft={turn.draft as { text?: string } | null} minWords={turn.game.minWords!} maxWords={turn.game.maxWords!} rule={turn.game.excerptMode === "words" ? { mode: "words", count: turn.game.excerptWords ?? 1 } : { mode: "paragraph" }} expiry={expiry} submitState={submitState} onLost={lose} />
+        ) : (
+          <DrawingEditor gameId={gameId} direction={turn.game.direction!} rank={turn.rank} total={turn.total} stripUrl={turn.stripUrl} draft={turn.draft} expiry={expiry} submitState={submitState} onLost={lose} />
+        )}
+      </div>
     </section>
   );
 }

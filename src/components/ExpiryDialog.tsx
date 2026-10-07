@@ -78,7 +78,7 @@ export function ExpiryDialog({ question, expiresAtMs, getNow, busy, error, submi
   }
 
   return createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", display: "grid", placeItems: "center", zIndex: 1000 }}>
+    <div className="dialog-backdrop">
       <div
         ref={ref}
         role="dialog"
@@ -87,15 +87,15 @@ export function ExpiryDialog({ question, expiresAtMs, getNow, busy, error, submi
         aria-describedby="expiry-desc"
         tabIndex={-1}
         onKeyDown={onKeyDown}
-        style={{ background: "var(--bg, #fff)", color: "inherit", padding: 24, maxWidth: 420, width: "calc(100% - 32px)", border: "1px solid var(--line)", borderRadius: 8 }}
+        className="dialog"
       >
-        <h2 id="expiry-title" style={{ marginTop: 0 }}>{question}</h2>
+        <h2 id="expiry-title" className="dialog-title">{question}</h2>
         <div id="expiry-desc">
           {explanation && <p>{explanation}</p>}
-          <p role="timer" aria-live="off">Il vous reste {formatDuration(seconds)} pour valider.</p>
+          <p role="timer" aria-live="off" className="dialog-timer">Il vous reste {formatDuration(seconds)} pour valider.</p>
         </div>
         {error && <p className="error" role="alert">{error}</p>}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="dialog-actions">
           {submitLabel && onSubmit && <button type="button" onClick={onSubmit} disabled={busy}>{submitLabel}</button>}
           {continueLabel && onContinue && <button type="button" onClick={onContinue}>{continueLabel}</button>}
           <button type="button" className="secondary" onClick={onAbandon} disabled={busy}>Abandonner ce tour</button>
@@ -109,5 +109,5 @@ export function ExpiryDialog({ question, expiresAtMs, getNow, busy, error, submi
 /** Bandeau de compte à rebours (fenêtre de validation, une fois la fenêtre modale fermée). */
 export function ValidationBanner({ expiresAtMs, getNow }: { expiresAtMs: number; getNow: () => number }) {
   const left = useRemaining(expiresAtMs, getNow);
-  return <p role="status" className="error">Temps écoulé : il vous reste {formatDuration(Math.ceil(left / 1000))} pour envoyer votre texte.</p>;
+  return <p role="status" className="notice error">Temps écoulé : il vous reste {formatDuration(Math.ceil(left / 1000))} pour envoyer votre texte.</p>;
 }

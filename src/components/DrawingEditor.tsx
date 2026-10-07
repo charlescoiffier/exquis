@@ -1,7 +1,7 @@
 "use client";
 import { getStroke } from "perfect-freehand";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { floodFill, hexToRgba, isInsideOwnZone, sanitizeOps, type Op } from "@/lib/drawing/ops";
 import { clearExpired } from "@/lib/expired-notice";
 import { ExpiryDialog } from "./ExpiryDialog";
@@ -238,27 +238,27 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
 
   const guides = useMemo(() => guidesSvg(direction, width, height, guideLines(direction, rank, total)), [direction, width, height, rank, total]);
 
+  const toolButton = (id: "brush" | "eraser" | "fill", label: string, icon: ReactNode) => (
+    <button type="button" className={`tool-btn${tool === id ? "" : " secondary"}`} aria-label={label} aria-pressed={tool === id} title={label} onClick={() => setTool(id)}>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">{icon}</svg>
+    </button>
+  );
+
   return (
     <div>
-      <div role="toolbar" aria-label="Outils de dessin" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-        <button type="button" className={tool === "brush" ? "" : "secondary"} onClick={() => setTool("brush")}>Pinceau</button>
-        <button type="button" className={tool === "eraser" ? "" : "secondary"} onClick={() => setTool("eraser")}>Gomme</button>
-        <button type="button" className={tool === "fill" ? "" : "secondary"} onClick={() => setTool("fill")}>Pot de peinture</button>
-        <div role="group" aria-label="Couleur" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-          <label
-            style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44, padding: "0 10px", border: "2px solid var(--line)", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}
-          >
-            <span aria-hidden="true" data-testid="active-color" style={{ width: 40, height: 40, borderRadius: 8, background: color, border: "2px solid #1f1b16", display: "block" }} />
+      <div role="toolbar" aria-label="Outils de dessin" className="toolbar">
+        <div className="toolbar-group">
+          {toolButton("brush", "Pinceau", <path d="M4 20c3 0 5-1 5-4l9-9-2-2-9 9c-3 0-3 3-3 6zM15 6l3 3" />)}
+          {toolButton("eraser", "Gomme", <path d="M3 17l9-11 8 7-5 6H8zM8 21h12" />)}
+          {toolButton("fill", "Pot de peinture", <path d="M5 11l7-7 7 7-7 7zM20 15c1 2 2 3 2 4a2 2 0 0 1-4 0c0-1 1-2 2-4z" />)}
+        </div>
+        <div role="group" aria-label="Couleur" className="toolbar-group">
+          <label className="color-field">
+            <span aria-hidden="true" data-testid="active-color" className="color-current" style={{ background: color }} />
             Couleur
-            <input
-              aria-label="Couleur libre"
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              style={{ width: 44, height: 40, padding: 0, border: 0, background: "none", cursor: "pointer" }}
-            />
+            <input aria-label="Couleur libre" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="color-input" />
           </label>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 300 }}>
+          <div className="palette">
             {PALETTE.map((c) => {
               const active = c.hex.toLowerCase() === color.toLowerCase();
               return (
@@ -276,12 +276,17 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
             })}
           </div>
         </div>
-        <input aria-label="Taille" type="range" min={1} max={60} value={size} onChange={(e) => setSize(Number(e.target.value))} style={{ width: 120 }} />
-        <input aria-label="Opacité" type="range" min={0.1} max={1} step={0.1} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} style={{ width: 100 }} />
-        <button type="button" className="secondary" onClick={undo} disabled={!ops.length}>Annuler</button>
-        <button type="button" className="secondary" onClick={redoOp} disabled={!redo.length}>Rétablir</button>
+        <div className="toolbar-group">
+          <input aria-label="Taille" type="range" min={1} max={60} value={size} onChange={(e) => setSize(Number(e.target.value))} className="slider" />
+          <input aria-label="Opacité" type="range" min={0.1} max={1} step={0.1} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} className="slider slider-opacity" />
+        </div>
+        <div className="toolbar-group">
+          <button type="button" className="secondary" onClick={undo} disabled={!ops.length}>Annuler</button>
+          <button type="button" className="secondary" onClick={redoOp} disabled={!redo.length}>Rétablir</button>
+        </div>
       </div>
-      <div style={{ position: "relative", maxWidth: 720, touchAction: "none", border: "1px solid var(--line)" }}>
+      {/* Le cadre est sur l'enveloppe : une bordure sur le canvas fausserait la conversion des coordonnées du pointeur. */}
+      <div className="canvas-frame">
         <canvas
           ref={canvasRef}
           width={width}
@@ -291,10 +296,10 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           onPointerUp={endStroke}
           onPointerCancel={endStroke}
           onPointerLeave={endStroke}
-          style={{ width: "100%", height: "auto", background: "#fff", display: "block", touchAction: "none" }}
+          className="drawing-canvas"
         />
         {/* Calque de guides : visuel uniquement, jamais exporté */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }} dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
+        <div className="guides-layer" dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
       </div>
       {stripError && <p className="error">Impossible de charger la bande du dessin précédent. Rechargez la page.</p>}
       {error && <p className="error">{error}</p>}
@@ -310,7 +315,9 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           onAbandon={() => onLost("abandoned")}
         />
       )}
-      <p><button type="button" onClick={submit} disabled={busy || !stripReady || stripError}>Envoyer mon dessin</button></p>
+      <div className="turn-actions">
+        <button type="button" onClick={submit} disabled={busy || !stripReady || stripError}>Envoyer mon dessin</button>
+      </div>
     </div>
   );
 }
