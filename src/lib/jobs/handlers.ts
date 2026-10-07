@@ -5,6 +5,7 @@ import { turn } from "@/lib/db/schema";
 import type { Effect } from "@/lib/effects";
 import type { Mailer } from "@/lib/notifications/mailer";
 import { flushNotifications } from "@/lib/services/email-outbox";
+import { purgeStaleGames } from "@/lib/services/games";
 import { assembleFinalWork } from "@/lib/services/final-work";
 import { queueNotification } from "@/lib/services/notifications";
 import { expireOverdue, expireTurn } from "@/lib/services/turns";
@@ -36,6 +37,12 @@ export async function handleFinalize(deps: Deps, data: { gameId: string }): Prom
 
 export async function handleSweep(deps: Deps): Promise<Effect[]> {
   return expireOverdue(deps.db, nowOf(deps));
+}
+
+/** Supprime les parties jamais lancées depuis plus d'une semaine. */
+export async function handlePurge(deps: Deps): Promise<void> {
+  const n = await purgeStaleGames(deps.db, nowOf(deps));
+  if (n > 0) console.log(`[purge] ${n} partie(s) en attente supprimée(s)`);
 }
 
 export async function handleFlush(deps: Deps): Promise<void> {

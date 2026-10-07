@@ -4,17 +4,17 @@ import { game, notification, profile } from "@/lib/db/schema";
 
 export type NotificationType =
   | "game_started" | "your_turn" | "turn_reminder" | "turn_reassigned"
-  | "game_completed" | "game_cancelled" | "work_ready";
+  | "game_completed" | "game_cancelled" | "work_ready" | "comment_added";
 
 export const EMAIL_MIN_DURATION_SECONDS = 300;
 
 export async function queueNotification(
   tx: Executor,
-  n: { userId: string; type: NotificationType; gameId: string; turnId?: string; suffix?: string },
+  n: { userId: string; type: NotificationType; gameId: string; turnId?: string; suffix?: string; /** Pas d'email (notification dans l'application seulement). */ inAppOnly?: boolean },
 ): Promise<void> {
   const [g] = await tx.select({ d: game.turnDurationSeconds }).from(game).where(eq(game.id, n.gameId));
   const [p] = await tx.select({ e: profile.emailEnabled }).from(profile).where(eq(profile.userId, n.userId));
-  const emailPending = (p?.e ?? true) && (g?.d ?? 0) >= EMAIL_MIN_DURATION_SECONDS;
+  const emailPending = !n.inAppOnly && (p?.e ?? true) && (g?.d ?? 0) >= EMAIL_MIN_DURATION_SECONDS;
   const dedupeKey = `${n.type}:${n.turnId ?? n.gameId}:${n.userId}${n.suffix ? `:${n.suffix}` : ""}`;
   await tx
     .insert(notification)

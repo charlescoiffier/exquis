@@ -33,6 +33,8 @@ export const game = pgTable("game", {
   turnLabels: jsonb("turn_labels").$type<string[]>(),
   // Thème facultatif de la partie, visible de tous les joueurs.
   theme: text("theme"),
+  // Jeton du lien public en lecture seule (parties terminées) ; null = pas de lien. Activé et révoqué par le créateur.
+  publicToken: text("public_token").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
@@ -78,6 +80,18 @@ export const contribution = pgTable("contribution", {
   hiddenAt: timestamp("hidden_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const comment = pgTable(
+  "comment",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    gameId: uuid("game_id").notNull().references(() => game.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => user.id),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("comment_game_idx").on(t.gameId, t.createdAt)],
+);
 
 export const draft = pgTable("draft", {
   turnId: uuid("turn_id").primaryKey().references(() => turn.id, { onDelete: "cascade" }),

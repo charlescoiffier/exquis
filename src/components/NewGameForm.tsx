@@ -62,11 +62,10 @@ export function NewGameForm() {
         </select>
         <p id="type-hint" className="hint">{type === "text" ? "Chacun écrit une suite en ne voyant que la fin du passage précédent." : "Chacun dessine la suite en ne voyant qu'une bande du dessin précédent."}</p>
         <label htmlFor="theme">Thème (facultatif)</label>
-        <div className="field-row">
-          <input id="theme" name="theme" value={theme} maxLength={120} onChange={(e) => setTheme(e.target.value)} placeholder={type === "text" ? "Un voyage en train qui ne s'arrête jamais" : "Un monstre sympathique"} aria-describedby="theme-hint" />
+        <input id="theme" name="theme" value={theme} maxLength={120} onChange={(e) => setTheme(e.target.value)} placeholder={type === "text" ? "Un voyage en train qui ne s'arrête jamais" : "Un monstre sympathique"} />
+        <div className="field-foot">
           <button type="button" className="secondary" onClick={() => setTheme(randomTheme(type))}>Au hasard</button>
         </div>
-        <p id="theme-hint" className="hint">Visible de tous les joueurs. « Au hasard » tire un thème dans une banque d&apos;une cinquantaine d&apos;idées pour {type === "text" ? "le texte" : "le dessin"}.</p>
       </fieldset>
 
       <fieldset className="form-section">

@@ -62,6 +62,11 @@ export function turnLabelOf(labels: string[] | null | undefined, rank: number): 
   return labels?.[rank - 1]?.trim() ?? "";
 }
 
+/** « 6 oct. 2026, 14:05 » (fuseau Europe/Paris). */
+export function formatDateTime(d: Date | string): string {
+  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" }).format(new Date(d));
+}
+
 /** « 6 oct. 2026 » (fuseau Europe/Paris). */
 export function formatDate(d: Date | string): string {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeZone: "Europe/Paris" }).format(new Date(d));

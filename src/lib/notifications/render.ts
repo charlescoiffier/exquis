@@ -8,6 +8,7 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   game_completed: "La partie est terminée",
   game_cancelled: "La partie a été annulée",
   work_ready: "L'œuvre finale est prête",
+  comment_added: "Nouveau commentaire sous l'œuvre",
 };
 
 export function renderEmail(type: NotificationType, ctx: { gameName: string; appUrl: string; gameId: string }) {

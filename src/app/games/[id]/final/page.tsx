@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import { CommentsSection } from "@/components/CommentsSection";
+import { ShareCard } from "@/components/ShareCard";
 import { FinalText } from "@/components/FinalText";
 import { Banner } from "@/components/ui/Banner";
 import { ButtonLink } from "@/components/ui/Button";
@@ -8,7 +10,9 @@ import { FinalViewer } from "@/components/FinalViewer";
 import { getDb } from "@/lib/db/client";
 import { DomainError } from "@/lib/errors";
 import { formatDate, formatDuration, languageLabel, participantsLabel } from "@/lib/format";
+import { listComments } from "@/lib/services/comments";
 import { getFinal } from "@/lib/services/final-work";
+import { getShareState } from "@/lib/services/sharing";
 import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -32,9 +36,11 @@ export default async function FinalPage({ params }: { params: Promise<{ id: stri
     throw e;
   }
   const assembling = view.type === "drawing" && !view.ready;
+  const completed = !view.cancelled;
+  const [comments, share] = completed ? await Promise.all([listComments(getDb(), { userId: session.user.id, gameId: id }), getShareState(getDb(), { userId: session.user.id, gameId: id })]) : [[], null];
   return (
     <main>
-      {assembling && <AutoRefresh />}
+      {(assembling || completed) && <AutoRefresh intervalMs={assembling ? 5000 : 15000} />}
       <Banner title={view.cancelled ? "Œuvre inachevée" : "Œuvre finale"} />
       <h2 className="final-name">{view.name}</h2>
       {view.cancelled && <p role="status" className="notice">Partie annulée : voici ce qui avait été {view.type === "drawing" ? "dessiné" : "écrit"}.</p>}
@@ -47,6 +53,8 @@ export default async function FinalPage({ params }: { params: Promise<{ id: stri
       ) : (
         <FinalText contributions={view.contributions} />
       )}
+      {completed && share && <ShareCard gameId={id} token={share.token} isCreator={share.isCreator} />}
+      {completed && <CommentsSection gameId={id} currentUserId={session.user.id} comments={comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))} />}
       <section aria-labelledby="infos" className="final-info">
         <h2 id="infos">À propos de cette partie</h2>
         <Card>
