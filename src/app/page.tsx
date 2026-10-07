@@ -62,7 +62,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                       ) : (
                         <ButtonLink href={`/games/${g.id}`}>Ouvrir</ButtonLink>
                       )}
-                      <LeaveButton gameId={g.id} inProgress={g.status === "in_progress"} />
+                      <LeaveButton gameId={g.id} gameName={g.name} inProgress={g.status === "in_progress"} />
                     </div>
                   </Card>
                 </li>
