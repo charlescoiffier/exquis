@@ -33,7 +33,7 @@ test("deux joueurs terminent une partie de texte", async ({ browser }) => {
 
   await alice.goto("/games/new");
   await alice.getByLabel("Titre de la partie (facultatif)").fill(gameName);
-  await alice.getByLabel("Nombre de tours").selectOption("2");
+  await alice.getByLabel("Nombre d'écrivains").selectOption("2");
   await alice.getByLabel("Mots minimum").fill("2");
   await alice.getByLabel("Mots maximum").fill("30");
   await alice.getByRole("button", { name: "Créer la partie" }).click();
