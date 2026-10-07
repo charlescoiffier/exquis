@@ -269,18 +269,8 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
                   aria-pressed={active}
                   title={c.name}
                   onClick={() => setColor(c.hex)}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    minWidth: 36,
-                    padding: 0,
-                    borderRadius: "50%",
-                    background: c.hex,
-                    border: active ? "3px solid #1f1b16" : "1px solid #9a9488",
-                    outline: active ? "2px solid #fff" : "none",
-                    outlineOffset: -5,
-                    boxShadow: active ? "0 0 0 2px #2563eb" : "none",
-                  }}
+                  className="palette-swatch"
+                  style={{ background: c.hex }}
                 />
               );
             })}
