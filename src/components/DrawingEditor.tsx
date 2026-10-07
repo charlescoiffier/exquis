@@ -34,6 +34,8 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
   const [opacity, setOpacity] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // URL figée pour ce tour : le serveur la re-signe à chaque rendu, un rafraîchissement ne doit pas relancer le téléchargement.
+  const [frozenStripUrl] = useState(stripUrl);
   const [stripReady, setStripReady] = useState(rank === 1);
   const [stripError, setStripError] = useState(rank > 1 && !stripUrl);
 
@@ -41,7 +43,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
   useDraftAutosave(gameId, { ops }, { ops: initial });
 
   useEffect(() => {
-    if (rank === 1 || !stripUrl) return;
+    if (rank === 1 || !frozenStripUrl) return;
     let cancelled = false;
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -51,13 +53,13 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
       setStripReady(true);
     };
     img.onerror = () => {
-      if (!cancelled) setStripError(true);
+      if (!cancelled && !stripRef.current) setStripError(true);
     };
-    img.src = stripUrl;
+    img.src = frozenStripUrl;
     return () => {
       cancelled = true;
     };
-  }, [rank, stripUrl]);
+  }, [rank, frozenStripUrl]);
 
   // Cache bitmap des opérations validées (hors canvas visible) : reconstruit seulement quand `ops` change.
   const cacheRef = useRef<HTMLCanvasElement | null>(null);

@@ -5,10 +5,14 @@ type EventTarget_ = {
   removeEventListener: (type: string, fn: Listener) => void;
 };
 
+const MAX_BACKOFF_MS = 30_000;
+
 export type AutoRefresh = { start: () => void; stop: () => void };
 
 export function createAutoRefresh(opts: {
   intervalMs: number;
+  /** Échecs consécutifs avant d'arrêter le sondage jusqu'au prochain focus (défaut 6). */
+  maxFailures?: number;
   /** Peut renvoyer une promesse : tant qu'elle n'est pas réglée, aucun autre rafraîchissement ne part. */
   refresh: () => Promise<void> | void;
   doc: EventTarget_ & { visibilityState: string };
@@ -19,6 +23,18 @@ export function createAutoRefresh(opts: {
   let timer: unknown = null;
   let inflight = false;
   let running = false;
+  let failures = 0;
+  const delay = () => Math.min(opts.intervalMs * 2 ** failures, MAX_BACKOFF_MS);
+
+  const settle = (ok: boolean) => {
+    inflight = false;
+    const before = delay();
+    failures = ok ? 0 : failures + 1;
+    if (!running) return;
+    // Trop d'échecs consécutifs : on arrête jusqu'au prochain retour de visibilité ou de focus.
+    if (failures >= (opts.maxFailures ?? 6)) return clear();
+    if (timer !== null && delay() !== before) schedule();
+  };
 
   const run = () => {
     if (inflight) return;
@@ -27,17 +43,17 @@ export function createAutoRefresh(opts: {
     try {
       result = opts.refresh();
     } catch {
-      result = undefined;
+      inflight = false;
+      return void settle(false);
     }
     if (!result) {
       inflight = false;
       return;
     }
-    Promise.resolve(result)
-      .catch(() => {})
-      .finally(() => {
-        inflight = false;
-      });
+    Promise.resolve(result).then(
+      () => settle(true),
+      () => settle(false),
+    );
   };
   const clear = () => {
     if (timer !== null) timers.clearInterval(timer as never);
@@ -45,7 +61,7 @@ export function createAutoRefresh(opts: {
   };
   const schedule = () => {
     clear();
-    timer = timers.setInterval(run, opts.intervalMs);
+    timer = timers.setInterval(run, delay());
   };
   const onVisibility = () => {
     if (doc.visibilityState === "hidden") return clear();
@@ -76,7 +92,7 @@ export function createAutoRefresh(opts: {
   };
 }
 
-export const BASE_TITLE = "Exquis";
-export function pageTitle(myTurn: boolean): string {
-  return myTurn ? `(1) C'est votre tour · ${BASE_TITLE}` : BASE_TITLE;
+export const TURN_PREFIX = "(1) C'est votre tour · ";
+export function pageTitle(myTurn: boolean, base: string): string {
+  return myTurn && !base.startsWith(TURN_PREFIX) ? TURN_PREFIX + base : base;
 }

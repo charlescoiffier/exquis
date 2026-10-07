@@ -93,6 +93,42 @@ describe("createAutoRefresh", () => {
     expect(s.refresh).toHaveBeenCalledTimes(2);
   });
 
+  it("double le délai à chaque échec consécutif (plafond 30 s) puis revient à la normale après un succès", async () => {
+    const delays: number[] = [];
+    let fail = true;
+    const ticks = new Map<number, () => void>();
+    let id = 1;
+    const timers = {
+      setInterval: (fn: () => void, ms: number) => { delays.push(ms); ticks.set(id, fn); return id++; },
+      clearInterval: (i: number) => void ticks.delete(i),
+    };
+    const noop = { addEventListener() {}, removeEventListener() {} };
+    const ar = createAutoRefresh({ intervalMs: 5000, refresh: () => (fail ? Promise.reject(new Error("x")) : Promise.resolve()), doc: { visibilityState: "visible", ...noop }, win: noop, timers });
+    ar.start();
+    const flush = () => new Promise((r) => setTimeout(r, 0));
+    for (let i = 0; i < 4; i++) { ticks.forEach((f) => f()); await flush(); }
+    expect(delays).toEqual([5000, 10000, 20000, 30000]);
+    fail = false;
+    ticks.forEach((f) => f());
+    await flush();
+    expect(delays.at(-1)).toBe(5000);
+  });
+
+  it("arrête le sondage après maxFailures échecs, reprend au focus", async () => {
+    const s = setup({ refresh: () => Promise.reject(new Error("offline")) });
+    const ar = createAutoRefresh({ intervalMs: 5000, maxFailures: 2, refresh: s.refresh, doc: s.doc as never, win: { addEventListener: (t: string, f: () => void) => void (s.listeners[`win:${t}`] ??= []).push(f), removeEventListener() {} }, timers: { setInterval: (fn: () => void) => { s.ticks.set(99, fn); return 99; }, clearInterval: () => void s.ticks.delete(99) } });
+    ar.start();
+    const flush = () => new Promise((r) => setTimeout(r, 0));
+    s.ticks.get(99)!();
+    await flush();
+    s.ticks.get(99)!();
+    await flush();
+    expect(s.ticks.has(99)).toBe(false);
+    s.listeners["win:focus"].at(-1)!();
+    await flush();
+    expect(s.refresh).toHaveBeenCalledTimes(3);
+  });
+
   it("nettoie timer et écouteurs à l'arrêt", () => {
     const s = setup();
     s.ar.start();
@@ -107,7 +143,8 @@ describe("createAutoRefresh", () => {
 
 describe("pageTitle", () => {
   it("ajoute le badge quand c'est le tour du joueur", () => {
-    expect(pageTitle(true)).toBe("(1) C'est votre tour · Exquis");
-    expect(pageTitle(false)).toBe("Exquis");
+    expect(pageTitle(true, "Cadavre exquis")).toBe("(1) C'est votre tour · Cadavre exquis");
+    expect(pageTitle(true, "(1) C'est votre tour · X")).toBe("(1) C'est votre tour · X");
+    expect(pageTitle(false, "Cadavre exquis")).toBe("Cadavre exquis");
   });
 });

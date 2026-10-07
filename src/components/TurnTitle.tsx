@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { pageTitle } from "@/lib/hooks/auto-refresh";
+import { TURN_PREFIX, pageTitle } from "@/lib/hooks/auto-refresh";
 
 /**
  * Badge dans le titre de l'onglet quand c'est le tour du joueur ; titre d'origine restauré sinon et au démontage.
@@ -9,12 +9,11 @@ import { pageTitle } from "@/lib/hooks/auto-refresh";
 export function TurnTitle({ myTurn }: { myTurn: boolean }) {
   useEffect(() => {
     if (!myTurn) return;
-    const badge = pageTitle(true);
     let original = document.title;
     const apply = () => {
-      if (document.title === badge) return;
+      if (document.title.startsWith(TURN_PREFIX)) return;
       original = document.title;
-      document.title = badge;
+      document.title = pageTitle(true, original);
     };
     apply();
     const observer = new MutationObserver(apply);
