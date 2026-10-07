@@ -60,7 +60,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                           {g.myDeadline && <Countdown deadline={g.myDeadline.toISOString()} inline />}
                         </>
                       ) : (
-                        <ButtonLink href={`/games/${g.id}`}>Rejoindre</ButtonLink>
+                        <ButtonLink href={`/games/${g.id}`}>Ouvrir</ButtonLink>
                       )}
                       <LeaveButton gameId={g.id} inProgress={g.status === "in_progress"} />
                     </div>
