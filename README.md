@@ -119,7 +119,8 @@ le nom de chaque auteur.
   ponctuation ou un emoji seuls ne comptent pas.
 - Un **paragraphe** est une ligne non vide : chaque retour à la ligne commence un nouveau paragraphe. En mode « dernier
   paragraphe », le suivant reçoit la dernière ligne qui contient un mot, limitée à 150 mots.
-- Un joueur peut participer à **5 parties** en cours au plus et en créer **10 par jour**.
+- Un joueur peut participer à **8 parties** en cours au plus et en créer **10 par jour**.
+- Un joueur peut **quitter** une partie depuis l'accueil : ses tours à venir sont proposés à d'autres joueurs (appel à participation), ses contributions déjà envoyées restent dans l'œuvre.
 - Un tour non joué est remis en jeu au plus **2 fois** ; au-delà, la partie est annulée (sauf pour le dernier tour, qui
   devient un appel à participation). Les contributions d'une partie annulée restent visibles pour ses participants.
 

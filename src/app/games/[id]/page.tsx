@@ -82,7 +82,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
         <Card call>
           <span className="pill call">Appel à participation</span>
           <p className="call-text">
-            <span role="img" aria-label="Appel à participation">📣</span> Le dernier tour attend un volontaire.
+            <span role="img" aria-label="Appel à participation">📢</span> Un tour attend un volontaire.
           </p>
           {!view.isParticipant && <JoinButton gameId={game.id} token={token} claim />}
         </Card>

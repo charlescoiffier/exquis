@@ -28,7 +28,7 @@ Hors périmètre v1 : modération active (outils d'interface), Web Push, démarr
 - La partie démarre lorsqu'elle est pleine. L'ordre de jeu est tiré au sort au démarrage.
 - Pendant la partie, un joueur ne voit que la bande (dessin) ou l'extrait (texte) du tour précédent, sans connaître l'auteur.
 - À la fin, tous les participants voient l'œuvre entière et les auteurs sont révélés.
-- Un joueur peut participer à plusieurs parties à la fois, avec une limite configurable (5 parties actives par défaut).
+- Un joueur peut participer à plusieurs parties à la fois, avec une limite configurable (8 parties actives par défaut). Un joueur peut quitter une partie : en attente, il se désinscrit ; en cours, ses tours à venir deviennent des appels à participation et ses contributions déjà envoyées restent dans l'œuvre.
 - Les œuvres finales sont privées (participants uniquement) par défaut. Les participants pourront ensuite les rendre publiques.
 
 ## 3. Pile technique

@@ -4,6 +4,7 @@ import { Countdown } from "@/components/Countdown";
 import { GameMeta } from "@/components/GameMeta";
 import { GameTag } from "@/components/GameTag";
 import { JoinButton } from "@/components/JoinButton";
+import { LeaveButton } from "@/components/LeaveButton";
 import { TurnTitle } from "@/components/TurnTitle";
 import { Banner } from "@/components/ui/Banner";
 import { ButtonLink } from "@/components/ui/Button";
@@ -47,19 +48,22 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                 <li key={g.id}>
                   <Card className="game-card">
                     <div className="game-main">
-                      <div className="game-title">{g.name}</div>
+                      <div className="game-head">
+                        <div className="game-title">{g.name}</div>
+                        <GameTag kind={g.status === "open" ? "open" : "in_progress"} />
+                      </div>
                       <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} />
                     </div>
                     <div className="game-side">
-                      <GameTag kind={g.status === "open" ? "open" : "in_progress"} />
                       {g.isMyTurn ? (
                         <>
                           <ButtonLink href={`/games/${g.id}`}>À vous de jouer !</ButtonLink>
                           {g.myDeadline && <Countdown deadline={g.myDeadline.toISOString()} inline />}
                         </>
                       ) : (
-                        <ButtonLink href={`/games/${g.id}`} variant="secondary">Rejoindre</ButtonLink>
+                        <ButtonLink href={`/games/${g.id}`}>Rejoindre</ButtonLink>
                       )}
+                      <LeaveButton gameId={g.id} inProgress={g.status === "in_progress"} />
                     </div>
                   </Card>
                 </li>
@@ -89,11 +93,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                   <li key={g.id}>
                     <Card call={call} className="game-card">
                       <div className="game-main">
-                        <div className="game-title">{g.name}</div>
+                        <div className="game-head">
+                          <div className="game-title">{g.name}</div>
+                          <GameTag kind={call ? "call" : "join"} />
+                        </div>
                         <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} extra={extra} />
                       </div>
                       <div className="game-side">
-                        <GameTag kind={call ? "call" : "join"} />
                         {mineIds.has(g.id) ? <ButtonLink href={`/games/${g.id}`} variant="secondary">Ouvrir</ButtonLink> : <JoinButton gameId={g.id} claim={call} />}
                       </div>
                     </Card>

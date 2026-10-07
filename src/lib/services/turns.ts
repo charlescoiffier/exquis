@@ -1,4 +1,4 @@
-import { and, asc, eq, lt } from "drizzle-orm";
+import { and, asc, eq, isNotNull, lt } from "drizzle-orm";
 import { SUBMIT_GRACE_MS, canActOnTurn } from "@/lib/access";
 import type { Db, Tx } from "@/lib/db/client";
 import { contribution, draft, game, participant, turn } from "@/lib/db/schema";
@@ -84,6 +84,11 @@ async function finishTurn(tx: Tx, g: GameRow, t: TurnRow, now: Date): Promise<Ef
     .from(turn)
     .where(and(eq(turn.gameId, g.id), eq(turn.rank, t.rank + 1)))
     .for("update");
+  // Tour libéré par un joueur qui a quitté la partie : il est proposé à tous (appel à participation).
+  if (!next.assignedUserId) {
+    await tx.update(turn).set({ status: "open_call" }).where(eq(turn.id, next.id));
+    return [{ kind: "flush-notifications" }];
+  }
   const deadline = new Date(now.getTime() + g.turnDurationSeconds * 1000);
   await tx.update(turn).set({ status: "active", startedAt: now, deadline }).where(eq(turn.id, next.id));
   await queueNotification(tx, { userId: next.assignedUserId!, type: "your_turn", gameId: g.id, turnId: next.id });
@@ -181,7 +186,7 @@ export async function expireTurn(db: Db, p: { turnId: string; deadline: Date; no
     const pending = await tx
       .select({ id: turn.id, rank: turn.rank, assignedUserId: turn.assignedUserId })
       .from(turn)
-      .where(and(eq(turn.gameId, g.id), eq(turn.status, "pending")))
+      .where(and(eq(turn.gameId, g.id), eq(turn.status, "pending"), isNotNull(turn.assignedUserId)))
       .orderBy(asc(turn.rank));
     const decision = decideOnExpiry({ attempts: t.attempts, pending });
 

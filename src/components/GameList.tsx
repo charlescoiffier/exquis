@@ -26,7 +26,10 @@ export function PastGameList({ games }: { games: PastGame[] }) {
         <li key={g.id}>
           <Card className="game-card">
             <div className="game-main">
-              <Link href={`/games/${g.id}/final`} className="game-title">{g.name}</Link>
+              <div className="game-head">
+                <Link href={`/games/${g.id}/final`} className="game-title">{g.name}</Link>
+                <GameTag kind={g.status === "completed" ? "completed" : "cancelled"} />
+              </div>
               <GameMeta
                 type={g.type}
                 turns={g.turns}
@@ -36,7 +39,6 @@ export function PastGameList({ games }: { games: PastGame[] }) {
                 extra={[`${g.participantCount} participant${g.participantCount > 1 ? "s" : ""}`, g.status === "completed" && g.completedAt ? `terminée le ${formatDate(g.completedAt)}` : `commencée le ${formatDate(g.createdAt)}`]}
               />
             </div>
-            <div className="game-side"><GameTag kind={g.status === "completed" ? "completed" : "cancelled"} /></div>
           </Card>
         </li>
       ))}
