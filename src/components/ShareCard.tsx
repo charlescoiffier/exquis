@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { copyText } from "@/lib/clipboard";
 
 /** Lien public en lecture seule : activé et révoqué par le créateur, copiable par tous les participants. */
 export function ShareCard({ gameId, token, isCreator }: { gameId: string; token: string | null; isCreator: boolean }) {
@@ -38,12 +39,8 @@ export function ShareCard({ gameId, token, isCreator }: { gameId: string; token:
 
   async function copy() {
     setCopied(false);
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-    } catch {
-      setError("Copie automatique impossible : sélectionnez le lien pour le copier.");
-    }
+    if (await copyText(link)) setCopied(true);
+    else setError("Copie automatique impossible : sélectionnez le lien pour le copier.");
   }
 
   return (

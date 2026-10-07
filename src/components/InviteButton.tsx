@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { copyText } from "@/lib/clipboard";
 
 export function InviteButton() {
   const [busy, setBusy] = useState(false);
@@ -30,10 +31,9 @@ export function InviteButton() {
 
   async function copy() {
     setCopied(false);
-    try {
-      await navigator.clipboard.writeText(message);
+    if (await copyText(message)) {
       setCopied(true);
-    } catch {
+    } else {
       // Presse-papiers indisponible : on sélectionne le texte pour une copie manuelle.
       const el = document.getElementById("invite-message");
       const sel = window.getSelection();
