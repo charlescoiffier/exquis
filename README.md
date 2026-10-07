@@ -22,13 +22,14 @@ lance sur votre machine en quelques commandes (voir [Démarrage](#démarrage)). 
 |---|---|
 | ![Un tour de dessin : outils, bande du dessin précédent en haut, zone de dessin carrée](docs/images/tour-dessin-bureau.png) | ![Un monstre dessiné à trois, avec le nom de chaque dessinateur le long de sa zone](docs/images/oeuvre-dessin-bureau.png) |
 
-| Sur téléphone : accueil | Créer une partie | Écrire | Dessiner | L'œuvre | Mon compte |
-|---|---|---|---|---|---|
-| ![Accueil sur téléphone](docs/images/accueil-mobile.png) | ![Création d'une partie sur téléphone](docs/images/creation-mobile.png) | ![Un tour de texte sur téléphone](docs/images/tour-texte-mobile.png) | ![Un tour de dessin sur téléphone](docs/images/tour-dessin-mobile.png) | ![L'œuvre dessinée sur téléphone](docs/images/oeuvre-dessin-mobile.png) | ![La page de compte sur téléphone](docs/images/compte-mobile.png) |
+| Sur téléphone : accueil | Créer une partie | Écrire | Dessiner | L'œuvre | Mes amis | Mon compte |
+|---|---|---|---|---|---|---|
+| ![Accueil sur téléphone](docs/images/accueil-mobile.png) | ![Création d'une partie sur téléphone](docs/images/creation-mobile.png) | ![Un tour de texte sur téléphone](docs/images/tour-texte-mobile.png) | ![Un tour de dessin sur téléphone](docs/images/tour-dessin-mobile.png) | ![L'œuvre dessinée sur téléphone](docs/images/oeuvre-dessin-mobile.png) | ![La page des amis sur téléphone](docs/images/amis-mobile.png) | ![La page de compte sur téléphone : avatar, statistiques, préférences](docs/images/compte-mobile.png) |
 
-L'œuvre d'une partie de texte se présente de la même façon, avec un trait de couleur et le nom de chaque auteur :
+L'œuvre d'une partie de texte se présente de la même façon, avec un trait de couleur et le nom de chaque auteur ; en
+dessous, le **lien public** de partage et les **commentaires** des participants :
 
-![L'œuvre d'une partie de texte : trois paragraphes, chacun avec le nom de son auteur et l'intitulé de son tour](docs/images/oeuvre-texte-bureau.png)
+![L'œuvre d'une partie de texte : trois paragraphes avec le nom de leur auteur, le lien public de partage et les commentaires](docs/images/oeuvre-texte-bureau.png)
 
 ---
 
@@ -58,14 +59,20 @@ minutes à une semaine) pour jouer son tour, sans avoir à être connecté en m�
 
 - **Créer un compte** : sur invitation. Chaque joueur peut en générer depuis la page « Mon compte » (5 invitations
   ouvertes au maximum).
-- **L'accueil** montre vos parties en cours (« À vous de jouer ! » signale votre tour), les **appels à participation**
-  et les parties à rejoindre. Les listes sont paginées par 12, les plus anciennes d'abord. Chaque carte indique le
-  créateur, le nombre d'écrivains ou de dessinateurs, la durée d'un tour et la langue. La page se met à jour toute seule
+- **L'accueil** montre vos parties en cours (le bouton « À vous de jouer ! » signale votre tour, avec le temps
+  restant), vos **invitations reçues** et les **parties à rejoindre**, les appels à participation en tête (icône de
+  haut-parleur). Chaque carte porte une étiquette d'état (« En cours », « À rejoindre »…) et indique le type, le nombre
+  d'écrivains ou de dessinateurs, la durée d'un tour, la langue, le créateur et le thème. Les listes sont paginées par 8,
+  les plus récentes d'abord. Le bouton « Quitter » permet de sortir d'une partie. La page se met à jour toute seule
   (toutes les 5 secondes) et l'onglet du navigateur affiche « (1) C'est votre tour » quand c'est à vous.
-- **Notifications** : « C'est votre tour », rappel avant l'échéance, tour remis en jeu, partie terminée, œuvre prête.
-  Elles sont aussi envoyées par email pour les tours d'au moins 5 minutes (désactivable dans « Mon compte »).
-- **Mon compte** : changer son nom, régler la préférence d'email, générer des invitations, se déconnecter, et retrouver
-  **« Mes anciennes parties »** (terminées ou annulées, les plus récentes d'abord) : un clic ouvre directement l'œuvre.
+- **Pendant que l'on attend**, l'écran d'une partie indique qui joue (« Écrivain 2 est en train d'écrire ») et le temps
+  qu'il lui reste.
+- **Notifications** : « C'est votre tour », rappel avant l'échéance, tour remis en jeu, partie terminée, œuvre prête,
+  nouveau commentaire, demande d'ami, invitation à une partie, décision de la modération. Les notifications de partie
+  sont aussi envoyées par email pour les tours d'au moins 5 minutes (désactivable dans « Mon compte »).
+- **Mon compte** : nom affiché, **avatar** et **statistiques**, préférences (email, moment du rappel), amis,
+  génération d'invitations, déconnexion, et **« Mes anciennes parties »** (terminées ou annulées, les plus récentes
+  d'abord) : un clic ouvre directement l'œuvre.
 
 ### Écrire un tour
 
@@ -90,7 +97,7 @@ demandée est atteinte (« ✓ 22 mots, longueur suffisante »). Le brouillon es
 
 À l'échéance, une fenêtre propose de **valider tout de suite** ce que vous avez fait (texte ou dessin) : vous disposez
 d'une minute de plus. Passé ce délai, le tour est remis en jeu et votre brouillon n'est plus montré à personne. Si c'est
-le **dernier tour** qui n'est pas joué, la partie n'est pas annulée : elle devient un **appel à participation** (📣) que
+le **dernier tour** qui n'est pas joué, la partie n'est pas annulée : elle devient un **appel à participation** (icône de haut-parleur) que
 n'importe quel autre joueur peut reprendre depuis l'accueil.
 
 ### L'œuvre finale
@@ -101,12 +108,40 @@ nom de chaque dessinateur le long de sa zone ; **« Télécharger en PNG »** ex
 (avec ou sans jointures et noms). Pour un texte, la case « Afficher les noms des auteurs » masque ou affiche le trait et
 le nom de chaque auteur.
 
+### Commentaires, partage et signalement
+
+- Sous une œuvre terminée, les **participants** peuvent laisser des **commentaires** (500 caractères) et supprimer les
+  leurs ; les autres participants sont prévenus dans l'application.
+- Le **créateur** de la partie peut activer un **lien public** : toute personne qui l'a peut voir l'œuvre, **sans compte**
+  (avec la même option « jointures et noms » pour un dessin). Les commentaires restent réservés aux participants. Le
+  créateur peut désactiver le lien à tout moment ; le réactiver crée un nouveau lien. Tout participant peut copier le lien.
+- Un participant peut **signaler** un commentaire (sauf le sien) ou une œuvre, avec un motif et des précisions
+  facultatives. Les **modérateurs** traitent les signalements dans la page « Modération » : ils masquent le contenu
+  (un commentaire disparaît ; une œuvre devient invisible de tous et son lien public est retiré ; les personnes
+  concernées sont prévenues) ou rejettent le signalement.
+
+### Amis et invitations
+
+Chaque compte a un **code ami** (page « Mes amis »). On ajoute quelqu'un en saisissant son code, ou en choisissant un
+joueur rencontré (avec qui l'on a partagé une partie) ; l'autre personne accepte ou refuse. Il n'existe aucun annuaire :
+on ne peut pas chercher un compte par son nom ou son email. Un participant d'une partie en attente de joueurs peut
+**inviter ses amis** : chacun reçoit une notification et une carte sur son accueil, et l'invitation lui donne accès à la
+partie même si elle est sur invitation.
+
+### Profil et rappels
+
+L'**avatar** est une forme géométrique imposée (12 formes), avec une couleur de forme et une couleur de fond prises dans
+une palette de 8 couleurs ; un avatar par défaut est attribué à chaque compte. Les **statistiques** comptent les parties
+jouées, terminées, en cours et créées, les tours joués (dessins et textes) et les commentaires. Le **rappel** avant la
+fin d'un tour se règle dans « Mon compte » : à la moitié, au quart (par défaut) ou au dixième du temps restant, ou
+aucun rappel.
+
 ### Les réglages d'une partie
 
 | Réglage | Valeurs |
 |---|---|
 | Type | Texte ou dessin |
-| Nombre de tours | De 2 à 8 (un joueur par tour) |
+| Nombre d'écrivains / de dessinateurs | De 2 à 8 (un joueur par tour) |
 | Durée d'un tour | 1 minute, 5 minutes, 15 minutes, 1 heure, 1 jour ou 1 semaine |
 | Intitulés des tours | Facultatifs, un par tour (« Tête », « Corps »…) |
 | Thème | Facultatif, visible de tous les joueurs ; le bouton « Au hasard » tire dans une banque d'environ 100 idées (50 pour le texte, 50 pour le dessin, `src/lib/themes.ts`) |
@@ -124,6 +159,8 @@ le nom de chaque auteur.
   paragraphe », le suivant reçoit la dernière ligne qui contient un mot, limitée à 150 mots.
 - Un joueur peut participer à **8 parties** en cours au plus et en créer **10 par jour**.
 - Un joueur peut **quitter** une partie depuis l'accueil : ses tours à venir sont proposés à d'autres joueurs (appel à participation), ses contributions déjà envoyées restent dans l'œuvre.
+- Une partie **jamais lancée** depuis une semaine, ou **en cours mais sans aucune activité** depuis une semaine
+  (démarrage, tour joué, brouillon enregistré), est supprimée automatiquement.
 - Un tour non joué est remis en jeu au plus **2 fois** ; au-delà, la partie est annulée (sauf pour le dernier tour, qui
   devient un appel à participation). Les contributions d'une partie annulée restent visibles pour ses participants.
 
@@ -189,25 +226,25 @@ Sans lui, les parties n'avancent pas à l'expiration des tours. Il doit tourner 
 [Next.js 15](https://nextjs.org/) (App Router) et TypeScript ; [PostgreSQL](https://www.postgresql.org/) avec
 [Drizzle ORM](https://orm.drizzle.team/) ; [Better Auth](https://www.better-auth.com/) pour les comptes ;
 [pg-boss](https://github.com/timgit/pg-boss) pour les tâches de fond (expirations, rappels, emails, assemblage) ;
-[sharp](https://sharp.pixelplumbing.com/) pour les images côté serveur ; [perfect-freehand](https://github.com/steveruizok/perfect-freehand)
-pour le tracé ; stockage local ou S3 ; [Resend](https://resend.com/) pour les emails ; [Vitest](https://vitest.dev/) et
+[sharp](https://sharp.pixelplumbing.com/) pour les images côté serveur ; canvas 2D natif pour le tracé ; stockage local ou S3 ; [Resend](https://resend.com/) pour les emails ; [Vitest](https://vitest.dev/) et
 [Playwright](https://playwright.dev/) pour les tests ; polices Abril Fatface et Work Sans (`next/font`).
 
 ## Organisation du code
 
 | Dossier / fichier | Rôle |
 |---|---|
-| `src/app/` | Pages (accueil, partie, œuvre, compte, notifications, connexion) et routes d'API (`/api/**`). |
+| `src/app/` | Pages (accueil, partie, œuvre, compte, amis, modération, notifications, connexion, œuvre publique `/p/[token]`) et routes d'API (`/api/**`). |
 | `src/components/` | Composants : éditeurs (`TextTurn`, `DrawingEditor`), `TurnEditor` (échéance, fenêtre de validation), `FinalViewer` / `FinalText`, formulaires ; `ui/` : bandeau, onglets, cartes, boutons, pagination. |
 | `src/lib/domain/` | Règles pures : mots et paragraphes (`text.ts`), paramètres d'une partie (`game-rules.ts`), décision à l'expiration (`expiry.ts`). |
-| `src/lib/services/` | Logique métier sur la base : parties, tours, œuvre finale, notifications, comptes, invitations, envoi d'emails. |
+| `src/lib/services/` | Logique métier sur la base : parties, tours, œuvre finale, commentaires, partage public, amis, invitations ciblées, signalement et modération, notifications, comptes et profils, invitations d'inscription, envoi d'emails. |
+| `src/lib/drawing/`, `avatar.ts`, `themes.ts` | Opérations de dessin et rendu (crayons, aérographe déterministe, formes), avatars géométriques et palette, banque de thèmes. |
 | `src/lib/images/` | Géométrie du dessin (`geometry.ts`), traitement d'images côté serveur (`strip.ts`), mise en page de l'export PNG (`export-layout.ts`). |
 | `src/lib/jobs/` | File de tâches pg-boss (`queue.ts`) et traitements (`handlers.ts`) ; `src/worker.ts` est le point d'entrée du worker. |
 | `src/lib/storage/` | Stockage des images : mémoire (tests), disque avec URL signées, S3. |
 | `src/lib/db/` | Schéma Drizzle, client, migrations ; `drizzle/` contient les migrations SQL. |
 | `src/lib/hooks/`, `turn-timing.ts`, `expired-notice.ts` | Rafraîchissement automatique, sauvegarde du brouillon, calcul de la fenêtre de validation côté client. |
 | `tests/`, `e2e/` | Tests Vitest (miroir de `src/lib`) et test de bout en bout Playwright. |
-| `scripts/` | `create-invite.ts` (première invitation), `dev-db.ts` (base embarquée), `capture-readme.ts` (captures du README). |
+| `scripts/` | `create-invite.ts` (première invitation), `dev.ts` (`npm run dev:web` / `dev:phone`), `dev-db.ts` (base embarquée), `set-role.ts` (rôle de modérateur), `capture-readme.ts` (captures du README). |
 | `docs/` | `design/manifeste.md` (charte graphique), `superpowers/` (spécification, plans d'implémentation, suites à donner). |
 
 ## Cycle de vie d'une partie
@@ -220,6 +257,8 @@ pour le tracé ; stockage local ou S3 ; [Resend](https://resend.com/) pour les e
 - À l'échéance **plus 60 secondes** (fenêtre de validation), le job d'expiration remet le tour en jeu : le joueur est
   échangé avec le prochain joueur en attente. Au-delà de 2 remises en jeu, la partie est annulée. Si c'est le dernier
   tour, il passe en `open_call` (appel à participation) ; un joueur qui n'est pas dans la partie peut le reprendre.
+- Un joueur peut **quitter** une partie : en attente, il est désinscrit ; en cours, ses tours à venir sont libérés et le tour libéré devient un appel à participation (`participant.left_at` conserve ses contributions déjà envoyées).
+- Le worker supprime chaque heure les parties jamais lancées ou sans activité depuis 7 jours, et programme pour chaque tour un rappel par étape (50, 25 et 10 % du temps restant) dont seule celle qui correspond à la préférence du joueur envoie une notification.
 - Chaque transition verrouille la ligne concernée (`FOR UPDATE`) ; les jobs sont idempotents (ils revérifient l'état et
   l'échéance) et un balayage toutes les minutes rattrape les jobs perdus.
 
@@ -231,6 +270,9 @@ signée (5 minutes) vers la bande, ou l'extrait calculé ; les images complètes
 n'est lisible que par les participants d'une partie terminée (ou annulée). Les brouillons sont rattachés au tour **et**
 au joueur.
 
+Un **lien public** (`game.public_token`) ne donne accès qu'à une œuvre terminée, en lecture seule, sans les commentaires ;
+il est révocable par le créateur et retiré avec le masquage d'une œuvre par la modération (`game.hidden_at`).
+
 ## Dessin
 
 La zone est un carré de **1600×1600 px** (`geometry.ts`). La **bande de transition** fait 160 px (10 %) : le serveur
@@ -240,9 +282,14 @@ retouchée par le joueur suivant ; les positions des jointures sont conservées 
 noms ne sont jamais incrustés dans les images stockées : ce sont des calques d'affichage, recomposés dans le navigateur
 pour l'export PNG (réduit uniformément au-delà de 16 millions de pixels, limite des canvas mobiles).
 
-Dans l'éditeur, les traits sont gardés sous forme vectorielle (annuler / rétablir, brouillon JSON) et dessinés dans un
-calque transparent posé **au-dessus** de la bande héritée ; la gomme efface dans ce calque seulement, et le remplissage
-est borné à la zone propre du joueur.
+Dans l'éditeur, les traits sont gardés sous forme d'**opérations** (trait, remplissage, forme, « tout effacer » ; annuler /
+rétablir, brouillon JSON validé par `sanitizeOps`) et dessinés dans un calque transparent posé **au-dessus** de la bande
+héritée ; la gomme efface dans ce calque seulement, et le remplissage est borné à la zone propre du joueur. Les traits sont
+lissés par courbes quadratiques. Pendant le geste, le tracé est dessiné **directement sur le canvas visible**, au plus une
+fois par image : le crayon opaque et l'aérographe n'ajoutent que les nouveaux points ; le crayon translucide, le
+surligneur, la gomme et les formes restaurent la zone touchée depuis une copie du canvas puis se redessinent en une
+passe (l'opacité s'applique donc une seule fois). Au relâchement, le canvas est recomposé à partir des calques. Des
+calques d'aperçu superposés avaient été essayés : ils divisaient la fluidité par cinq sur un smartphone Android.
 
 ## Texte
 
@@ -356,20 +403,25 @@ npx playwright install chromium   # une fois
 npm run e2e
 ```
 
-Les tests s'exécutent sur une **vraie base PostgreSQL** (pas de simulation de la base). Le test de bout en bout
+Les tests (une trentaine de fichiers, plus de 350 tests) s'exécutent sur une **vraie base PostgreSQL** (pas de simulation de la base). Le test de bout en bout
 (`e2e/text-game.spec.ts`, partie de texte à deux joueurs) démarre `npm run dev` via Playwright, lit `.env.local` et force
 `REQUIRE_EMAIL_VERIFICATION=false` ; il utilise la **base de développement** (migrée au préalable) : les comptes et la
-partie créés y restent, avec des noms et emails uniques par exécution.
+partie créés y restent, avec des noms et emails uniques par exécution. Il couvre le parcours complet : inscription,
+partie de texte à deux joueurs, commentaire et lien public ouvert sans compte.
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) lance à chaque pull request et à chaque push sur `main` : typage,
 lint, tests et build (job « Typage, lint, tests, build »), puis le test de bout en bout (job « Test de bout en bout »),
-chacun avec un PostgreSQL 16 en service.
+chacun avec un PostgreSQL 16 en service. Le travail se fait sur des branches ; les tests, le typage et le lint sont
+lancés en local avant de fusionner dans `main` et de pousser.
 
 ## Images du README
 
 Les captures de `docs/images/` sont générées par `npm run capture:readme` : le script crée une base jetable
 (`exquis_shots`), lance l'application sur le port 3100, joue quelques parties de texte et de dessin par l'API, prend les
-captures avec Playwright, puis arrête son serveur et supprime la base. Il demande PostgreSQL (`npm run db:dev` ou
+captures avec Playwright, puis arrête son serveur et supprime la base. Les dessins des parties jouées par le script sont
+générés « à la main » (contours tremblants, remplissages décalés et hachurés, extrémités alignées sur les jointures) ; les
+traits de l'éditeur sont rejoués avec un geste légèrement irrégulier. `npm run capture:readme -- --preview <dossier>` n'écrit
+que ces dessins, pour les relire. Il demande PostgreSQL (`npm run db:dev` ou
 Docker) et Chromium (`npx playwright install chromium`) ; rien n'est écrit dans la base de développement.
 
 ## Apparence
@@ -378,34 +430,15 @@ L'interface suit la direction visuelle « Manifeste » (affiche surréaliste des
 2 px, ombres dures, titres en Abril Fatface, accents moutarde et vert canard, thème clair). Jetons, composants partagés et
 règles d'usage : [`docs/design/manifeste.md`](docs/design/manifeste.md).
 
-## Profil, rappels et diagnostic
+## Diagnostic et administration
 
-- **Avatar** : une forme géométrique imposée (12 formes), une couleur de forme et une couleur de fond prises dans une
-  palette de 8 couleurs (la forme et le fond doivent différer) ; un avatar par défaut est attribué à chaque compte.
-  L'avatar apparaît à côté des commentaires. Le profil affiche aussi des **statistiques** (parties jouées, terminées,
-  en cours, créées, tours joués, dessins, textes, commentaires).
-- **Rappels** : un rappel avant la fin de chaque tour, dans l'application (et par email pour les tours de 5 minutes ou
-  plus). Chaque joueur choisit dans « Mon compte » le moment : quand il reste la moitié, un quart (par défaut) ou un
-  dixième du temps, ou aucun rappel. Le worker programme les trois étapes au début du tour ; seule celle qui correspond à
-  la préférence du joueur envoie une notification.
-- **Diagnostic de fluidité du dessin** : ouvrir une partie de dessin avec `?perf=1` à la fin de l'adresse affiche des
-  mesures à l'écran et les envoie automatiquement au serveur (moyennes sur les secondes où l'on dessine, toutes les 10 s et
-  en quittant la page). Les rapports sont écrits dans la sortie du serveur (`[perf] …`) et dans `.perf/reports.jsonl`.
-
-## Amis, invitations ciblées et modération
-
-- **Amis** : chaque compte a un **code ami** (page « Mes amis », accessible depuis « Mon compte »). On ajoute quelqu'un en
-  saisissant son code, ou en choisissant un joueur rencontré (avec qui l'on a partagé une partie). L'autre personne
-  accepte ou refuse ; deux demandes croisées valent acceptation. Aucun annuaire : on ne peut pas chercher un compte par son
-  nom ou son email.
-- **Invitations ciblées** : un participant d'une partie en attente de joueurs peut inviter ses amis. Chaque invité reçoit
-  une notification et une carte « Invitations reçues » sur l'accueil ; l'invitation lui donne accès à la partie même si elle
-  est sur invitation.
-- **Signalement** : tout participant peut signaler un commentaire (sauf le sien) ou une œuvre terminée, avec un motif et des
-  précisions facultatives.
-- **Modération** : un compte au rôle `moderator` voit la page « Modération » (depuis « Mon compte ») avec les signalements à
-  traiter. Il peut masquer le contenu (un commentaire disparaît ; une œuvre devient invisible de tous et son lien public est
-  retiré ; les personnes concernées sont prévenues) ou rejeter le signalement. Pour donner ou retirer le rôle :
+- **Fluidité du dessin** : ouvrir une partie de dessin avec `?perf=1` à la fin de l'adresse affiche des mesures à l'écran
+  (événements et images par seconde, coût par image, tâches longues) et les envoie automatiquement au serveur (moyennes sur
+  les secondes où l'on dessine, toutes les 10 s et en quittant la page). Les rapports sont écrits dans la sortie du serveur
+  (`[perf] …`) et dans `.perf/reports.jsonl`, ignoré par git. Utile pour comparer un smartphone à un ordinateur.
+- **Essai sur smartphone** : `npm run dev:phone` lance le serveur et le worker accessibles sur le réseau local ; la copie
+  dans le presse-papiers retombe sur une méthode de secours, l'API moderne exigeant HTTPS.
+- **Modération** : pour donner ou retirer le rôle de modérateur :
 
 ```bash
 npm run role -- adresse@exemple.fr moderator   # ou : player
