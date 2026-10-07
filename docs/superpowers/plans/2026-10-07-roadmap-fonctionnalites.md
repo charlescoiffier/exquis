@@ -10,7 +10,7 @@ avant le code.
 | D1 Crayons | crayon fin, moyen, épais ; surligneur translucide (opacité constante sur le trait, pas de surcharge aux croisements) ; aérographe | Chaque trait garde `tool`, `size`, `opacity` dans l'opération. Surligneur : trait dessiné en une passe puis fusionné avec une opacité globale (aperçu : calque d'aperçu à opacité CSS, déjà en place). Aérographe : semis de points déterministe (graine stockée dans l'opération). |
 | D2 Formes | ligne, rectangle, ovale ; contour ou rempli | Nouvelle opération `shape` (type, deux coins, contour/rempli, couleur, épaisseur). Aperçu sur le calque d'aperçu, redessiné à chaque image (coût constant). |
 | D3 Tout effacer | bouton avec la modale `ConfirmDialog` | Opération `clear` dans l'historique : annulable. |
-| D4 Zoom et déplacement | pincement à deux doigts, glisser à deux doigts, molette sur ordinateur | Transformation CSS du cadre uniquement (le canvas garde sa résolution) : aucun coût de dessin. Les coordonnées du pointeur tiennent compte de la transformation. À faire après la résolution de la lenteur sur smartphone. |
+| ~~D4 Zoom et déplacement~~ | **Abandonné (décision du 8 octobre 2026).** Idée écartée : pincement et glisser à deux doigts, molette sur ordinateur. | Piste envisagée si la question revient : transformation CSS de l'enveloppe qui contient tous les calques (le canvas garde sa résolution), sans contexte de canvas désynchronisé, avec suivi manuel des pointeurs et tracé figé pendant un geste à deux doigts. Risques identifiés : conflit avec le zoom natif du navigateur, mémoire sur iOS. |
 
 ## Fonctionnalités
 
@@ -36,5 +36,5 @@ avant le code.
 
 1. Diagnostic de la lenteur du dessin sur smartphone (mesures `?perf=1`).
 2. Lot T (thèmes), puis C (commentaires), puis P (partage public).
-3. Outils D1 à D3, puis D4 (zoom) une fois la fluidité acquise.
+3. Outils D1 à D3 (faits). D4 (zoom et déplacement) est abandonné.
 4. Lots R et Pr (priorité 2), puis A et M (priorité 3).
