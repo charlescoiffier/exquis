@@ -90,7 +90,7 @@ describe("sanitizeOps", () => {
     const bad = [
       null, 3, { kind: "x" },
       { ...good, color: "red" },
-      { ...good, tool: "spray" },
+      { ...good, tool: "marker" },
       { ...good, size: NaN },
       { ...good, opacity: "1" },
       { ...good, points: [] },
@@ -100,6 +100,20 @@ describe("sanitizeOps", () => {
       { kind: "fill", x: 1, y: 2, color: "#zzzzzz" },
     ];
     expect(sanitizeOps([...bad, good])).toEqual([good]);
+  });
+  it("accepte les nouveaux outils : surligneur, aérographe (graine), formes et « tout effacer »", () => {
+    const spray = { ...good, tool: "spray", seed: 12345.9 };
+    const shape = { kind: "shape", shape: "oval", filled: true, color: "#ff0000", size: 4, opacity: 0.5, x1: 1, y1: 2, x2: 30, y2: 40 };
+    expect(sanitizeOps([{ ...good, tool: "highlighter" }, spray, shape, { kind: "clear" }])).toEqual([
+      { ...good, tool: "highlighter" },
+      { ...spray, seed: 12345 },
+      shape,
+      { kind: "clear" },
+    ]);
+  });
+  it("écarte les formes invalides", () => {
+    const shape = { kind: "shape", shape: "rect", filled: false, color: "#ff0000", size: 4, opacity: 1, x1: 1, y1: 2, x2: 3, y2: 4 };
+    expect(sanitizeOps([{ ...shape, shape: "triangle" }, { ...shape, filled: "oui" }, { ...shape, x2: NaN }, { ...shape, color: "rouge" }])).toEqual([]);
   });
   it("borne le nombre de points", () => {
     expect(sanitizeOps([{ ...good, points: Array.from({ length: 20001 }, () => [0, 0, 1]) }])).toEqual([]);

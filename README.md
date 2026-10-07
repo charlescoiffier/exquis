@@ -79,8 +79,10 @@ demandée est atteinte (« ✓ 22 mots, longueur suffisante »). Le brouillon es
 - La zone de dessin est **carrée**. Les lignes pointillées montrent où le dessin se raccorde : la **bande du dessin
   précédent** apparaît en haut, et ce que vous dessinez dans la dernière bande du bas sera la seule chose que le joueur
   suivant verra de votre travail.
-- Outils : **pinceau**, **gomme**, **pot de peinture**, annuler / rétablir, 12 couleurs rapides et un sélecteur de
-  couleur libre, **taille** et **opacité** du trait. Un petit cercle gris suit le curseur et montre la taille du pinceau.
+- Outils : **crayon** (fin, moyen ou épais), **surligneur** translucide (la couleur ne s'assombrit pas quand le trait se
+  croise), **aérographe**, **gomme**, **pot de peinture**, **formes** (ligne, rectangle, ovale, en contour ou remplies),
+  annuler / rétablir, **tout effacer** (avec confirmation, annulable), 12 couleurs rapides et un sélecteur de couleur
+  libre, **taille** et **opacité** du trait. Un petit cercle gris suit le curseur et montre la taille du trait.
 - Vous pouvez dessiner **par-dessus la bande du dessin précédent**, mais pas l'effacer : la gomme n'agit que sur vos
   propres traits et le pot de peinture ne remplit jamais la bande.
 
