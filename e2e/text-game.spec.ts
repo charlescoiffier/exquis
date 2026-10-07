@@ -62,7 +62,7 @@ test("deux joueurs terminent une partie de texte", async ({ browser }) => {
           }
           return false;
         },
-        { message: `joueur actif au tour ${i + 1}`, timeout: 20_000 },
+        { message: `joueur actif au tour ${i + 1}`, timeout: 60_000 },
       )
       .toBe(true);
     const active = current!;

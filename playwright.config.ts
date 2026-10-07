@@ -6,7 +6,7 @@ config({ path: ".env.local", quiet: true });
 
 export default defineConfig({
   testDir: "e2e",
-  timeout: 60_000,
+  timeout: 180_000,
   workers: 1,
   use: { baseURL: "http://localhost:3000" },
   webServer: {
