@@ -266,7 +266,8 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     }
   }, [width, height]);
 
-  // Mesures de fluidité, affichées seulement avec « ?perf=1 » dans l'adresse de la page (diagnostic sur smartphone).
+  // Mesures de fluidité, avec « ?perf=1 » dans l'adresse de la page (diagnostic sur smartphone) : affichées à l'écran et
+  // envoyées automatiquement au serveur (moyennes sur les secondes où l'on dessine), toutes les 10 s et en quittant la page.
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has("perf")) return;
     const observer = typeof PerformanceObserver !== "undefined" ? new PerformanceObserver((l) => (perfRef.current.long += l.getEntries().length)) : null;
@@ -275,14 +276,51 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     } catch {
       // longtask non pris en charge : on ignore
     }
+    const totals = { seconds: 0, moves: 0, frames: 0, drawMs: 0, long: 0 };
+    const send = () => {
+      if (totals.seconds === 0) return;
+      const canvas = canvasRef.current;
+      const report = {
+        activeSeconds: totals.seconds,
+        eventsPerSecond: +(totals.moves / totals.seconds).toFixed(1),
+        framesPerSecond: +(totals.frames / totals.seconds).toFixed(1),
+        msPerFrame: totals.frames ? +(totals.drawMs / totals.frames).toFixed(3) : 0,
+        longTasks: totals.long,
+        dpr: window.devicePixelRatio || 1,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        canvasCssWidth: canvas?.clientWidth ?? 0,
+        liveScale: liveScaleRef.current,
+        userAgent: navigator.userAgent,
+        page: window.location.pathname,
+      };
+      totals.seconds = totals.moves = totals.frames = totals.drawMs = totals.long = 0;
+      void fetch("/api/perf", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(report), keepalive: true }).catch(() => undefined);
+    };
+    let ticks = 0;
     const id = setInterval(() => {
       const m = perfRef.current;
       setPerf(`événements/s ${m.moves} · images/s ${m.frames} · dessin ${m.frames ? (m.drawMs / m.frames).toFixed(2) : "0"} ms/image · tâches longues ${m.long}`);
-      perfRef.current = { moves: 0, frames: 0, drawMs: 0, long: m.long };
+      if (m.moves > 0 || m.frames > 0) {
+        totals.seconds += 1;
+        totals.moves += m.moves;
+        totals.frames += m.frames;
+        totals.drawMs += m.drawMs;
+        totals.long += m.long;
+      }
+      perfRef.current = { moves: 0, frames: 0, drawMs: 0, long: 0 };
+      if (++ticks % 10 === 0) send();
     }, 1000);
+    const onHide = () => {
+      if (document.visibilityState === "hidden") send();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", send);
     return () => {
       clearInterval(id);
       observer?.disconnect();
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", send);
+      send();
     };
   }, []);
 

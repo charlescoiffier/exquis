@@ -377,3 +377,17 @@ Docker) et Chromium (`npx playwright install chromium`) ; rien n'est écrit dans
 L'interface suit la direction visuelle « Manifeste » (affiche surréaliste des années 1920 : aplats, bordures noires de
 2 px, ombres dures, titres en Abril Fatface, accents moutarde et vert canard, thème clair). Jetons, composants partagés et
 règles d'usage : [`docs/design/manifeste.md`](docs/design/manifeste.md).
+
+## Profil, rappels et diagnostic
+
+- **Avatar** : une forme géométrique imposée (12 formes), une couleur de forme et une couleur de fond prises dans une
+  palette de 8 couleurs (la forme et le fond doivent différer) ; un avatar par défaut est attribué à chaque compte.
+  L'avatar apparaît à côté des commentaires. Le profil affiche aussi des **statistiques** (parties jouées, terminées,
+  en cours, créées, tours joués, dessins, textes, commentaires).
+- **Rappels** : un rappel avant la fin de chaque tour, dans l'application (et par email pour les tours de 5 minutes ou
+  plus). Chaque joueur choisit dans « Mon compte » le moment : quand il reste la moitié, un quart (par défaut) ou un
+  dixième du temps, ou aucun rappel. Le worker programme les trois étapes au début du tour ; seule celle qui correspond à
+  la préférence du joueur envoie une notification.
+- **Diagnostic de fluidité du dessin** : ouvrir une partie de dessin avec `?perf=1` à la fin de l'adresse affiche des
+  mesures à l'écran et les envoie automatiquement au serveur (moyennes sur les secondes où l'on dessine, toutes les 10 s et
+  en quittant la page). Les rapports sont écrits dans la sortie du serveur (`[perf] …`) et dans `.perf/reports.jsonl`.

@@ -11,6 +11,12 @@ export const profile = pgTable("profile", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
   role: text("role").notNull().default("player"),
   emailEnabled: boolean("email_enabled").notNull().default(true),
+  // Rappel avant la fin d'un tour : part du temps restant (50, 25 ou 10 %) ; 0 = aucun rappel.
+  reminderStage: integer("reminder_stage").notNull().default(25),
+  // Avatar géométrique : forme imposée, couleur de la forme et du fond (palette fixe) ; null = avatar par défaut dérivé du compte.
+  avatarShape: text("avatar_shape"),
+  avatarColor: text("avatar_color"),
+  avatarBg: text("avatar_bg"),
 });
 
 export const game = pgTable("game", {

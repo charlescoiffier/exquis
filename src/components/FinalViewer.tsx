@@ -4,17 +4,17 @@ import type { Direction, Joint } from "@/lib/images/geometry";
 import { RAIL_COLORS, exportLayout, exportScale } from "@/lib/images/export-layout";
 
 type Segment = { rank: number; author: string; label?: string; start: number; end: number };
-type Props = { gameId: string; direction: Direction; width: number; height: number; joints: Joint[]; segments: Segment[] };
+type Props = { gameId?: string; /** Adresse de l'image (par défaut : image de la partie, pour un participant connecté). */ imageSrc?: string; direction: Direction; width: number; height: number; joints: Joint[]; segments: Segment[] };
 
 const EXPORT_FONT = 40;
 const FONT = `${EXPORT_FONT}px system-ui, -apple-system, "Segoe UI", sans-serif`;
 
-export function FinalViewer({ gameId, direction, width, height, joints, segments }: Props) {
+export function FinalViewer({ gameId, imageSrc, direction, width, height, joints, segments }: Props) {
   const [showGuides, setShowGuides] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const urlRef = useRef<string | null>(null);
-  const src = `/api/games/${gameId}/final/image`;
+  const src = imageSrc ?? `/api/games/${gameId}/final/image`;
   const layout = useMemo(
     () => exportLayout({ direction, width, height, joints, segments, showGuides }),
     [direction, width, height, joints, segments, showGuides],
