@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -91,3 +94,21 @@ jobs:
             playwright-report
           if-no-files-found: ignore
           retention-days: 7
+
+  # Fusion automatique, sur demande : une pull request portant l'étiquette « automerge » est fusionnée dans sa branche de
+  # base dès que les deux contrôles ci-dessus ont réussi. (La fusion automatique native de GitHub et la protection de
+  # branche ne sont pas disponibles sur un dépôt privé gratuit.)
+  automerge:
+    name: Fusion automatique
+    needs: [verify, e2e]
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'automerge')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fusionner la pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --merge
