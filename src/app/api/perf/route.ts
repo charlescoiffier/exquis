@@ -15,7 +15,7 @@ const body = z.object({
   dpr: num,
   viewport: z.string().max(40),
   canvasCssWidth: num,
-  liveScale: num,
+  liveScale: num.optional(),
   userAgent: z.string().max(300),
   page: z.string().max(200),
   mode: z.enum(["layers", "direct"]).optional(),
