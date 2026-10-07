@@ -18,6 +18,7 @@ const body = z.object({
   liveScale: num,
   userAgent: z.string().max(300),
   page: z.string().max(200),
+  mode: z.enum(["layers", "direct"]).optional(),
 });
 
 /**

@@ -74,6 +74,9 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   const [shapeFilled, setShapeFilled] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const liveGroupRef = useRef<HTMLDivElement>(null);
+  // Mode d'essai (« ?mode=direct » dans l'adresse) : crayon opaque et aérographe dessinés directement sur le canvas visible,
+  // sans calques d'aperçu, pour comparer la fluidité sur smartphone avec « ?perf=1 ». Par défaut : calques d'aperçu.
+  const directMode = useRef(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mode") === "direct");
   const [color, setColor] = useState("#1f1b16");
   const [size, setSize] = useState(8);
   const [opacity, setOpacity] = useState(1);
@@ -292,6 +295,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         liveScale: liveScaleRef.current,
         userAgent: navigator.userAgent,
         page: window.location.pathname,
+        mode: directMode.current ? "direct" : "layers",
       };
       totals.seconds = totals.moves = totals.frames = totals.drawMs = totals.long = 0;
       void fetch("/api/perf", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(report), keepalive: true }).catch(() => undefined);
@@ -339,6 +343,12 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     const tip = tipRef.current;
     if (!op || !live || !tip || op.kind === "fill" || op.kind === "clear") return;
     const t0 = performance.now();
+    if (directMode.current && op.kind === "stroke" && (op.tool === "spray" || (op.tool === "brush" && op.opacity === 1))) {
+      drawDirect(op);
+      perfRef.current.frames += 1;
+      perfRef.current.drawMs += performance.now() - t0;
+      return;
+    }
     const k = liveScaleRef.current;
     const prepare = (ctx: CanvasRenderingContext2D) => {
       ctx.save();
@@ -435,6 +445,48 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     }
     perfRef.current.frames += 1;
     perfRef.current.drawMs += performance.now() - t0;
+  }
+  /** Mode d'essai : dessine les nouveaux points directement sur le canvas visible (sans pointe provisoire). */
+  function drawDirect(op: Extract<Op, { kind: "stroke" }>) {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.save();
+    if (op.tool === "spray") {
+      ctx.globalAlpha = op.opacity * SPRAY_DOT_OPACITY;
+      ctx.fillStyle = op.color;
+      ctx.beginPath();
+      for (const [x, y, r] of sprayDots(op, op.points, drawnRef.current)) {
+        ctx.moveTo(x + r, y);
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      drawnRef.current = op.points.length;
+    } else {
+      const pts = op.points;
+      const n = pts.length;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = strokeWidth(op);
+      ctx.strokeStyle = op.color;
+      ctx.beginPath();
+      if (n === 1) {
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        ctx.lineTo(pts[0][0] + 0.01, pts[0][1]);
+      } else {
+        let i = drawnRef.current;
+        if (i < n - 1) {
+          const start = i <= 1 ? pts[0] : mid(pts[i - 1], pts[i]);
+          ctx.moveTo(start[0], start[1]);
+          for (; i < n - 1; i++) {
+            const m = mid(pts[i], pts[i + 1]);
+            ctx.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]);
+          }
+          drawnRef.current = i;
+        }
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
   function scheduleLive() {
     if (!rafRef.current) rafRef.current = requestAnimationFrame(drawLive);
