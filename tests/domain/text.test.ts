@@ -82,7 +82,7 @@ describe("transmittedRange", () => {
     expect(countWords(extractExcerpt("Salut , le monde !", { mode: "words", count: 2 }))).toBe(2);
   });
   it.each([
-    ["Fin du texte ! 🎄", 2, "texte ! 🎄"],
+    ["Fin du texte ! 🎄", 2, "du texte ! 🎄"],
     ["a , b ... c — d !!", 3, "b ... c — d !!"],
     ["un deux", 5, "un deux"],
     ["... 🎄 !!", 2, ""],
