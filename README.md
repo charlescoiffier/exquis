@@ -141,6 +141,17 @@ npm run dev                       # http://localhost:3000
 npm run worker                    # dans un second terminal
 ```
 
+Pour essayer l'application depuis un smartphone connecté au même Wi-Fi, un seul terminal suffit :
+
+```bash
+npm run dev:phone     # serveur + worker, accessibles sur le réseau local
+```
+
+La commande détecte l'adresse du Mac, la fixe comme `APP_URL` (connexion et liens d'invitation) et affiche l'adresse à
+ouvrir sur le téléphone avec un code d'invitation pour créer un compte. `Ctrl+C` arrête le serveur et le worker. La base
+de données doit déjà tourner. Si la page ne s'ouvre pas : vérifier le pare-feu de macOS (autoriser les connexions
+entrantes pour Node) et l'absence de VPN ou de Wi-Fi invité qui isole les appareils.
+
 `npm run worker` et `npm run db:migrate` chargent automatiquement `.env.local` s'il existe (option
 `--env-file-if-exists`). En production, ces fichiers sont facultatifs : les vraies variables d'environnement suffisent.
 
