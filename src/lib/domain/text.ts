@@ -21,11 +21,11 @@ export function sanitizeText(input: string): string {
 
 export type TextRange = { start: number; end: number };
 
-/** Dernière ligne non vide (hors espaces de bordure), en indices de `text` ; CR, LF et CRLF séparent les lignes. */
+/** Dernière ligne contenant au moins un mot (hors espaces de bordure), en indices de `text` ; CR, LF et CRLF séparent les lignes. */
 function lastLineRange(text: string): TextRange | null {
   let last: TextRange | null = null;
   for (const m of text.matchAll(/\S[^\r\n]*/gu)) {
-    last = { start: m.index, end: m.index + m[0].trimEnd().length };
+    if (countWords(m[0]) > 0) last = { start: m.index, end: m.index + m[0].trimEnd().length };
   }
   return last;
 }
@@ -56,7 +56,7 @@ function excerptRange(text: string, rule: ExcerptRule): TextRange & { capped: bo
     const r = lastWordsRange(text, line.start, line.end, PARAGRAPH_EXCERPT_CAP);
     return r ? { ...r, capped: true } : empty;
   }
-  return countWords(text.slice(line.start, line.end)) === 0 ? empty : { ...line, capped: false };
+  return { ...line, capped: false };
 }
 
 /**

@@ -125,4 +125,17 @@ describe("transmittedRange", () => {
     const { start, end } = transmittedRange(t, { mode: "paragraph" });
     expect(t.slice(start, end)).toBe("c d");
   });
+  it("paragraphe : la dernière ligne CONTENANT UN MOT est transmise", () => {
+    const rule = { mode: "paragraph" } as const;
+    expect(extractExcerpt("Il pleut.\n***", rule)).toBe("Il pleut.");
+    expect(extractExcerpt("Il pleut.\n***\n 🎄 \n", rule)).toBe("Il pleut.");
+    const t = "Il pleut.\n***";
+    expect(transmittedRange(t, rule)).toEqual({ start: 0, end: 9 });
+    expect(t.slice(0, 9)).toBe(extractExcerpt(t, rule));
+  });
+  it("paragraphe : aucune ligne avec mot, rien n'est transmis", () => {
+    const rule = { mode: "paragraph" } as const;
+    expect(transmittedRange("***\n...\n🎄", rule)).toEqual({ start: 0, end: 0 });
+    expect(extractExcerpt("***\n...", rule)).toBe("");
+  });
 });

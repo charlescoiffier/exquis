@@ -12,3 +12,48 @@ button { padding:8px 16px; border:0; border-radius:6px; background:var(--accent)
 button.secondary { background:transparent; color:var(--fg); border:1px solid var(--line); }
 .error { color:#b91c1c; }
 .muted { color:var(--muted); }
+
+/* Éditeur de texte : couche miroir sous une zone de saisie à texte transparent. */
+:root { --hl:#fde68a; --ok:#15803d; }
+.mirror-wrap { position:relative; }
+.mirror, .mirror-input {
+  margin:0; padding:8px; border:1px solid var(--line); border-radius:6px;
+  font:inherit; line-height:1.5; letter-spacing:normal; tab-size:4;
+  white-space:pre-wrap; overflow-wrap:break-word; word-break:normal;
+  overflow-x:hidden; overflow-y:scroll; width:100%;
+}
+.mirror { position:absolute; inset:0; height:100%; pointer-events:none; color:var(--muted); scrollbar-color:transparent transparent; }
+.mirror::-webkit-scrollbar { background:transparent; }
+.mirror::-webkit-scrollbar-thumb { background:transparent; }
+.mirror-input { position:relative; display:block; background:transparent; color:transparent; caret-color:var(--fg); resize:vertical; }
+.mirror-input::placeholder { color:var(--muted); }
+.mirror-sent { background:var(--hl); color:var(--fg); border-radius:2px; }
+.legend { display:flex; flex-wrap:wrap; gap:4px 16px; margin:6px 0; font-size:14px; }
+.legend-item { display:inline-flex; align-items:center; gap:6px; }
+.swatch { width:14px; height:14px; border-radius:3px; border:1px solid var(--line); display:inline-block; }
+.swatch-dim { background:var(--bg); }
+.swatch-sent { background:var(--hl); }
+
+.gauge { margin:8px 0 12px; }
+.gauge-bar { position:relative; height:10px; background:var(--line); border-radius:5px; overflow:visible; }
+.gauge-fill { height:100%; border-radius:5px; background:var(--muted); transition:width .15s; }
+.gauge-min { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--fg); }
+.gauge-ok .gauge-fill { background:var(--ok); }
+.gauge-over .gauge-fill { background:#b91c1c; }
+.gauge-msg { margin:6px 0 0; font-weight:600; }
+.gauge-ok .gauge-msg { color:var(--ok); }
+.gauge-over .gauge-msg { color:#b91c1c; }
+
+/* Texte final : une barre verticale colorée et le nom de l'auteur écrit verticalement.
+   Teintes moyennes, lisibles (>= 3:1) sur fond clair comme sur fond sombre. */
+:root { --a0:#dc2626; --a1:#2563eb; --a2:#16a34a; --a3:#d97706; --a4:#9333ea; --a5:#0d9488; --a6:#db2777; --a7:#65a30d; }
+.final-text { margin:16px 0; }
+.final-toggle { display:flex; align-items:center; gap:8px; font-weight:400; margin:0 0 16px; }
+.final-toggle input { width:auto; }
+.contrib { display:flex; gap:12px; margin:0 0 20px; }
+.contrib-rail { flex:none; display:flex; justify-content:center; width:28px; border-left:4px solid var(--c); padding-left:6px; }
+.contrib-author { writing-mode:vertical-rl; transform:rotate(180deg); color:var(--c); font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-height:100%; }
+.contrib-body { margin:0; flex:1; min-width:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.final-text ol { list-style:none; margin:0; padding:0; }
+.final-hidden .contrib-rail { display:none; }
+.final-hidden .contrib { gap:0; }

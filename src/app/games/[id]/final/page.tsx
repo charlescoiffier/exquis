@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { FinalText } from "@/components/FinalText";
 import { FinalViewer } from "@/components/FinalViewer";
 import { getDb } from "@/lib/db/client";
 import { DomainError } from "@/lib/errors";
@@ -28,7 +29,7 @@ export default async function FinalPage({ params }: { params: Promise<{ id: stri
       ) : view.type === "drawing" ? (
         view.ready ? <FinalViewer gameId={id} direction={view.direction!} width={view.width!} height={view.height!} joints={view.joints} /> : <p>L&apos;œuvre est en cours d&apos;assemblage, revenez dans un instant.</p>
       ) : (
-        <ol>{view.contributions.map((c) => <li key={c.rank}><strong>{c.author}</strong><p style={{ whiteSpace: "pre-wrap" }}>{c.text}</p></li>)}</ol>
+        <FinalText contributions={view.contributions} />
       )}
       {view.type === "drawing" && (
         <p className="muted">Auteurs : {view.contributions.map((c) => `${c.rank}. ${c.author}`).join(" · ")}</p>

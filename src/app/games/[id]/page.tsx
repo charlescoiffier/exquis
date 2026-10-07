@@ -85,7 +85,7 @@ async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: 
         stripUrl: turn.stripUrl,
         excerpt: turn.excerpt,
         draft: turn.draft,
-        game: { type: turn.game.type, direction: turn.game.direction, minWords: turn.game.minWords, maxWords: turn.game.maxWords },
+        game: { type: turn.game.type, direction: turn.game.direction, minWords: turn.game.minWords, maxWords: turn.game.maxWords, excerptMode: turn.game.excerptMode as "paragraph" | "words" | null, excerptWords: turn.game.excerptWords },
       }}
       />
     </>
