@@ -228,7 +228,7 @@ a.game-title:hover { text-decoration:underline; }
 @media (max-width: 600px) {
   .game-card { flex-direction:column; align-items:stretch; }
   .game-main { flex:none; }
-  .game-side { flex-direction:row; flex-wrap:wrap; justify-content:center; align-items:center; margin:0; padding-top:12px; border-top:2px solid var(--line); gap:10px 12px; }
+  .game-side { flex-direction:row; flex-wrap:wrap; justify-content:center; align-items:center; margin:0; padding-top:4px; gap:10px 12px; }
   .game-side .countdown.countdown-inline { order:3; flex-basis:100%; align-items:center; text-align:center; }
   .game-side > .error { order:4; flex-basis:100%; text-align:center; }
 }
