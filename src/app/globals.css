@@ -255,9 +255,9 @@ fieldset.form-section legend { font-family:var(--font-display-stack); font-size:
 .pill.tag { font-size:13px; font-weight:700; padding:2px 10px; color:var(--fg); background:var(--surface); white-space:nowrap; }
 .pill.tag-in_progress { background:var(--accent); }
 .pill.tag-open { background:var(--hl); }
-.pill.tag-join { background:var(--fg); color:var(--bg); }
+.pill.tag-join { background:var(--accent2); color:var(--on-accent2); }
 .pill.tag-call { background:#fff; color:var(--fg); }
-.pill.tag-completed { background:var(--accent2); color:var(--on-accent2); border-color:var(--accent2); }
+.pill.tag-completed { background:#D9D6C8; color:var(--fg); }
 .pill.tag-cancelled { background:var(--surface); color:var(--muted); border-color:var(--muted); }
 .banner .pill.tag { border-color:var(--bg); }
 .feedback { margin:8px 0 0; color:var(--muted); font-style:italic; font-size:14px; }
