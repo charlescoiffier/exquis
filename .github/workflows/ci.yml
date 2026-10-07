@@ -15,7 +15,6 @@ env:
   BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
   STORAGE_SECRET: ci-only-storage-secret-ci-only-secret
   APP_URL: http://localhost:3000
-  REQUIRE_EMAIL_VERIFICATION: "false"
   REGISTRATION_MODE: invite
   STORAGE_DRIVER: local
 
