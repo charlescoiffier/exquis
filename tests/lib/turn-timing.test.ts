@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SUBMIT_GRACE_MS } from "@/lib/access";
-import { CLIENT_GRACE_MS, CLIENT_MARGIN_MS, clockOffset, nextClock, shouldLoseTurn, turnPhase, type ClockState } from "@/lib/turn-timing";
+import { CLIENT_GRACE_MS, CLIENT_MARGIN_MS, clockOffset, clearsUncertainty, nextClock, shouldLoseTurn, turnPhase, type ClockState } from "@/lib/turn-timing";
 
 const deadline = 1_000_000;
 
@@ -71,5 +71,19 @@ describe("shouldLoseTurn", () => {
     expect(shouldLoseTurn({ phase: "expired", busy: false, uncertain: true })).toBe(false);
     expect(shouldLoseTurn({ phase: "validation", busy: false, uncertain: false })).toBe(false);
     expect(shouldLoseTurn({ phase: "open", busy: false, uncertain: false })).toBe(false);
+  });
+});
+
+describe("clearsUncertainty", () => {
+  const failure = Date.parse("2026-10-07T12:00:10Z");
+  it("sans échec, rien à lever", () => expect(clearsUncertainty(null, "2026-10-07T12:00:20Z")).toBe(false));
+  it("un rendu antérieur à l'échec ne lève pas l'incertitude", () => {
+    expect(clearsUncertainty(failure, "2026-10-07T12:00:09Z")).toBe(false);
+    expect(clearsUncertainty(failure, "2026-10-07T12:00:10Z")).toBe(false);
+  });
+  it("un rendu postérieur la lève", () => expect(clearsUncertainty(failure, "2026-10-07T12:00:11Z")).toBe(true));
+  it("heure serveur absente ou invalide : on ne lève pas", () => {
+    expect(clearsUncertainty(failure, undefined)).toBe(false);
+    expect(clearsUncertainty(failure, "nope")).toBe(false);
   });
 });

@@ -96,7 +96,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 `DATABASE_URL` doit pointer vers l'hôte `db`, par exemple `postgres://exquis:<DB_PASSWORD>@db:5432/exquis`. La base a un healthcheck (`pg_isready`) ; un service one-shot `migrate` applique les migrations, puis `web` (serveur Next.js standalone, `HOSTNAME=0.0.0.0`) et `worker` (tâches de fond) démarrent une fois la migration terminée. Les services redémarrent automatiquement (`unless-stopped`) et l'image s'exécute en utilisateur non-root `node`. Mettre un reverse proxy HTTPS devant le port 3000.
 
-Remarque : le build télécharge les polices Google (`next/font/google`) ; sans accès réseau, utiliser `next/font/local`.
+Remarque : le build (y compris `docker build`) télécharge les polices Google (`next/font/google`) ; sans accès réseau, utiliser `next/font/local`.
 
 Remarque : le `Dockerfile` et `docker-compose.prod.yml` n'ont pas pu être exécutés lors de leur rédaction (pas de démon Docker disponible) ; seuls la sortie `standalone` et le démarrage de `node .next/standalone/server.js` ont été vérifiés.
 

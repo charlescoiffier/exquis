@@ -136,7 +136,7 @@ Principe : le client ne reçoit jamais l'œuvre en cours. `GET /games/:id/my-tur
 
 ## 12. Stratégie de test
 
-- Unitaires : machine à états, découpe de bande, intégrité de la zone héritée, comptage de mots, calcul de l'extrait texte.
+- Unitaires : machine à états, découpe de bande, composition de la retouche de la bande héritée (voir § 14), comptage de mots, calcul de l'extrait texte.
 - Intégration : soumission et expiration concurrentes, remise en jeu, plafond de tentatives, règles d'autorisation (un joueur ne lit pas l'œuvre en cours, ne soumet pas hors de son tour, ne lit pas une œuvre non terminée).
 - Bout en bout (peu nombreux) : inscription sur invitation, créer, rejoindre, jouer, révéler.
 
@@ -144,7 +144,7 @@ Principe : le client ne reçoit jamais l'œuvre en cours. `GET /games/:id/my-tur
 
 - Choix final Next.js ou SvelteKit, Drizzle ou Prisma, Better Auth ou Auth.js, pg-boss ou Graphile Worker.
 - Dimensions exactes du canvas et couleurs/outils de la palette v1.
-- Valeur exacte de la tolérance après l'échéance (quelques secondes).
+- ~~Valeur exacte de la tolérance après l'échéance~~ : fixée à 60 s de fenêtre de validation (voir § 14).
 
 ## 14. Révisions du 2026-10-07
 

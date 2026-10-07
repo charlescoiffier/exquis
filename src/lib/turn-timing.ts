@@ -36,3 +36,10 @@ export function nextClock(prev: ClockState, serverNowIso: string | undefined, cl
 export function shouldLoseTurn(s: { phase: TurnPhase; busy: boolean; uncertain: boolean }): boolean {
   return s.phase === "expired" && !s.busy && !s.uncertain;
 }
+
+/** Un rendu serveur lève l'incertitude d'un envoi échoué seulement s'il date d'après l'échec (heure serveur de l'échec, en ms). */
+export function clearsUncertainty(failureAtMs: number | null, serverNowIso: string | undefined): boolean {
+  if (failureAtMs === null) return false;
+  const server = serverNowIso ? Date.parse(serverNowIso) : NaN;
+  return Number.isFinite(server) && server > failureAtMs;
+}
