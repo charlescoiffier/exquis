@@ -73,8 +73,12 @@ describe("expireTurn", () => {
     // Dans les parties à rejoindre, l'appel passe avant une partie ouverte plus récente.
     const other = await makeUser(db, "autre-createur");
     await createGame(db, other, textParams(2, { name: "plus récente" }), new Date(Date.now() + 5000));
-    const joinable = await listJoinableGames(db);
+    const viewer = await makeUser(db, "lecteur");
+    const joinable = await listJoinableGames(db, { userId: viewer });
     expect(joinable.items.map((g) => [g.name, g.openCallRank])).toEqual([[expect.any(String), 2], ["plus récente", null]]);
+    // Les parties où l'on est inscrit n'y figurent pas (elles sont dans « Mes parties en cours »).
+    expect((await listJoinableGames(db, { userId: other })).items.map((g) => g.name)).toEqual([expect.any(String)]);
+    expect((await listJoinableGames(db, { userId: t2.assignedUserId })).items.map((g) => g.name)).toEqual(["plus récente"]);
     expect(await getMyTurn(db, new MemoryStorage(), { userId: t2.assignedUserId, gameId })).toBeNull();
     expect(await db.select().from(notification).where(eq(notification.type, "turn_reassigned"))).toHaveLength(1);
     const view = await getGameView(db, { gameId, userId: t2.assignedUserId });

@@ -204,16 +204,6 @@ export async function listMyCurrentGames(db: Db, userId: string, p: { page?: num
   return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount } satisfies Page<(typeof items)[number]>;
 }
 
-/** Identifiants de toutes les parties en cours (ou en attente de joueurs) de l'utilisateur. */
-export async function listMyCurrentGameIds(db: Db, userId: string): Promise<Set<string>> {
-  const rows = await db
-    .select({ id: game.id })
-    .from(participant)
-    .innerJoin(game, eq(participant.gameId, game.id))
-    .where(and(eq(participant.userId, userId), isNull(participant.leftAt), inArray(game.status, ["open", "in_progress"])));
-  return new Set(rows.map((r) => r.id));
-}
-
 /** Parties terminées ou annulées de l'utilisateur, les plus récentes d'abord. */
 export async function listMyPastGames(db: Db, userId: string, p: { page?: number } = {}) {
   const where = and(eq(participant.userId, userId), inArray(game.status, ["completed", "cancelled"]));
@@ -267,9 +257,12 @@ const openCallRankSql = sql<number | null>`(select t.rank from turn t where t.ga
 /**
  * Parties publiques à rejoindre : celles qui attendent des joueurs et, en tête de liste, celles en cours dont le dernier
  * tour attend un volontaire (`openCallRank` non nul). Dans chaque groupe, les plus récentes d'abord.
+ * Les parties de l'utilisateur sont exclues : elles sont dans « Mes parties en cours ».
  */
-export async function listJoinableGames(db: Db, p: { page?: number } = {}) {
+export async function listJoinableGames(db: Db, p: { userId: string; page?: number }) {
+  // Les parties où l'utilisateur a une inscription (même abandonnée : il ne peut plus reprendre de tour) n'y figurent pas.
   const where = and(
+    sql`not exists (select 1 from participant pm where pm.game_id = ${game.id} and pm.user_id = ${p.userId})`,
     eq(game.visibility, "public"),
     or(eq(game.status, "open"), and(eq(game.status, "in_progress"), sql`${openCallRankSql} is not null`)),
   );

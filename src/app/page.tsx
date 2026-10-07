@@ -11,7 +11,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { getDb } from "@/lib/db/client";
-import { listJoinableGames, listMyCurrentGameIds, listMyCurrentGames, parsePage } from "@/lib/services/games";
+import { listJoinableGames, listMyCurrentGames, parsePage } from "@/lib/services/games";
 import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +25,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   const db = getDb();
   const [mine, joinable] = await Promise.all([
     listMyCurrentGames(db, session.user.id, { page: parsePage(sp.pm) }),
-    listJoinableGames(db, { page: parsePage(sp.po) }),
+    listJoinableGames(db, { userId: session.user.id, page: parsePage(sp.po) }),
   ]);
-  const mineIds = await listMyCurrentGameIds(db, session.user.id);
 
   return (
     <main>
@@ -100,7 +99,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                         <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} extra={extra} />
                       </div>
                       <div className="game-side">
-                        {mineIds.has(g.id) ? <ButtonLink href={`/games/${g.id}`} variant="secondary">Ouvrir</ButtonLink> : <JoinButton gameId={g.id} claim={call} />}
+                        <JoinButton gameId={g.id} claim={call} />
                       </div>
                     </Card>
                   </li>
