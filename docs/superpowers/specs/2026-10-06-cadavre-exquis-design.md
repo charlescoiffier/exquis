@@ -74,7 +74,7 @@ Principe : le client ne reçoit jamais l'œuvre en cours. `GET /games/:id/my-tur
 - Canvas de taille fixe (ex. 1200×1600 px). Tour 1 : une ligne pointillée à 90 %. Tours intermédiaires : lignes à 10 % et 90 %. Dernier tour : une ligne à 10 %.
 - Le serveur stocke le PNG complet de chaque contribution dans le stockage privé, puis génère avec `sharp` la **bande de transition** (environ 10 %), stockée à part. Seule cette bande est transmise au joueur suivant (URL signée de courte durée). Le sens de défilement détermine l'origine de la bande.
 - La logique de découpe est isolée dans un module unique (`strip`), testé avec des images fixtures.
-- Validation à la soumission : dimensions exactes, type MIME, taille maximale, et **intégrité de la zone héritée** (pixels comparés à la bande d'origine).
+- Validation à la soumission : dimensions exactes, type MIME, taille maximale, et ~~intégrité de la zone héritée~~ (supprimée : voir « Révisions du 2026-10-07 »).
 
 ### Texte
 - Le serveur calcule l'extrait (dernier paragraphe ou X derniers mots) et ne renvoie que celui-ci.
@@ -83,7 +83,7 @@ Principe : le client ne reçoit jamais l'œuvre en cours. `GET /games/:id/my-tur
 ### Soumission et concurrence
 - Transaction unique : vérification du statut du tour, insertion de la contribution, tour `done`, activation du suivant, planification des jobs. Verrou de ligne sur `turn` pour éviter la course avec l'expiration.
 - Le job d'expiration revérifie l'état à l'exécution (idempotent).
-- Soumission acceptée avec une **tolérance de quelques secondes** après l'échéance tant que le job n'a pas encore marqué le tour `expired`.
+- Soumission acceptée avec une ~~tolérance de quelques secondes~~ **fenêtre de validation de 60 s** (voir « Révisions du 2026-10-07 ») après l'échéance tant que le job n'a pas encore marqué le tour `expired`.
 
 ### Œuvre finale
 - À `completed`, le serveur assemble l'œuvre en une image unique **propre** (zones héritées retirées, sans guides), la met en cache et conserve les segments.
@@ -96,7 +96,7 @@ Principe : le client ne reçoit jamais l'œuvre en cours. `GET /games/:id/my-tur
 ## 7. Éditeur de dessin (client)
 
 - Canvas HTML5 en trois calques :
-  1. bande héritée, lecture seule (aucun trait accepté) ;
+  1. bande héritée, ~~lecture seule~~ repeignable (voir « Révisions du 2026-10-07 ») ;
   2. calque de dessin, éditable, seul envoyé au serveur ;
   3. calque de guides (lignes pointillées), visuel et exclu de l'export.
 - Pointer Events (souris, tactile, stylet avec pression). Lissage avec `perfect-freehand`. Canvas maison, pas de bibliothèque de scène (tldraw, Konva, Fabric).
@@ -145,3 +145,17 @@ Principe : le client ne reçoit jamais l'œuvre en cours. `GET /games/:id/my-tur
 - Choix final Next.js ou SvelteKit, Drizzle ou Prisma, Better Auth ou Auth.js, pg-boss ou Graphile Worker.
 - Dimensions exactes du canvas et couleurs/outils de la palette v1.
 - Valeur exacte de la tolérance après l'échéance (quelques secondes).
+
+## 14. Révisions du 2026-10-07
+
+Ces révisions remplacent les règles correspondantes ci-dessus.
+
+| Règle d'origine | Règle révisée |
+|---|---|
+| Intégrité de la zone héritée vérifiée à la soumission (§ 6, Dessin) ; bande héritée en lecture seule (§ 7) | Le joueur peut repeindre la bande du prédécesseur : plus de contrôle d'intégrité, et l'assemblage final compose la retouche par-dessus. |
+| Tolérance de quelques secondes après l'échéance (§ 6, Soumission) | Fenêtre de validation de 60 s après l'échéance, avec une fenêtre de confirmation côté client (marge de sécurité avant la coupure serveur). |
+| Nombre de mots (§ 6, Texte) | Un mot est un jeton contenant au moins une lettre ou un chiffre. |
+| Extrait du texte précédent (§ 6, Texte) | Un paragraphe est chaque ligne non vide ; en mode paragraphe, l'extrait est la dernière ligne contenant un mot, limitée à 150 mots. |
+| Nom de partie obligatoire | Le titre est facultatif : un nom est généré lorsqu'il est laissé vide. |
+| Mise à jour de la page de partie à la demande | Rafraîchissement automatique toutes les 5 s (en pause onglet masqué, reprise au focus et au retour du réseau). |
+| Habillage visuel | Design « Manifeste », thème clair uniquement (voir docs/design/manifeste.md). |
