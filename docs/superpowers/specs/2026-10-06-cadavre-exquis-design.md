@@ -47,12 +47,14 @@ Hors périmètre v1 : modération active (outils d'interface), Web Push, démarr
 - `user` : identité, rôle (`player` ou `moderator`), préférences de notification, date d'invitation/inscription.
 - `invitation` : code ou jeton, créé par, utilisé par, expiration. Sert à l'inscription sur invitation.
 - `game` : créateur, nom, type, nombre de tours, durée de tour, sens de défilement, langue, paramètres texte, visibilité, statut (`open`, `in_progress`, `completed`, `cancelled`).
-- `participant` : partie, utilisateur, rang (tiré au démarrage).
+- `participant` : partie, utilisateur, rang (tiré au démarrage), `left_at` (joueur ayant quitté la partie : ses contributions restent).
 - `turn` : partie, rang, participant assigné (nul pendant un appel à participation), `deadline`, statut (`pending`, `active`, `done`, `expired`, `open_call`), nombre de tentatives.
 - `contribution` : tour, texte ou clé de l'image, clé de la bande de transition, date, `hidden_at` (pour la modération future). Une contribution par tour.
 - `draft` : tour, liste de traits (JSON) ou texte en cours, date de mise à jour.
-- `notification` : utilisateur, type, tour, lue ou non, clé unique `(type, turn_id, user_id)` contre les doublons.
-- `report` : cible (contribution ou partie), motif, auteur du signalement, statut. Créée en v1, non exposée.
+- `notification` : utilisateur, type, partie (facultative), personne à l'origine (`actor_id`), tour, lue ou non, clé de déduplication unique.
+- `profile` : rôle, préférence d'email, moment du rappel (`reminder_stage`), avatar (forme, couleur, fond), code ami.
+- `comment`, `friendship`, `game_invitation` : voir « Compléments du 2026-10-08 ».
+- `report` : cible (commentaire ou œuvre), motif, précisions, auteur du signalement, statut, modérateur et date de traitement.
 - `final_work` : partie, clé de l'image assemblée, positions des jointures, date de génération.
 
 ## 5. Cycle de vie d'une partie
@@ -99,18 +101,19 @@ Principe : le client ne reçoit jamais l'œuvre en cours. `GET /games/:id/my-tur
   1. bande héritée, ~~lecture seule~~ repeignable (voir « Révisions du 2026-10-07 ») ;
   2. calque de dessin, éditable, seul envoyé au serveur ;
   3. calque de guides (lignes pointillées), visuel et exclu de l'export.
-- Pointer Events (souris, tactile, stylet avec pression). Lissage avec `perfect-freehand`. Canvas maison, pas de bibliothèque de scène (tldraw, Konva, Fabric).
-- Outils v1 : pinceau (taille, couleur, opacité), gomme, pot de peinture, annuler/rétablir. Le zoom et le déplacement du canvas, prévus à l'origine, sont abandonnés (décision du 8 octobre 2026).
-- Les traits sont conservés sous forme de liste vectorielle (annulation fiable). Le PNG est rasterisé à la soumission.
+- Pointer Events (souris, tactile, stylet avec pression). Traits lissés par courbes quadratiques (sans bibliothèque). Canvas maison, pas de bibliothèque de scène (tldraw, Konva, Fabric).
+- Outils : crayon (fin, moyen, épais), surligneur, aérographe, gomme, pot de peinture, formes (ligne, rectangle, ovale), annuler/rétablir, tout effacer (voir « Compléments du 2026-10-07 »). Le zoom et le déplacement du canvas, prévus à l'origine, sont abandonnés (décision du 8 octobre 2026).
+- Les traits sont conservés sous forme de liste d'opérations (annulation fiable). Le PNG est rasterisé à la soumission. Pendant le geste, le tracé est dessiné directement sur le canvas visible (voir « Compléments du 2026-10-08 »).
 - Brouillon sauvegardé automatiquement (JSON, toutes les quelques secondes), repris tant que l'échéance n'est pas dépassée, supprimé à la soumission.
 - Compte à rebours visible avec avertissement proche de l'échéance.
 
 ## 8. Notifications
 
-- Événements : partie démarrée, « c'est ton tour », rappel avant l'échéance (75 % du temps écoulé, minimum 30 s), tour remis en jeu, partie terminée, œuvre prête.
+- Événements : partie démarrée, « c'est ton tour », rappel avant l'échéance (à la moitié, au quart ou au dixième du temps restant selon la préférence du joueur ; aucun rappel sous 2 minutes), tour remis en jeu, partie terminée, œuvre prête.
 - Canaux v1 : email et boîte de réception dans l'application. Web Push reporté.
 - Les rappels sont des jobs planifiés avec le job d'expiration, annulés à la soumission.
-- Préférences utilisateur : désactiver l'email, régler le délai de rappel.
+- Préférences utilisateur : désactiver l'email, choisir le moment du rappel (ou aucun).
+- Notifications dans l'application seulement (jamais par email) : commentaires, demandes d'ami, invitations, décisions de modération.
 - Pour les tours très courts, seule l'alerte dans l'application s'applique ; aucun email n'est envoyé si la durée du tour est inférieure à 5 minutes.
 
 ## 9. Sécurité et autorisations
@@ -121,10 +124,10 @@ Principe : le client ne reçoit jamais l'œuvre en cours. `GET /games/:id/my-tur
 - Limites de débit : inscription, connexion, création de parties, soumission. Limites de parties actives et de parties créées par jour.
 - Taille maximale des PNG et des textes, validation stricte des entrées, échappement à l'affichage.
 
-## 10. Modération (préparée, non exposée en v1)
+## 10. Modération
 
-- Présents dès la v1 : rôle `moderator`, table `report`, colonne `contribution.hidden_at`.
-- Plus tard : bouton « Signaler », file de modération, masquage d'une contribution (espace réservé dans l'œuvre finale), bannissement, floutage, détection automatique de contenu explicite.
+- Exposée : rôle `moderator`, bouton « Signaler » sur les commentaires et les œuvres, page « Modération », masquage (voir « Compléments du 2026-10-08 »). La colonne `contribution.hidden_at`, prévue à l'origine, n'est pas utilisée : le masquage porte sur le commentaire ou l'œuvre entière.
+- Plus tard : bannissement, floutage, détection automatique de contenu explicite.
 - Ouverture publique : mentions légales, conditions d'utilisation, RGPD (export et suppression de compte, avec anonymisation des contributions plutôt que suppression).
 
 ## 11. Déploiement et exploitation
@@ -176,3 +179,19 @@ Ces révisions remplacent les règles correspondantes ci-dessus.
 | Outils de dessin | Crayon (fin 3 px, moyen 8 px, épais 20 px), surligneur (opacité 40 % appliquée une fois au trait entier), aérographe (grains déterministes à partir d'une graine, répartis par pas le long du geste), gomme, pot de peinture, formes (ligne, rectangle, ovale ; contour ou remplie) et « tout effacer » (opération `clear` annulable, confirmation par modale). Le trait est lissé par courbes quadratiques ; l'aperçu en direct est incrémental et identique au résultat final. Le zoom et le déplacement du canvas sont abandonnés. |
 | Amis et invitations ciblées | Tables `friendship` (une ligne par paire, `pending` puis `accepted`) et `game_invitation` ; code ami dans `profile.friend_code` (8 caractères sans ambiguïté) ; notifications `friend_request`, `friend_accepted`, `game_invite` (`notification.game_id` devient facultatif, `actor_id` désigne la personne à l'origine). Une invitation ciblée donne accès à une partie sur invitation (vue, inscription, reprise d'un tour). |
 | Modération et signalement | Table `report` (cible `comment` ou `work`, motif, précisions, un signalement par personne et par cible), rôle `profile.role = moderator`, masquage par `comment.hidden_at` / `game.hidden_at` (le lien public d'une œuvre masquée est retiré), notifications `comment_hidden` et `work_hidden`. |
+
+### Compléments du 2026-10-08
+
+| Règle d'origine | Règle révisée |
+|---|---|
+| Œuvre visible des seuls participants | Le créateur d'une partie terminée peut activer un **lien public** en lecture seule (`game.public_token`, 24 octets aléatoires, révocable ; la réactivation crée un nouveau lien). La page `/p/[token]` et l'image `/api/public/[token]/image` s'ouvrent sans compte, sans les commentaires ; l'afficheur propose « jointures et noms » comme pour les participants. |
+| Pas de commentaires | Table `comment` : les participants commentent une œuvre terminée (500 caractères, suppression par l'auteur) ; les autres participants sont notifiés dans l'application. |
+| Rappel unique à 75 % du temps écoulé | Le worker programme trois rappels par tour (50, 25, 10 % du temps restant) ; seul celui qui correspond à `profile.reminder_stage` envoie une notification (0 : aucun). Défaut : 25 %. |
+| Profil limité au nom et à l'email | Avatar géométrique : 12 formes imposées, 8 couleurs de palette pour la forme et le fond (différentes), avatar par défaut dérivé du compte ; statistiques (parties jouées, terminées, en cours, créées, tours, dessins, textes, commentaires). |
+| Pas d'amis | Code ami (`profile.friend_code`), table `friendship` (une ligne par paire, `pending` puis `accepted`, demandes croisées acceptées d'office), ajout par code ou depuis les joueurs rencontrés ; aucun annuaire. Table `game_invitation` : un participant invite ses amis à une partie en attente ; l'invitation donne accès à une partie sur invitation. `notification.game_id` devient facultatif. |
+| Pas de signalement | Table `report` (cible `comment` ou `work`, un signalement par personne et par cible). Un modérateur masque (`comment.hidden_at`, `game.hidden_at` avec retrait du lien public) ou rejette ; les personnes concernées sont notifiées. Rôle donné par `npm run role`. |
+| Quitter une partie impossible | Un participant quitte une partie : en attente, il est désinscrit (partie annulée s'il était le dernier) ; en cours, ses tours à venir sont libérés, son tour actif devient un appel à participation, ses contributions restent (`participant.left_at`). Une partie sans joueur restant est annulée. |
+| Parties abandonnées conservées | Chaque heure, le worker supprime les parties jamais lancées et celles en cours sans activité depuis 7 jours (démarrage, tour joué ou brouillon enregistré). Limite portée à 8 parties actives par joueur. |
+| Aperçu du tracé sur des calques superposés | Un seul canvas visible : le crayon opaque et l'aérographe ajoutent les nouveaux points ; le crayon translucide, le surligneur, la gomme et les formes restaurent la zone touchée depuis une copie du canvas puis se redessinent en une passe. Mesure sur un smartphone Android : 44 images/s contre 9 avec des calques d'aperçu. `?perf=1` affiche et envoie des mesures de fluidité. |
+| Copie dans le presse-papiers par l'API moderne | Repli sur une copie via un champ temporaire hors contexte sécurisé (essai en HTTP sur le réseau local). |
+| Zoom et déplacement du canvas | Abandonnés (voir la feuille de route). |
