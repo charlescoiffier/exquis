@@ -7,12 +7,16 @@ import { Banner } from "@/components/ui/Banner";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TurnTitle } from "@/components/TurnTitle";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
+import { game } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
-import { GameMeta } from "@/components/GameMeta";
-import { statusLabel, turnLabelOf } from "@/lib/format";
+import { Countdown } from "@/components/Countdown";
+import { GameTag } from "@/components/GameTag";
+import { gameMetaText } from "@/components/GameMeta";
+import { turnLabelOf } from "@/lib/format";
 import { getGameView } from "@/lib/services/games";
-import { getMyTurn } from "@/lib/services/turns";
+import { getActiveTurnInfo, getMyTurn } from "@/lib/services/turns";
 import { getSession } from "@/lib/session";
 import { getStorage } from "@/lib/storage";
 import { env } from "@/lib/env";
@@ -47,11 +51,11 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   return (
     <main>
       {game.status !== "completed" && game.status !== "cancelled" && <AutoRefresh />}
-      <Banner title={game.name} />
-      <p className="game-meta">
-        <span className={`pill status status-${game.status}`}>{statusLabel(game.status)}</span>
-      </p>
-      <GameMeta type={game.type} turns={game.turns} turnDurationSeconds={game.turnDurationSeconds} language={game.language} creatorName={view.creatorName} />
+      <Banner
+        title={game.name}
+        meta={gameMetaText({ type: game.type, turns: game.turns, turnDurationSeconds: game.turnDurationSeconds, language: game.language, creatorName: view.creatorName })}
+        action={<GameTag kind={game.status === "in_progress" ? (view.openCall ? "call" : "in_progress") : game.status === "open" ? "open" : game.status === "completed" ? "completed" : "cancelled"} />}
+      />
       {labels.length > 0 && (
         <p className="meta game-labels">Intitulés des tours : {(game.turnLabels ?? []).map((l, i) => l.trim() || `Tour ${i + 1}`).join(" → ")}</p>
       )}
@@ -117,11 +121,22 @@ async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: 
     );
   }
   if (!turn) {
+    const active = await getActiveTurnInfo(db, gameId).catch(() => null);
+    const [g] = await db.select({ type: game.type, turns: game.turns }).from(game).where(eq(game.id, gameId));
+    const who = g && active ? `${g.type === "drawing" ? "Dessinateur" : "Écrivain"} ${active.rank}` : null;
     return (
       <>
         <ExpiredNotice gameId={gameId} serverNow={new Date().toISOString()} />
         <Card>
           <h2 className="card-title">En attente des autres joueurs</h2>
+          {who && active && g && (
+            <div className="waiting-turn">
+              <p>
+                <strong>{who}</strong> {g.type === "drawing" ? "est en train de dessiner" : "est en train d'écrire"} (tour {active.rank} sur {g.turns}).
+              </p>
+              <Countdown deadline={active.deadline.toISOString()} inline />
+            </div>
+          )}
           <p>Vous serez prévenu(e) quand ce sera votre tour.</p>
         </Card>
       </>

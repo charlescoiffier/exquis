@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { GameMeta } from "@/components/GameMeta";
 import { Card } from "@/components/ui/Card";
-import { formatDate, statusLabel } from "@/lib/format";
+import { GameTag } from "@/components/GameTag";
+import { formatDate } from "@/lib/format";
 
 export type PastGame = {
   id: string;
@@ -35,7 +36,7 @@ export function PastGameList({ games }: { games: PastGame[] }) {
                 extra={[`${g.participantCount} participant${g.participantCount > 1 ? "s" : ""}`, g.status === "completed" && g.completedAt ? `terminée le ${formatDate(g.completedAt)}` : `commencée le ${formatDate(g.createdAt)}`]}
               />
             </div>
-            <span className={`pill status status-${g.status}`}>{statusLabel(g.status)}</span>
+            <div className="game-side"><GameTag kind={g.status === "completed" ? "completed" : "cancelled"} /></div>
           </Card>
         </li>
       ))}

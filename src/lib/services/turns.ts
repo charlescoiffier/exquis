@@ -59,6 +59,15 @@ export async function getMyTurn(db: Db, storage: Storage, p: { userId: string; g
   return { turnId: t.id, rank: t.rank, total: g.turns, deadline: t.deadline!, game: publicGame(g), stripUrl, excerpt, draft: d?.content ?? null };
 }
 
+/** Tour en cours d'une partie (rang et échéance seulement, jamais l'identité du joueur) : sert à l'écran d'attente. */
+export async function getActiveTurnInfo(db: Db, gameId: string): Promise<{ rank: number; deadline: Date } | null> {
+  const [t] = await db
+    .select({ rank: turn.rank, deadline: turn.deadline })
+    .from(turn)
+    .where(and(eq(turn.gameId, gameId), eq(turn.status, "active")));
+  return t?.deadline ? { rank: t.rank, deadline: t.deadline } : null;
+}
+
 async function finishTurn(tx: Tx, g: GameRow, t: TurnRow, now: Date): Promise<Effect[]> {
   await tx.update(turn).set({ status: "done" }).where(eq(turn.id, t.id));
   await tx.delete(draft).where(eq(draft.turnId, t.id));

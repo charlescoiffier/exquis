@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { SUBMIT_GRACE_MS } from "@/lib/access";
 import type { Effect } from "@/lib/effects";
 import { draft, game, notification, participant, turn } from "@/lib/db/schema";
-import { claimOpenCall, getGameView, listOpenCalls } from "@/lib/services/games";
+import { claimOpenCall, createGame, getGameView, listJoinableGames, listOpenCalls } from "@/lib/services/games";
 import { expireOverdue, expireTurn, getMyTurn, saveDraft, submitText } from "@/lib/services/turns";
 import { MemoryStorage } from "@/lib/storage/memory";
 import { makeUser, resetDb, testDb } from "../helpers/db";
@@ -70,6 +70,11 @@ describe("expireTurn", () => {
     const [t] = await db.select().from(turn).where(eq(turn.id, t2.id));
     expect(t).toMatchObject({ status: "open_call", assignedUserId: null, deadline: null });
     expect((await listOpenCalls(db)).items).toMatchObject([{ id: gameId, rank: 2, turns: 2 }]);
+    // Dans les parties à rejoindre, l'appel passe avant une partie ouverte plus récente.
+    const other = await makeUser(db, "autre-createur");
+    await createGame(db, other, textParams(2, { name: "plus récente" }), new Date(Date.now() + 5000));
+    const joinable = await listJoinableGames(db);
+    expect(joinable.items.map((g) => [g.name, g.openCallRank])).toEqual([[expect.any(String), 2], ["plus récente", null]]);
     expect(await getMyTurn(db, new MemoryStorage(), { userId: t2.assignedUserId, gameId })).toBeNull();
     expect(await db.select().from(notification).where(eq(notification.type, "turn_reassigned"))).toHaveLength(1);
     const view = await getGameView(db, { gameId, userId: t2.assignedUserId });

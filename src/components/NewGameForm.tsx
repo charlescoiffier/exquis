@@ -63,21 +63,19 @@ export function NewGameForm() {
       <fieldset className="form-section">
         <legend>Tours et durée</legend>
         <label htmlFor="turns">Nombre de tours</label>
-        <input
+        <select
           id="turns"
           name="turns"
-          type="number"
-          min={2}
-          max={8}
           value={turns}
           onChange={(e) => {
-            const n = Math.min(8, Math.max(2, Math.floor(Number(e.target.value)) || 2));
+            const n = Number(e.target.value);
             setTurns(n);
             setLabels((prev) => Array.from({ length: n }, (_, i) => prev[i] ?? ""));
           }}
-          required
           aria-describedby="turns-hint"
-        />
+        >
+          {[2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
         <p id="turns-hint" className="hint">Entre 2 et 8. {type === "text" ? `${turns} écrivains, un par tour.` : `${turns} dessinateurs, un par tour.`}</p>
         <label htmlFor="duration">Durée d&apos;un tour</label>
         <select id="duration" name="duration" defaultValue={86400} aria-describedby="duration-hint">

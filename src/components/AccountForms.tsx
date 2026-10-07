@@ -36,7 +36,7 @@ export function NameForm({ initialName }: { initialName: string }) {
       <label htmlFor="account-name">Nom affiché</label>
       <input id="account-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} required aria-describedby="account-name-hint" />
       <p id="account-name-hint" className="hint">Visible des autres joueurs dans les listes et sur les œuvres.</p>
-      {message && <p role={message.ok ? "status" : "alert"} className={message.ok ? "notice" : "error"}>{message.text}</p>}
+      {message && <p role={message.ok ? "status" : "alert"} className={message.ok ? "feedback" : "error"}>{message.text}</p>}
       <Button type="submit" disabled={busy || name.trim() === "" || name.trim() === initialName}>Enregistrer</Button>
     </form>
   );
