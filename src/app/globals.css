@@ -214,6 +214,14 @@ fieldset.avatar-field legend { padding:0; margin-bottom:6px; font-weight:700; }
 .avatar-choice, .avatar-choice:hover:not(:disabled) { display:block; padding:0; min-height:0; width:auto; border:2px solid var(--line); background:var(--surface); box-shadow:none; }
 .avatar-choice .avatar { border:0; }
 .avatar-choice[aria-pressed="true"] { outline:3px solid var(--fg); outline-offset:2px; box-shadow:0 0 0 5px var(--accent); }
+.report-work { margin:0 0 8px; }
+.mod-excerpt { margin:6px 0; padding:8px 10px; border-left:6px solid var(--accent); background:var(--bg); white-space:pre-wrap; overflow-wrap:anywhere; }
+.person-line { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.person-name { font-weight:700; overflow-wrap:anywhere; }
+.person-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-left:auto; }
+.friend-pick { margin-bottom:12px; }
+.friend-pick-row { display:flex; align-items:center; gap:10px; margin:0; font-weight:500; cursor:pointer; min-height:44px; }
+.friend-pick-row input { flex:none; width:20px; height:20px; }
 .stats { margin:0; display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px 16px; }
 .stats > div { display:flex; flex-direction:column-reverse; }
 .stats dt { font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }

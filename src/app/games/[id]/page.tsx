@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import { InviteFriends } from "@/components/FriendsPanels";
 import { JoinButton } from "@/components/JoinButton";
 import { ExpiredNotice } from "@/components/ExpiredNotice";
 import { TurnEditor } from "@/components/TurnEditor";
@@ -16,6 +17,7 @@ import { Countdown } from "@/components/Countdown";
 import { GameTag } from "@/components/GameTag";
 import { GameMetaItems } from "@/components/GameMeta";
 import { turnLabelOf } from "@/lib/format";
+import { listInvitableFriends } from "@/lib/services/game-invites";
 import { getGameView } from "@/lib/services/games";
 import { getActiveTurnInfo, getMyTurn } from "@/lib/services/turns";
 import { getSession } from "@/lib/session";
@@ -49,6 +51,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   // Une partie terminée mène directement à son œuvre.
   if (game.status === "completed" && view.isParticipant) redirect(`/games/${game.id}/final`);
   const labels = (game.turnLabels ?? []).filter((l) => l.trim() !== "");
+  const invitable = game.status === "open" && view.isParticipant ? await listInvitableFriends(db, { userId: session.user.id, gameId: game.id }) : [];
   return (
     <main>
       {game.status !== "completed" && game.status !== "cancelled" && <AutoRefresh />}
@@ -71,6 +74,12 @@ export default async function GamePage({ params, searchParams }: { params: Promi
             <span className="sr-only"> : {view.participantCount} sur {game.turns}</span>
           </p>
           {!view.isParticipant && <JoinButton gameId={game.id} token={token} />}
+          {invitable.length > 0 && (
+            <div className="invite">
+              <p className="hint">Inviter des amis</p>
+              <InviteFriends gameId={game.id} friends={invitable} />
+            </div>
+          )}
           {view.inviteToken && (
             <div className="invite">
               <p className="hint">Lien d&apos;invitation</p>

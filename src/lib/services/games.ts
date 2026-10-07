@@ -6,6 +6,7 @@ import { draft, game, participant, turn } from "@/lib/db/schema";
 import { parseGameParams, shuffle } from "@/lib/domain/game-rules";
 import type { Effect } from "@/lib/effects";
 import { DomainError } from "@/lib/errors";
+import { hasGameInvitation } from "./game-invites";
 import { queueNotification } from "./notifications";
 
 export const MAX_ACTIVE_GAMES = 8;
@@ -108,7 +109,7 @@ export async function joinGame(
     const [g] = await tx.select().from(game).where(eq(game.id, p.gameId)).for("update");
     if (!g) throw new DomainError("not_found", "Partie introuvable.", 404);
     if (g.status !== "open") throw new DomainError("game_not_open", "Cette partie n'accepte plus de joueurs.", 409);
-    if (g.visibility === "invite" && g.creatorId !== p.userId && p.token !== g.inviteToken) {
+    if (g.visibility === "invite" && g.creatorId !== p.userId && p.token !== g.inviteToken && !(await hasGameInvitation(tx as unknown as Db, p.userId, g.id))) {
       throw new DomainError("forbidden", "Invitation requise.", 403);
     }
     const ps = await tx.select().from(participant).where(eq(participant.gameId, g.id));
@@ -327,7 +328,7 @@ export async function claimOpenCall(
     const [g] = await tx.select().from(game).where(eq(game.id, p.gameId)).for("update");
     if (!g) throw new DomainError("not_found", "Partie introuvable.", 404);
     if (g.status !== "in_progress") throw new DomainError("open_call_unavailable", "Aucun tour disponible.", 409);
-    if (g.visibility === "invite" && g.creatorId !== p.userId && p.token !== g.inviteToken) {
+    if (g.visibility === "invite" && g.creatorId !== p.userId && p.token !== g.inviteToken && !(await hasGameInvitation(tx as unknown as Db, p.userId, g.id))) {
       throw new DomainError("forbidden", "Invitation requise.", 403);
     }
     const [t] = await tx
@@ -371,7 +372,7 @@ export async function getGameView(db: Db, p: { gameId: string; userId: string; t
   const ps = await db.select().from(participant).where(eq(participant.gameId, g.id));
   const isParticipant = ps.some((x) => x.userId === p.userId && !x.leftAt);
   const isCreator = g.creatorId === p.userId;
-  if (g.visibility === "invite" && !isParticipant && !isCreator && p.token !== g.inviteToken) {
+  if (g.visibility === "invite" && !isParticipant && !isCreator && p.token !== g.inviteToken && !(await hasGameInvitation(db, p.userId, g.id))) {
     throw new DomainError("forbidden", "Invitation requise.", 403);
   }
   const [open] = await db

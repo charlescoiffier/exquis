@@ -11,6 +11,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { getDb } from "@/lib/db/client";
+import { listMyInvitations } from "@/lib/services/game-invites";
 import { listJoinableGames, listMyCurrentGames, parsePage } from "@/lib/services/games";
 import { getSession } from "@/lib/session";
 
@@ -23,9 +24,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   if (!session) redirect("/login");
   const sp = await searchParams;
   const db = getDb();
-  const [mine, joinable] = await Promise.all([
+  const [mine, joinable, invitations] = await Promise.all([
     listMyCurrentGames(db, session.user.id, { page: parsePage(sp.pm) }),
     listJoinableGames(db, { userId: session.user.id, page: parsePage(sp.po) }),
+    listMyInvitations(db, session.user.id),
   ]);
 
   return (
@@ -72,6 +74,30 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
           </>
         )}
       </section>
+
+      {invitations.length > 0 && (
+        <section aria-labelledby="invitations">
+          <h2 id="invitations">Invitations reçues</h2>
+          <ul className="cards">
+            {invitations.map((i) => (
+              <li key={i.gameId}>
+                <Card className="game-card">
+                  <div className="game-main">
+                    <div className="game-head">
+                      <div className="game-title">{i.name}</div>
+                      <GameTag kind="join" />
+                    </div>
+                    <GameMeta type={i.type} turns={i.turns} turnDurationSeconds={i.turnDurationSeconds} theme={i.theme} extra={[`invité par ${i.inviterName}`]} />
+                  </div>
+                  <div className="game-side">
+                    <ButtonLink href={`/games/${i.gameId}`}>Voir la partie</ButtonLink>
+                  </div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section aria-labelledby="ouvertes">
         <div className="section-head">

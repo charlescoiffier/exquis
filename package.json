@@ -16,6 +16,7 @@
     "e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "db:dev": "tsx scripts/dev-db.ts",
+    "role": "tsx --env-file-if-exists=.env.local scripts/set-role.ts",
     "capture:readme": "tsx scripts/capture-readme.ts"
   },
   "dependencies": {

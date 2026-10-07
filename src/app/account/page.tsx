@@ -5,6 +5,8 @@ import { InviteButton } from "@/components/InviteButton";
 import { SignOutButton } from "@/components/SignOutButton";
 import { Banner } from "@/components/ui/Banner";
 import { Card } from "@/components/ui/Card";
+import { ButtonLink } from "@/components/ui/Button";
+import { countOpenReports, isModerator } from "@/lib/services/moderation";
 import { Pagination } from "@/components/ui/Pagination";
 import { getDb } from "@/lib/db/client";
 import { getProfile, getProfileStats } from "@/lib/services/account";
@@ -20,11 +22,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   if (!session) redirect("/login");
   const sp = await searchParams;
   const db = getDb();
-  const [past, p, stats] = await Promise.all([
+  const [past, p, stats, moderator] = await Promise.all([
     listMyPastGames(db, session.user.id, { page: parsePage(sp.pp) }),
     getProfile(db, session.user.id),
     getProfileStats(db, session.user.id),
+    isModerator(db, session.user.id),
   ]);
+  const openReports = moderator ? await countOpenReports(db) : 0;
   return (
     <main>
       <Banner title="Mon compte" />
@@ -61,6 +65,24 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           <ReminderPreference initial={p.reminderStage} />
         </Card>
       </section>
+
+      <section aria-labelledby="amis">
+        <h2 id="amis">Amis</h2>
+        <Card>
+          <p style={{ marginTop: 0 }}>Ajoutez des amis avec leur code, puis invitez-les directement à vos parties.</p>
+          <ButtonLink href="/friends" variant="secondary">Mes amis</ButtonLink>
+        </Card>
+      </section>
+
+      {moderator && (
+        <section aria-labelledby="moderation">
+          <h2 id="moderation">Modération</h2>
+          <Card>
+            <p style={{ marginTop: 0 }}>{openReports > 0 ? `${openReports} signalement${openReports > 1 ? "s" : ""} à traiter.` : "Aucun signalement à traiter."}</p>
+            <ButtonLink href="/moderation" variant="secondary">Ouvrir la modération</ButtonLink>
+          </Card>
+        </section>
+      )}
 
       <section aria-labelledby="inviter">
         <h2 id="inviter">Inviter des amis</h2>

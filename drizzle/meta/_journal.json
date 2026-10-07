@@ -50,6 +50,13 @@
       "when": 1791397564042,
       "tag": "0006_loving_yellowjacket",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791398419130,
+      "tag": "0007_skinny_mauler",
+      "breakpoints": true
     }
   ]
 }

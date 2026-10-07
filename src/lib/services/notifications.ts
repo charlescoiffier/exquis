@@ -1,32 +1,54 @@
 import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { user } from "@/lib/db/auth-schema";
 import type { Db, Executor } from "@/lib/db/client";
 import { game, notification, profile } from "@/lib/db/schema";
 
 export type NotificationType =
   | "game_started" | "your_turn" | "turn_reminder" | "turn_reassigned"
-  | "game_completed" | "game_cancelled" | "work_ready" | "comment_added";
+  | "game_completed" | "game_cancelled" | "work_ready" | "comment_added"
+  | "friend_request" | "friend_accepted" | "game_invite" | "comment_hidden" | "work_hidden";
 
 export const EMAIL_MIN_DURATION_SECONDS = 300;
 
 export async function queueNotification(
   tx: Executor,
-  n: { userId: string; type: NotificationType; gameId: string; turnId?: string; suffix?: string; /** Pas d'email (notification dans l'application seulement). */ inAppOnly?: boolean },
+  n: {
+    userId: string;
+    type: NotificationType;
+    /** Absent pour une notification qui ne concerne pas une partie (demande d'ami). */
+    gameId?: string;
+    /** Personne à l'origine de la notification. */
+    actorId?: string;
+    turnId?: string;
+    suffix?: string;
+    /** Pas d'email (notification dans l'application seulement). */
+    inAppOnly?: boolean;
+  },
 ): Promise<void> {
-  const [g] = await tx.select({ d: game.turnDurationSeconds }).from(game).where(eq(game.id, n.gameId));
+  const [g] = n.gameId ? await tx.select({ d: game.turnDurationSeconds }).from(game).where(eq(game.id, n.gameId)) : [];
   const [p] = await tx.select({ e: profile.emailEnabled }).from(profile).where(eq(profile.userId, n.userId));
-  const emailPending = !n.inAppOnly && (p?.e ?? true) && (g?.d ?? 0) >= EMAIL_MIN_DURATION_SECONDS;
-  const dedupeKey = `${n.type}:${n.turnId ?? n.gameId}:${n.userId}${n.suffix ? `:${n.suffix}` : ""}`;
+  const emailPending = !n.inAppOnly && !!n.gameId && (p?.e ?? true) && (g?.d ?? 0) >= EMAIL_MIN_DURATION_SECONDS;
+  const dedupeKey = `${n.type}:${n.turnId ?? n.gameId ?? n.actorId}:${n.userId}${n.suffix ? `:${n.suffix}` : ""}`;
   await tx
     .insert(notification)
-    .values({ userId: n.userId, type: n.type, gameId: n.gameId, turnId: n.turnId, dedupeKey, emailPending })
+    .values({ userId: n.userId, type: n.type, gameId: n.gameId, actorId: n.actorId, turnId: n.turnId, dedupeKey, emailPending })
     .onConflictDoNothing({ target: notification.dedupeKey });
 }
 
 export async function listNotifications(db: Db, userId: string) {
   return db
-    .select({ id: notification.id, type: notification.type, gameId: notification.gameId, readAt: notification.readAt, createdAt: notification.createdAt, gameName: game.name })
+    .select({
+      id: notification.id,
+      type: notification.type,
+      gameId: notification.gameId,
+      readAt: notification.readAt,
+      createdAt: notification.createdAt,
+      gameName: game.name,
+      actorName: user.name,
+    })
     .from(notification)
-    .innerJoin(game, eq(game.id, notification.gameId))
+    .leftJoin(game, eq(game.id, notification.gameId))
+    .leftJoin(user, eq(user.id, notification.actorId))
     .where(eq(notification.userId, userId))
     .orderBy(desc(notification.createdAt))
     .limit(50);
