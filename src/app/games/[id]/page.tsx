@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { JoinButton } from "@/components/JoinButton";
+import { ExpiredNotice } from "@/components/ExpiredNotice";
 import { TurnEditor } from "@/components/TurnEditor";
 import { TurnTitle } from "@/components/TurnTitle";
 import { getDb } from "@/lib/db/client";
@@ -70,7 +71,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
 
 async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: string) {
   const turn = await getMyTurn(db, getStorage(), { userId, gameId });
-  if (!turn) return <p>En attente des autres joueurs. Vous serez prévenu(e) quand ce sera votre tour.</p>;
+  if (!turn) return <><ExpiredNotice gameId={gameId} /><p>En attente des autres joueurs. Vous serez prévenu(e) quand ce sera votre tour.</p></>;
   // La clé garde l'état de l'éditeur lors d'un rafraîchissement tant que le tour (et son échéance) ne change pas.
   return (
     <>
@@ -82,6 +83,7 @@ async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: 
         rank: turn.rank,
         total: turn.total,
         deadline: turn.deadline.toISOString(),
+        serverNow: new Date().toISOString(),
         stripUrl: turn.stripUrl,
         excerpt: turn.excerpt,
         draft: turn.draft,

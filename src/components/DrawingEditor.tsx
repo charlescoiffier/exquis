@@ -3,10 +3,20 @@ import { getStroke } from "perfect-freehand";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { floodFill, hexToRgba, isInsideOwnZone, sanitizeOps, type Op } from "@/lib/drawing/ops";
+import { ExpiryDialog } from "./ExpiryDialog";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
-import { canvasSize, guideLines, guidesSvg, inheritedRect, ownRect, type Direction } from "@/lib/images/geometry";
+import { canvasSize, guideLines, guidesSvg, inheritedRect, type Direction } from "@/lib/images/geometry";
 
-type Props = { gameId: string; direction: Direction; rank: number; total: number; stripUrl?: string; draft: unknown };
+type Props = {
+  gameId: string;
+  direction: Direction;
+  rank: number;
+  total: number;
+  stripUrl?: string;
+  draft: unknown;
+  validationMsLeft: number | null;
+  onLost: () => void;
+};
 type History = { ops: Op[]; redo: Op[] };
 
 function pathFromStroke(points: number[][]): Path2D {
@@ -18,7 +28,7 @@ function pathFromStroke(points: number[][]): Path2D {
   return p;
 }
 
-export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft }: Props) {
+export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft, validationMsLeft, onLost }: Props) {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stripRef = useRef<HTMLImageElement | null>(null);
@@ -66,32 +76,23 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
   const cachedOps = useRef<Op[]>([]);
   const cacheStrip = useRef(false);
 
-  const zone = useCallback(() => {
-    if (rank === 1) return { left: 0, top: 0, width, height };
-    return ownRect(direction);
-  }, [rank, direction, width, height]);
-
   const applyOp = useCallback(
     (ctx: CanvasRenderingContext2D, op: Op) => {
-      const z = zone();
       if (op.kind === "stroke") {
         const outline = getStroke(op.points, { size: op.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
         ctx.save();
-        ctx.beginPath();
-        ctx.rect(z.left, z.top, z.width, z.height);
-        ctx.clip();
         ctx.globalAlpha = op.opacity;
         ctx.fillStyle = op.tool === "eraser" ? "#ffffff" : op.color;
         ctx.fill(pathFromStroke(outline));
         ctx.restore();
       } else {
-        // putImageData ignore le clip : le remplissage est borné à la zone propre.
+        // Le remplissage s'étend sur toute la surface, bande héritée comprise.
         const img = ctx.getImageData(0, 0, width, height);
-        floodFill(img, op.x, op.y, hexToRgba(op.color), 16, z);
+        floodFill(img, op.x, op.y, hexToRgba(op.color), 16);
         ctx.putImageData(img, 0, 0);
       }
     },
-    [zone, width, height],
+    [width, height],
   );
 
   const paint = useCallback(
@@ -130,19 +131,15 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
       ctx.globalAlpha = 1;
       ctx.drawImage(cache, 0, 0);
       if (live && live.kind === "stroke") {
-        const z = zone();
         const outline = getStroke(live.points, { size: live.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
         ctx.save();
-        ctx.beginPath();
-        ctx.rect(z.left, z.top, z.width, z.height);
-        ctx.clip();
         ctx.globalAlpha = live.opacity;
         ctx.fillStyle = live.tool === "eraser" ? "#ffffff" : live.color;
         ctx.fill(pathFromStroke(outline));
         ctx.restore();
       }
     },
-    [width, height, direction, applyOp, zone],
+    [width, height, direction, applyOp],
   );
 
   useEffect(() => {
@@ -192,6 +189,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
     setHistory((h) => (h.redo.length ? { ops: [...h.ops, h.redo[h.redo.length - 1]], redo: h.redo.slice(0, -1) } : h));
 
   async function submit() {
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -204,6 +202,10 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
       const res = await fetch(`/api/games/${gameId}/my-turn/submit`, { method: "POST", headers: { "content-type": "image/png" }, body: blob });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (data.code === "not_your_turn") {
+          onLost();
+          return;
+        }
         setError(data.error ?? "Envoi impossible.");
         setBusy(false);
         return;
@@ -246,6 +248,17 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft 
       </div>
       {stripError && <p className="error">Impossible de charger la bande du dessin précédent. Rechargez la page.</p>}
       {error && <p className="error">{error}</p>}
+      {validationMsLeft !== null && (
+        <ExpiryDialog
+          question="Temps écoulé. Valider votre dessin maintenant ?"
+          submitLabel="Envoyer mon dessin"
+          msLeft={validationMsLeft}
+          busy={busy || !stripReady || stripError}
+          error={error}
+          onSubmit={submit}
+          onAbandon={onLost}
+        />
+      )}
       <p><button type="button" onClick={submit} disabled={busy || !stripReady || stripError}>Envoyer mon dessin</button></p>
     </div>
   );

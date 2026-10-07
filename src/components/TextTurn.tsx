@@ -3,11 +3,12 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { countWords, sanitizeText, transmittedRange, type ExcerptRule } from "@/lib/domain/text";
 import { gaugeState, mirrorSegments } from "@/lib/domain/text-editor";
+import { ExpiryDialog } from "./ExpiryDialog";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 
-type Props = { gameId: string; excerpt?: string; draft: { text?: string } | null; minWords: number; maxWords: number; rule: ExcerptRule };
+type Props = { gameId: string; excerpt?: string; draft: { text?: string } | null; minWords: number; maxWords: number; rule: ExcerptRule; validationMsLeft: number | null; onLost: () => void };
 
-export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule }: Props) {
+export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, validationMsLeft, onLost }: Props) {
   const router = useRouter();
   const [text, setText] = useState(draft?.text ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -20,14 +21,19 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule }: P
   const [before, sent, after] = mirrorSegments(clean, transmittedRange(clean, rule));
   useDraftAutosave(gameId, { text }, { text: draft?.text ?? "" });
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (busy || !gauge.ok) return;
     setBusy(true);
     setError(null);
     try {
       const res = await fetch(`/api/games/${gameId}/my-turn/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (data.code === "not_your_turn") {
+          onLost();
+          return;
+        }
         setError(data.error ?? "Envoi impossible.");
         setBusy(false);
         return;
@@ -80,6 +86,17 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule }: P
       </div>
       {error && <p className="error">{error}</p>}
       <button type="submit" disabled={busy || !gauge.ok}>Envoyer</button>
+      {validationMsLeft !== null && (
+        <ExpiryDialog
+          question="Temps écoulé. Envoyer votre texte maintenant ?"
+          submitLabel="Envoyer mon texte"
+          msLeft={validationMsLeft}
+          busy={busy || !gauge.ok}
+          error={error ?? (gauge.ok ? null : gauge.message)}
+          onSubmit={() => void submit()}
+          onAbandon={onLost}
+        />
+      )}
     </form>
   );
 }

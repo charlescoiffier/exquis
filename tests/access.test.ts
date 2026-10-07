@@ -6,6 +6,7 @@ const deadline = new Date(t0.getTime() + 60_000);
 const turn = { assignedUserId: "u1", status: "active", deadline };
 
 describe("canActOnTurn", () => {
+  it("la tolérance de validation est de 60 s", () => expect(SUBMIT_GRACE_MS).toBe(60_000));
   it("accepte le joueur assigné avant l'échéance", () => expect(canActOnTurn(turn, "u1", t0)).toBe(true));
   it("accepte dans la tolérance", () => expect(canActOnTurn(turn, "u1", new Date(deadline.getTime() + SUBMIT_GRACE_MS))).toBe(true));
   it("refuse après la tolérance", () => expect(canActOnTurn(turn, "u1", new Date(deadline.getTime() + SUBMIT_GRACE_MS + 1))).toBe(false));

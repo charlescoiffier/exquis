@@ -6,7 +6,7 @@ import { decideOnExpiry } from "@/lib/domain/expiry";
 import { countWords, extractExcerpt, sanitizeText, type ExcerptRule } from "@/lib/domain/text";
 import type { Effect } from "@/lib/effects";
 import { DomainError } from "@/lib/errors";
-import { extractStrip, inheritedZoneIntact, validateDrawingPng } from "@/lib/images/strip";
+import { extractStrip, validateDrawingPng } from "@/lib/images/strip";
 import type { Storage } from "@/lib/storage";
 import { queueNotification } from "./notifications";
 import { publicGame, type GameRow, type PublicGame } from "./games";
@@ -127,13 +127,7 @@ export async function submitDrawing(
     if (g.type !== "drawing") throw new DomainError("wrong_type", "Cette partie n'est pas une partie de dessin.", 400);
     const d = g.direction!;
     await validateDrawingPng(p.png, d);
-    if (t.rank > 1) {
-      const prev = await previousContribution(tx, g.id, t.rank);
-      if (!prev?.stripKey) throw new DomainError("invalid_image", "Bande héritée introuvable.", 500);
-      if (!(await inheritedZoneIntact(p.png, await storage.get(prev.stripKey), d))) {
-        throw new DomainError("invalid_image", "La zone héritée ne doit pas être modifiée.", 400);
-      }
-    }
+    // La bande héritée peut être repeinte : seuls le format et les dimensions sont vérifiés.
     const strip = await extractStrip(p.png, d);
     const base = `games/${g.id}/turns/${t.rank}`;
     await storage.put(`${base}/full.png`, p.png, "image/png");

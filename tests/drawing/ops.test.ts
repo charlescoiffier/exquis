@@ -39,13 +39,17 @@ describe("floodFill", () => {
 
 describe("isInsideOwnZone", () => {
   it("tour 1 : tout le canvas", () => expect(isInsideOwnZone(10, 10, 1, "down")).toBe(true));
-  it("tour 2 : exclut la bande héritée (down)", () => {
-    expect(isInsideOwnZone(10, 100, 2, "down")).toBe(false);
+  it("tour 2 : autorise aussi la bande héritée (down)", () => {
+    expect(isInsideOwnZone(10, 100, 2, "down")).toBe(true);
     expect(isInsideOwnZone(10, 200, 2, "down")).toBe(true);
   });
-  it("tour 2 : exclut la bande héritée (right)", () => {
-    expect(isInsideOwnZone(100, 10, 2, "right")).toBe(false);
+  it("tour 2 : autorise aussi la bande héritée (right)", () => {
+    expect(isInsideOwnZone(100, 10, 2, "right")).toBe(true);
     expect(isInsideOwnZone(200, 10, 2, "right")).toBe(true);
+  });
+  it("refuse un point hors du canvas", () => {
+    expect(isInsideOwnZone(-1, 10, 2, "down")).toBe(false);
+    expect(isInsideOwnZone(10, 1600, 2, "down")).toBe(false);
   });
 });
 
