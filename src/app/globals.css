@@ -174,3 +174,34 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .final-text ol { list-style:none; margin:0; padding:0; }
 .final-hidden .contrib-rail { display:none; }
 .final-hidden .contrib { gap:0; }
+
+/* Accueil : cartes de parties */
+main ul.cards { border-top:0; margin:0 0 8px; }
+main ul.cards > li { padding:0; border-bottom:0; }
+.game-card { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
+.game-main { min-width:0; flex:1; }
+.game-side { flex:none; }
+.game-title { display:block; font-family:var(--font-display-stack); font-size:20px; line-height:1.15; margin:4px 0 2px; overflow-wrap:anywhere; }
+a.game-title { color:var(--fg); text-decoration:none; }
+a.game-title:hover { text-decoration:underline; }
+.card-call .game-title { color:var(--on-accent2); }
+.meta { font-size:14px; color:var(--muted); }
+.card-call .meta { color:var(--on-accent2); }
+.card-call .pill.call { background:#fff; color:var(--fg); border-color:var(--fg); }
+.card-call .btn, .card-call button { border-color:var(--fg); }
+.card-call .error { color:#fff; background:var(--danger); padding:2px 6px; }
+.game-action { margin-top:10px; }
+.game-count { flex:none; text-align:right; }
+.count-num { display:block; padding-right:4px; font-family:var(--font-display-stack); font-size:34px; line-height:1; }
+.count-label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+.pill.turn { flex:none; background:var(--accent); color:var(--on-accent); border-color:var(--fg); font-weight:700; font-size:13px; padding:4px 10px; }
+.section-head { margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:28px; }
+.section-head h2 { margin:0; }
+@media (max-width: 480px) { .game-card:has(.pill.turn) { flex-wrap:wrap; } }
+
+/* Formulaires : cartes centrées (connexion, inscription) et sections de création */
+.auth-card { max-width:440px; margin:8px auto 0; }
+.auth-card .btn, .auth-card button[type="submit"] { width:100%; }
+fieldset.form-section { border:2px solid var(--line); background:var(--surface); box-shadow:var(--shadow-card); margin:0 4px 20px 0; padding:8px 16px 16px; min-width:0; }
+fieldset.form-section legend { font-family:var(--font-display-stack); font-size:20px; padding:0 6px; }
+.form-error { border:2px solid var(--danger); background:var(--surface); color:var(--danger); padding:10px 12px; font-weight:500; }

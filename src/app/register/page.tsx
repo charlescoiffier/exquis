@@ -1,6 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Banner } from "@/components/ui/Banner";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -32,20 +35,24 @@ export default function RegisterPage() {
 
   return (
     <main>
-      <h1>Créer un compte</h1>
-      <form onSubmit={onSubmit}>
-        <label htmlFor="name">Nom</label>
-        <input id="name" name="name" required />
-        <label htmlFor="email">Email</label>
-        <input id="email" name="email" type="email" required />
-        <label htmlFor="password">Mot de passe</label>
-        <input id="password" name="password" type="password" minLength={10} required />
-        <label htmlFor="invitationCode">Code d&apos;invitation</label>
-        <input id="invitationCode" name="invitationCode" />
-        {error && <p className="error">{error}</p>}
-        {info && <p>{info}</p>}
-        <p><button type="submit">Créer mon compte</button></p>
-      </form>
+      <Banner title="Créer un compte" />
+      <Card className="auth-card">
+        <form onSubmit={onSubmit}>
+          <label htmlFor="name" style={{ marginTop: 0 }}>Nom</label>
+          <input id="name" name="name" autoComplete="nickname" required />
+          <label htmlFor="email">Email</label>
+          <input id="email" name="email" type="email" autoComplete="email" required />
+          <label htmlFor="password">Mot de passe</label>
+          <input id="password" name="password" type="password" autoComplete="new-password" minLength={10} required aria-describedby="password-hint" />
+          <p id="password-hint" className="hint">10 caractères au minimum.</p>
+          <label htmlFor="invitationCode">Code d&apos;invitation</label>
+          <input id="invitationCode" name="invitationCode" />
+          {error && <p className="form-error" role="alert" style={{ marginTop: 14 }}>{error}</p>}
+          {info && <p className="notice success" role="status" style={{ marginTop: 14 }}>{info}</p>}
+          <Button type="submit">Créer mon compte</Button>
+        </form>
+        <p className="muted" style={{ margin: "16px 0 0" }}>Déjà inscrit ? <a href="/login">Se connecter</a></p>
+      </Card>
     </main>
   );
 }

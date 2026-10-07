@@ -14,3 +14,15 @@ export function formatDuration(seconds: number): string {
   const h = Math.floor((seconds % 86400) / 3600);
   return h ? `${d} j ${h} h` : `${d} j`;
 }
+
+const STATUS_LABELS: Record<string, string> = {
+  open: "En attente de joueurs",
+  in_progress: "En cours",
+  completed: "Terminée",
+  cancelled: "Annulée",
+};
+
+/** Libellé français d'un état de partie (valeur d'énumération brute inconnue : renvoyée telle quelle). */
+export function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status;
+}

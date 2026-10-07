@@ -41,7 +41,7 @@ test("deux joueurs terminent une partie de texte", async ({ browser }) => {
   const gameUrl = alice.url();
 
   await bob.goto("/");
-  await bob.getByRole("row", { name: new RegExp(gameName) }).getByRole("button", { name: "Rejoindre" }).click();
+  await bob.getByRole("listitem").filter({ hasText: gameName }).getByRole("button", { name: "Rejoindre" }).click();
   await bob.waitForURL(gameUrl);
 
   const players = [alice, bob];
