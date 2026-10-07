@@ -1,6 +1,7 @@
 import { and, count, desc, eq, gt, inArray } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import type { Db, Executor, Tx } from "@/lib/db/client";
+import { user } from "@/lib/db/auth-schema";
 import { game, participant, turn } from "@/lib/db/schema";
 import { parseGameParams, shuffle } from "@/lib/domain/game-rules";
 import type { Effect } from "@/lib/effects";
@@ -37,11 +38,17 @@ export async function createGame(db: Db, creatorId: string, input: unknown, now 
     if (createdToday >= MAX_CREATED_PER_DAY) throw new DomainError("daily_limit", "Limite quotidienne de parties créées atteinte.", 429);
     if ((await activeGameCount(tx, creatorId)) >= MAX_ACTIVE_GAMES) throw new DomainError("active_limit", "Trop de parties actives.", 429);
 
+    let name = p.name;
+    if (!name) {
+      const [creator] = await tx.select({ name: user.name }).from(user).where(eq(user.id, creatorId));
+      name = `${p.type === "text" ? "Texte" : "Dessin"} de ${creator?.name ?? "anonyme"}`;
+    }
+
     const [g] = await tx
       .insert(game)
       .values({
         creatorId,
-        name: p.name,
+        name,
         type: p.type,
         turns: p.turns,
         turnDurationSeconds: p.turnDurationSeconds,

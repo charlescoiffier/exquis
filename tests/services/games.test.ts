@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { game, notification, participant, turn } from "@/lib/db/schema";
 import { MAX_ACTIVE_GAMES, MAX_CREATED_PER_DAY, createGame, getGameView, joinGame, listMyGames, listOpenGames } from "@/lib/services/games";
 import { makeUser, resetDb, testDb } from "../helpers/db";
-import { activeTurn, startedGame, textParams } from "../helpers/games";
+import { activeTurn, drawingParams, startedGame, textParams } from "../helpers/games";
 
 const db = testDb();
 beforeEach(() => resetDb(db));
@@ -16,6 +16,23 @@ describe("createGame", () => {
     expect(ps.map((p) => p.userId)).toEqual([u]);
     const list = await listOpenGames(db);
     expect(list).toMatchObject([{ id: gameId, participantCount: 1, turns: 3, language: "fr" }]);
+  });
+  it.each([
+    ["texte", textParams, "Texte de Alice"],
+    ["dessin", drawingParams, "Dessin de Alice"],
+  ])("génère le titre (%s) quand le nom est absent ou blanc, le conserve sinon", async (_l, mk, expected) => {
+    const noName: Record<string, unknown> = { ...mk(3) };
+    delete noName.name;
+    const title = async (input: unknown) => {
+      await resetDb(db);
+      const id = await makeUser(db, "Alice");
+      const { gameId } = await createGame(db, id, input);
+      return (await db.select().from(game).where(eq(game.id, gameId)))[0].name;
+    };
+    expect(await title(noName)).toBe(expected);
+    expect(await title({ ...noName, name: "   " })).toBe(expected);
+    expect(await title({ ...noName, name: "" })).toBe(expected);
+    expect(await title({ ...noName, name: "  Mon titre " })).toBe("Mon titre");
   });
   it("refuse des paramètres invalides", async () => {
     const u = await makeUser(db, "a");

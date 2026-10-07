@@ -7,7 +7,7 @@ export const MIN_DURATION = 30;
 export const MAX_DURATION = 604800;
 
 const base = z.object({
-  name: z.string().trim().min(1).max(80),
+  name: z.string().trim().max(80).optional(),
   turns: z.number().int().min(MIN_TURNS).max(MAX_TURNS),
   turnDurationSeconds: z.number().int().min(MIN_DURATION).max(MAX_DURATION),
   visibility: z.enum(["public", "invite"]),

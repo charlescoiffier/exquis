@@ -44,8 +44,8 @@ export function NewGameForm() {
 
   return (
     <form onSubmit={onSubmit}>
-      <label htmlFor="name">Nom de la partie</label>
-      <input id="name" name="name" required maxLength={80} />
+      <label htmlFor="name">Titre de la partie (facultatif)</label>
+      <input id="name" name="name" maxLength={80} placeholder={type === "text" ? "Texte de <votre nom>" : "Dessin de <votre nom>"} />
       <label htmlFor="type">Type</label>
       <select id="type" value={type} onChange={(e) => setType(e.target.value as "drawing" | "text")}>
         <option value="text">Texte</option>
@@ -75,6 +75,7 @@ export function NewGameForm() {
         <>
           <label htmlFor="language">Langue</label>
           <input id="language" name="language" defaultValue="fr" required />
+          <p className="hint">Longueur de chaque contribution, en mots. Le joueur doit écrire entre ces deux valeurs.</p>
           <label htmlFor="minWords">Mots minimum</label>
           <input id="minWords" name="minWords" type="number" min={1} defaultValue={20} required />
           <label htmlFor="maxWords">Mots maximum</label>
