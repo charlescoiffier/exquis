@@ -43,7 +43,7 @@ Navigation : le layout (`src/app/layout.tsx`) affiche, seulement si une session 
 
 ## Règles d'usage
 
-1. **Une seule action primaire (moutarde) par écran** ; les autres actions sont `.secondary`.
+1. **Une seule action primaire (moutarde) par écran** ; les autres actions sont `.secondary`. Exception : le bouton primaire d'une carte de liste (Rejoindre / Reprendre le tour) est l'action principale de la carte ; en dehors des listes, un seul bouton primaire par écran.
 2. **Un appel à participation est une carte canard** (`<Card call>` + `.pill.call`).
 3. Moutarde uniquement avec texte noir ; jamais de texte en `--dim`.
 4. Cibles tactiles ≥ 44 px ; gouttière latérale ≥ 16 px ; pas de défilement horizontal de la page.

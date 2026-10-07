@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { loginErrorMessage } from "@/lib/auth-errors";
 import { authClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
@@ -14,7 +15,7 @@ export default function LoginPage() {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const { error } = await authClient.signIn.email({ email: String(f.get("email")), password: String(f.get("password")) });
-    if (error) return setError(error.status === 401 || error.status === 400 ? "Email ou mot de passe incorrect." : "Connexion impossible.");
+    if (error) return setError(loginErrorMessage(error));
     router.push("/");
     router.refresh();
   }

@@ -32,8 +32,7 @@ export default async function Home() {
         <h2 id="mes-parties">Mes parties</h2>
         {mine.length === 0 ? (
           <Card>
-            <p>Aucune partie pour l&apos;instant : rejoignez une partie ouverte ci-dessous ou lancez la vôtre.</p>
-            <ButtonLink href="/games/new">Créer une partie</ButtonLink>
+            <p style={{ margin: 0 }}>Aucune partie pour l&apos;instant : rejoignez une partie ouverte ci-dessous ou lancez la vôtre.</p>
           </Card>
         ) : (
           <ul className="cards">
@@ -68,7 +67,7 @@ export default async function Home() {
                     </div>
                   </div>
                   <div className="game-side">
-                    {mineIds.has(g.id) ? <Link href={`/games/${g.id}`}>Ouvrir</Link> : <JoinButton gameId={g.id} claim />}
+                    {mineIds.has(g.id) ? <ButtonLink href={`/games/${g.id}`} variant="secondary">Ouvrir</ButtonLink> : <JoinButton gameId={g.id} claim />}
                   </div>
                 </Card>
               </li>
@@ -80,7 +79,7 @@ export default async function Home() {
       <section aria-labelledby="ouvertes">
         <div className="section-head">
           <h2 id="ouvertes">Parties ouvertes</h2>
-          <ButtonLink href="/games/new" variant="secondary">Créer une partie</ButtonLink>
+          {open.length > 0 && <ButtonLink href="/games/new" variant="secondary">Créer une partie</ButtonLink>}
         </div>
         {open.length === 0 ? (
           <Card>
@@ -98,12 +97,13 @@ export default async function Home() {
                       {typeLabel(g.type)} · {g.turns} tours · {formatDuration(g.turnDurationSeconds)}{g.type === "text" ? ` · ${g.language}` : ""}
                     </div>
                     <div className="game-action">
-                      {mineIds.has(g.id) ? <Link href={`/games/${g.id}`}>Ouvrir</Link> : <JoinButton gameId={g.id} />}
+                      {mineIds.has(g.id) ? <ButtonLink href={`/games/${g.id}`} variant="secondary">Ouvrir</ButtonLink> : <JoinButton gameId={g.id} />}
                     </div>
                   </div>
-                  <div className="game-count" aria-label={`${g.participantCount} inscrits sur ${g.turns}`}>
-                    <span className="count-num">{g.participantCount}/{g.turns}</span>
-                    <span className="count-label">inscrits</span>
+                  <div className="game-count">
+                    <span className="sr-only">{g.participantCount} inscrit{g.participantCount > 1 ? "s" : ""} sur {g.turns}</span>
+                    <span className="count-num" aria-hidden="true">{g.participantCount}/{g.turns}</span>
+                    <span className="count-label" aria-hidden="true">inscrits</span>
                   </div>
                 </Card>
               </li>

@@ -90,13 +90,13 @@ export function NewGameForm() {
         <fieldset className="form-section">
           <legend>Options du texte</legend>
           <label htmlFor="language">Langue</label>
-          <input id="language" name="language" defaultValue="fr" required />
-          <p className="hint">Code de langue du texte, par exemple fr ou en.</p>
-          <p className="hint">Longueur de chaque contribution, en mots. Le joueur doit écrire entre ces deux valeurs.</p>
+          <input id="language" name="language" defaultValue="fr" required aria-describedby="language-hint" />
+          <p id="language-hint" className="hint">Code de langue du texte, par exemple fr ou en.</p>
           <label htmlFor="minWords">Mots minimum</label>
-          <input id="minWords" name="minWords" type="number" min={1} defaultValue={20} required />
+          <input id="minWords" name="minWords" type="number" min={1} defaultValue={20} required aria-describedby="words-hint" />
           <label htmlFor="maxWords">Mots maximum</label>
-          <input id="maxWords" name="maxWords" type="number" min={1} defaultValue={150} required />
+          <input id="maxWords" name="maxWords" type="number" min={1} defaultValue={150} required aria-describedby="words-hint" />
+          <p id="words-hint" className="hint">Longueur de chaque contribution, en mots. Le joueur doit écrire entre ces deux valeurs.</p>
           <label htmlFor="excerptMode">Texte transmis au suivant</label>
           <select id="excerptMode" value={excerptMode} onChange={(e) => setExcerptMode(e.target.value as "paragraph" | "words")} aria-describedby="excerpt-hint">
             <option value="paragraph">Dernier paragraphe</option>
