@@ -73,9 +73,9 @@ export function EmailPreference({ initial }: { initial: boolean }) {
 }
 
 const REMINDER_LABELS: [number, string][] = [
-  [50, "Quand il me reste la moitié du temps"],
-  [25, "Quand il me reste un quart du temps"],
-  [10, "Quand il me reste un dixième du temps"],
+  [50, "À la moitié du temps restant"],
+  [25, "Au quart du temps restant"],
+  [10, "Au dixième du temps restant"],
   [0, "Aucun rappel"],
 ];
 
