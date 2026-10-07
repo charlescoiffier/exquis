@@ -1,5 +1,4 @@
 "use client";
-import { getStroke } from "perfect-freehand";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { floodFill, hexToRgba, isInsideCanvas, sanitizeOps, type Op } from "@/lib/drawing/ops";
@@ -37,17 +36,28 @@ const PALETTE: { name: string; hex: string }[] = [
   { name: "Marron", hex: "#92400e" },
 ];
 type History = { ops: Op[]; redo: Op[] };
-/** Style du trait. Un `streamline` élevé lisse davantage mais fait traîner la pointe derrière le doigt : on le garde bas. */
-/** L'aperçu du trait en cours est dessiné à cette échelle : moins de pixels à rasteriser et à envoyer au GPU, surtout sur smartphone. */
-const LIVE_SCALE = 0.5;
-const STROKE_STYLE = { thinning: 0.5, smoothing: 0.5, streamline: 0.2 };
+/** Écart minimal (px du canvas) entre deux points enregistrés : filtre le tremblement et allège le tracé. */
+const MIN_STEP = 1.5;
+/** Largeur d'un trait : la gomme est un peu plus large que le pinceau de même taille (elle emporte aussi la frange adoucie). */
+const strokeWidth = (op: { tool: string; size: number }) => (op.tool === "eraser" ? op.size + 3 : op.size);
 
-function pathFromStroke(points: number[][]): Path2D {
+const mid = (a: number[], b: number[]): [number, number] => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+
+/** Trait lissé : courbes quadratiques dont les points de contrôle sont les points saisis, raccordées aux milieux des segments. */
+function smoothPath(pts: number[][]): Path2D {
   const p = new Path2D();
-  if (points.length === 0) return p;
-  p.moveTo(points[0][0], points[0][1]);
-  for (let i = 1; i < points.length; i++) p.lineTo(points[i][0], points[i][1]);
-  p.closePath();
+  const n = pts.length;
+  if (n === 0) return p;
+  p.moveTo(pts[0][0], pts[0][1]);
+  if (n === 1) {
+    p.lineTo(pts[0][0] + 0.01, pts[0][1]); // point isolé : un disque grâce à l'extrémité arrondie
+    return p;
+  }
+  for (let i = 1; i < n - 1; i++) {
+    const m = mid(pts[i], pts[i + 1]);
+    p.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]);
+  }
+  p.lineTo(pts[n - 1][0], pts[n - 1][1]);
   return p;
 }
 
@@ -64,8 +74,16 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   const opsRef = useRef<Op[]>(initial);
   opsRef.current = ops;
   const liveRef = useRef<HTMLCanvasElement>(null);
+  // Calque de la pointe du trait (dernier demi-segment, provisoire) : il est effacé à chaque image, contrairement à `liveRef`.
+  const tipRef = useRef<HTMLCanvasElement>(null);
+  const tipBox = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const perfRef = useRef({ moves: 0, frames: 0, drawMs: 0, long: 0 });
+  const [perf, setPerf] = useState<string | null>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
+  // Aperçu du trait : échelle du calque d'aperçu et rang du prochain point de contrôle à dessiner.
+  const liveScaleRef = useRef(1);
+  const drawnRef = useRef(1);
 
   const [tool, setTool] = useState<"brush" | "eraser" | "fill">("brush");
   const [color, setColor] = useState("#1f1b16");
@@ -105,7 +123,6 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   // Calque des traits (transparent) : la bande héritée reste en dessous, on ne peut donc pas l'effacer.
   // Le calque est reconstruit seulement quand `ops` change (annuler, rétablir, brouillon) ; un nouveau tracé est ajouté sans tout rejouer.
   const userRef = useRef<HTMLCanvasElement | null>(null);
-  const scratchRef = useRef<HTMLCanvasElement | null>(null);
   const flatRef = useRef<HTMLCanvasElement | null>(null);
   const cachedOps = useRef<Op[]>([]);
   const cacheReady = useRef(false);
@@ -122,17 +139,18 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   const applyOp = useCallback(
     (ctx: CanvasRenderingContext2D, op: Op) => {
       if (op.kind === "stroke") {
-        // La gomme est un peu plus large que le pinceau de même taille : elle emporte aussi la frange adoucie des traits.
-        const outline = getStroke(op.points, { size: op.tool === "eraser" ? op.size + 3 : op.size, ...STROKE_STYLE });
         ctx.save();
         ctx.globalAlpha = op.opacity;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = strokeWidth(op);
         if (op.tool === "eraser") {
           ctx.globalCompositeOperation = "destination-out";
-          ctx.fillStyle = "#000000";
+          ctx.strokeStyle = "#000000";
         } else {
-          ctx.fillStyle = op.color;
+          ctx.strokeStyle = op.color;
         }
-        ctx.fill(pathFromStroke(outline));
+        ctx.stroke(smoothPath(op.points));
         ctx.restore();
         return;
       }
@@ -169,13 +187,24 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     [width, height, fillBounds, makeLayer],
   );
 
+  const clearLive = useCallback(() => {
+    for (const c of [liveRef.current, tipRef.current]) {
+      const lctx = c?.getContext("2d");
+      if (!c || !lctx) continue;
+      lctx.save();
+      lctx.setTransform(1, 0, 0, 1, 0, 0);
+      lctx.clearRect(0, 0, c.width, c.height);
+      lctx.restore();
+    }
+    tipBox.current = null;
+  }, []);
+
   const paint = useCallback(
-    (committed: Op[], live: Op | null) => {
+    (committed: Op[]) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       if (!userRef.current) {
         userRef.current = makeLayer();
-        scratchRef.current = makeLayer();
       }
       const user = userRef.current;
       const uctx = user.getContext("2d")!;
@@ -192,15 +221,6 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
       }
       cachedOps.current = committed;
       cacheReady.current = true;
-      let layer = user;
-      if (live && live.kind === "stroke") {
-        const scratch = scratchRef.current!;
-        const sctx = scratch.getContext("2d")!;
-        sctx.clearRect(0, 0, width, height);
-        sctx.drawImage(user, 0, 0);
-        applyOp(sctx, live);
-        layer = scratch;
-      }
       const ctx = canvas.getContext("2d")!;
       ctx.globalAlpha = 1;
       ctx.fillStyle = "#ffffff";
@@ -209,35 +229,131 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         const r = inheritedRect(direction);
         ctx.drawImage(stripRef.current, r.left, r.top);
       }
-      ctx.drawImage(layer, 0, 0);
+      ctx.drawImage(user, 0, 0);
       // Le tracé validé est désormais dans le calque : on efface l'aperçu en direct.
-      if (!live) liveRef.current?.getContext("2d", { desynchronized: true })?.clearRect(0, 0, width, height);
+      clearLive();
     },
-    [width, height, direction, applyOp, makeLayer],
+    [width, height, direction, applyOp, makeLayer, clearLive],
   );
 
   useEffect(() => {
-    if (stripReady) paint(ops, null);
+    if (stripReady) paint(ops);
   }, [ops, stripReady, paint]);
 
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+  // Calque d'aperçu à la résolution d'affichage (au plus celle du canvas) : moins de pixels à rasteriser sur smartphone.
+  useEffect(() => {
+    const live = liveRef.current;
+    const tip = tipRef.current;
+    const canvas = canvasRef.current;
+    if (!live || !tip || !canvas) return;
+    const scale = Math.min(1, Math.max(0.4, (canvas.clientWidth * (window.devicePixelRatio || 1)) / width));
+    liveScaleRef.current = scale;
+    for (const c of [live, tip]) {
+      c.width = Math.round(width * scale);
+      c.height = Math.round(height * scale);
+    }
+  }, [width, height]);
 
-  /** Dessine le tracé en cours, au plus une fois par image : pinceau sur un calque d'aperçu, gomme par recomposition. */
+  // Mesures de fluidité, affichées seulement avec « ?perf=1 » dans l'adresse de la page (diagnostic sur smartphone).
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("perf")) return;
+    const observer = typeof PerformanceObserver !== "undefined" ? new PerformanceObserver((l) => (perfRef.current.long += l.getEntries().length)) : null;
+    try {
+      observer?.observe({ entryTypes: ["longtask"] });
+    } catch {
+      // longtask non pris en charge : on ignore
+    }
+    const id = setInterval(() => {
+      const m = perfRef.current;
+      setPerf(`événements/s ${m.moves} · images/s ${m.frames} · dessin ${m.frames ? (m.drawMs / m.frames).toFixed(2) : "0"} ms/image · tâches longues ${m.long}`);
+      perfRef.current = { moves: 0, frames: 0, drawMs: 0, long: m.long };
+    }, 1000);
+    return () => {
+      clearInterval(id);
+      observer?.disconnect();
+    };
+  }, []);
+
+  /**
+   * Dessine le tracé en cours, au plus une fois par image et de façon incrémentale : seuls les points ajoutés depuis la
+   * dernière image sont tracés (courbes lissées), le coût ne dépend donc pas de la longueur du trait. Le dernier demi-segment
+   * est tracé en ligne droite jusqu'au doigt pour ne pas traîner derrière lui. Au relâchement, le trait est redessiné
+   * proprement dans le calque des traits. La gomme est prévisualisée en blanc (hors bande héritée).
+   */
   function drawLive() {
     rafRef.current = 0;
     const op = currentRef.current;
-    if (!op || op.kind !== "stroke") return;
-    if (op.tool === "eraser") {
-      paint(opsRef.current, op);
-      return;
-    }
     const live = liveRef.current;
-    if (!live) return;
-    const lctx = live.getContext("2d", { desynchronized: true })!;
-    lctx.setTransform(LIVE_SCALE, 0, 0, LIVE_SCALE, 0, 0);
-    lctx.clearRect(0, 0, width, height);
-    lctx.fillStyle = op.color;
-    lctx.fill(pathFromStroke(getStroke(op.points, { size: op.size, ...STROKE_STYLE })));
+    const tip = tipRef.current;
+    if (!op || op.kind !== "stroke" || !live || !tip) return;
+    const t0 = performance.now();
+    const k = liveScaleRef.current;
+    const w = strokeWidth(op);
+    const style = op.tool === "eraser" ? "#ffffff" : op.color;
+    const pts = op.points;
+    const n = pts.length;
+    const prepare = (ctx: CanvasRenderingContext2D) => {
+      ctx.save();
+      ctx.setTransform(k, 0, 0, k, 0, 0);
+      if (op.tool === "eraser" && rank > 1) {
+        const r = ownRect(direction);
+        ctx.beginPath();
+        ctx.rect(r.left, r.top, r.width, r.height);
+        ctx.clip();
+      }
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = w;
+      ctx.strokeStyle = style;
+      ctx.beginPath();
+    };
+    // 1. Partie stable : courbes lissées, ajoutées une fois pour toutes.
+    const lctx = live.getContext("2d")!;
+    prepare(lctx);
+    if (n === 1) {
+      lctx.moveTo(pts[0][0], pts[0][1]);
+      lctx.lineTo(pts[0][0] + 0.01, pts[0][1]);
+    } else {
+      let i = drawnRef.current;
+      if (i < n - 1) {
+        const start = i <= 1 ? pts[0] : mid(pts[i - 1], pts[i]);
+        lctx.moveTo(start[0], start[1]);
+        for (; i < n - 1; i++) {
+          const m = mid(pts[i], pts[i + 1]);
+          lctx.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]);
+        }
+        drawnRef.current = i;
+      }
+    }
+    lctx.stroke();
+    lctx.restore();
+    // 2. Pointe provisoire : du milieu du dernier segment jusqu'au doigt, effacée et redessinée à chaque image (sans laisser d'« écailles »).
+    const tctx = tip.getContext("2d")!;
+    const old = tipBox.current;
+    if (old) {
+      tctx.save();
+      tctx.setTransform(1, 0, 0, 1, 0, 0);
+      tctx.clearRect(old.x, old.y, old.w, old.h);
+      tctx.restore();
+    }
+    if (n >= 2) {
+      const from = n === 2 ? pts[0] : mid(pts[n - 2], pts[n - 1]);
+      const to = pts[n - 1];
+      prepare(tctx);
+      tctx.moveTo(from[0], from[1]);
+      tctx.lineTo(to[0], to[1]);
+      tctx.stroke();
+      tctx.restore();
+      const pad = w / 2 + 2;
+      tipBox.current = {
+        x: Math.floor((Math.min(from[0], to[0]) - pad) * k),
+        y: Math.floor((Math.min(from[1], to[1]) - pad) * k),
+        w: Math.ceil((Math.abs(from[0] - to[0]) + 2 * pad) * k) + 2,
+        h: Math.ceil((Math.abs(from[1] - to[1]) + 2 * pad) * k) + 2,
+      };
+    }
+    perfRef.current.frames += 1;
+    perfRef.current.drawMs += performance.now() - t0;
   }
   function scheduleLive() {
     if (!rafRef.current) rafRef.current = requestAnimationFrame(drawLive);
@@ -263,10 +379,12 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     }
     const op: Op = { kind: "stroke", tool, color, size, opacity, points: [[x, y, p]] };
     currentRef.current = op;
-    if (liveRef.current) {
-      liveRef.current.style.opacity = String(opacity);
-      liveRef.current.getContext("2d", { desynchronized: true })?.clearRect(0, 0, width, height);
-    }
+    drawnRef.current = 1;
+    if (liveRef.current) liveRef.current.style.opacity = String(opacity);
+    if (tipRef.current) tipRef.current.style.opacity = String(opacity);
+    clearLive();
+    // Pendant un tracé, le sondage de la page est suspendu (un rendu serveur en plein geste ferait saccader le dessin).
+    document.body.dataset.drawing = "1";
     moveRing(e);
     scheduleLive();
   }
@@ -288,12 +406,17 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   }
   function onMove(e: React.PointerEvent<HTMLCanvasElement>) {
     moveRing(e);
+    perfRef.current.moves += 1;
     const cur = currentRef.current;
     if (!cur || cur.kind !== "stroke" || !e.isPrimary) return;
     // Les points intermédiaires fusionnés par le navigateur rendent le trait plus fidèle au geste.
     const native = e.nativeEvent;
     const events = typeof native.getCoalescedEvents === "function" && native.getCoalescedEvents().length ? native.getCoalescedEvents() : [native];
-    for (const ev of events) cur.points.push(toCanvas(ev));
+    for (const ev of events) {
+      const pt = toCanvas(ev);
+      const last = cur.points[cur.points.length - 1];
+      if (Math.hypot(pt[0] - last[0], pt[1] - last[1]) >= MIN_STEP) cur.points.push(pt);
+    }
     scheduleLive();
   }
   function endStroke() {
@@ -302,6 +425,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     currentRef.current = null;
     cancelAnimationFrame(rafRef.current);
     rafRef.current = 0;
+    delete document.body.dataset.drawing;
     setHistory((h) => ({ ops: [...h.ops, cur], redo: [] }));
   }
   const undo = () =>
@@ -420,7 +544,8 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           className="drawing-canvas"
         />
         {/* Aperçu du trait de pinceau en cours (au-dessus de la bande héritée), vidé quand le trait est validé */}
-        <canvas ref={liveRef} width={width * LIVE_SCALE} height={height * LIVE_SCALE} className="live-canvas" aria-hidden="true" />
+        <canvas ref={liveRef} className="live-canvas" aria-hidden="true" />
+        <canvas ref={tipRef} className="live-canvas" aria-hidden="true" />
         <div ref={ringRef} className="brush-ring" aria-hidden="true" style={{ display: "none" }} />
         {/* Calque de guides : visuel uniquement, jamais exporté */}
         <div className="guides-layer" dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
@@ -440,6 +565,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           onAbandon={() => onLost("abandoned")}
         />
       )}
+      {perf && <p className="perf-overlay" aria-hidden="true">{perf}</p>}
       <div className="turn-actions">
         <button type="button" onClick={submit} disabled={busy || !stripReady || stripError}>Envoyer mon dessin</button>
       </div>
