@@ -24,12 +24,25 @@ export function parseMarker(raw: string | null): Marker | null {
   return { kind, turnKey: raw.slice(i + 1) };
 }
 
-/** Message à afficher dans la vue « en attente » (aucun tour actif), ou null s'il n'y a rien à dire. */
-export function noticeMessage(m: Marker, nowMs: number): string | null {
+export type NoticeDecision = { message: string | null; consume: boolean };
+
+/**
+ * Que faire du marqueur dans la vue « en attente » (aucun tour actif) ?
+ * - pending : si le tour a disparu avant la fin de la fenêtre client, le serveur ne l'a pas repris (envoi réussi ailleurs) : on consomme sans rien dire ;
+ * - abandoned : message d'abandon, puis message définitif une fois le tour réellement remis en jeu (échéance + 60 s).
+ */
+export function noticeDecision(m: Marker, nowMs: number): NoticeDecision {
   const deadline = deadlineOfKey(m.turnKey);
-  if (m.kind === "expired") return EXPIRED_MESSAGE;
-  if (m.kind === "pending") return nowMs >= deadline + CLIENT_GRACE_MS ? EXPIRED_MESSAGE : null;
-  return nowMs >= deadline + SUBMIT_GRACE_MS ? EXPIRED_MESSAGE : ABANDONED_MESSAGE;
+  if (m.kind === "expired") return { message: EXPIRED_MESSAGE, consume: true };
+  if (m.kind === "pending") return { message: nowMs >= deadline + CLIENT_GRACE_MS ? EXPIRED_MESSAGE : null, consume: true };
+  return nowMs >= deadline + SUBMIT_GRACE_MS ? { message: EXPIRED_MESSAGE, consume: true } : { message: ABANDONED_MESSAGE, consume: false };
+}
+
+/** Que faire d'un marqueur au montage de l'éditeur du tour `turnKey` ? Le marqueur d'un autre tour est effacé. */
+export function editorMarkerAction(m: Marker | null, turnKey: string): { lost: "abandoned" | "expired" | null; clear: boolean } {
+  if (!m) return { lost: null, clear: false };
+  if (m.turnKey !== turnKey) return { lost: null, clear: true };
+  return { lost: m.kind === "pending" ? null : m.kind, clear: false };
 }
 export const msUntilReassigned = (m: Marker, nowMs: number) => deadlineOfKey(m.turnKey) + SUBMIT_GRACE_MS - nowMs;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SUBMIT_GRACE_MS } from "@/lib/access";
-import { ABANDONED_MESSAGE, EXPIRED_MESSAGE, encodeMarker, noticeMessage, parseMarker, turnKeyOf } from "@/lib/expired-notice";
+import { ABANDONED_MESSAGE, EXPIRED_MESSAGE, encodeMarker, editorMarkerAction, noticeDecision, parseMarker, turnKeyOf } from "@/lib/expired-notice";
 import { CLIENT_GRACE_MS } from "@/lib/turn-timing";
 
 const iso = "2026-10-07T10:00:00.000Z";
@@ -18,16 +18,30 @@ describe("marqueur d'expiration", () => {
   });
 });
 
-describe("noticeMessage", () => {
-  it("expiré : toujours le message de remise en jeu", () => {
-    expect(noticeMessage({ kind: "expired", turnKey: key }, dl)).toBe(EXPIRED_MESSAGE);
+describe("noticeDecision (cycle de vie du marqueur)", () => {
+  it("expiré : message, marqueur consommé", () => {
+    expect(noticeDecision({ kind: "expired", turnKey: key }, dl)).toEqual({ message: EXPIRED_MESSAGE, consume: true });
   });
-  it("en attente : rien tant que la fenêtre client n'est pas finie (soumis depuis un autre onglet)", () => {
-    expect(noticeMessage({ kind: "pending", turnKey: key }, dl + CLIENT_GRACE_MS - 1)).toBeNull();
-    expect(noticeMessage({ kind: "pending", turnKey: key }, dl + CLIENT_GRACE_MS)).toBe(EXPIRED_MESSAGE);
+  it("en attente + tour disparu avant la fin de la fenêtre (envoi ailleurs) : rien, marqueur consommé", () => {
+    expect(noticeDecision({ kind: "pending", turnKey: key }, dl + CLIENT_GRACE_MS - 1)).toEqual({ message: null, consume: true });
   });
-  it("abandonné : message d'abandon puis remise en jeu effective", () => {
-    expect(noticeMessage({ kind: "abandoned", turnKey: key }, dl + 10_000)).toBe(ABANDONED_MESSAGE);
-    expect(noticeMessage({ kind: "abandoned", turnKey: key }, dl + SUBMIT_GRACE_MS)).toBe(EXPIRED_MESSAGE);
+  it("en attente + fenêtre écoulée : message une seule fois (consommé)", () => {
+    expect(noticeDecision({ kind: "pending", turnKey: key }, dl + CLIENT_GRACE_MS)).toEqual({ message: EXPIRED_MESSAGE, consume: true });
+  });
+  it("abandonné : message d'abandon (conservé), puis message d'expiration après échéance + 60 s", () => {
+    expect(noticeDecision({ kind: "abandoned", turnKey: key }, dl + 10_000)).toEqual({ message: ABANDONED_MESSAGE, consume: false });
+    expect(noticeDecision({ kind: "abandoned", turnKey: key }, dl + SUBMIT_GRACE_MS)).toEqual({ message: EXPIRED_MESSAGE, consume: true });
+  });
+});
+
+describe("editorMarkerAction", () => {
+  it("aucun marqueur : rien", () => expect(editorMarkerAction(null, key)).toEqual({ lost: null, clear: false }));
+  it("marqueur d'un autre tour : effacé", () => {
+    expect(editorMarkerAction({ kind: "abandoned", turnKey: turnKeyOf(1, iso) }, key)).toEqual({ lost: null, clear: true });
+  });
+  it("même tour : abandonné/expiré = perdu ; en attente = éditeur ouvert", () => {
+    expect(editorMarkerAction({ kind: "abandoned", turnKey: key }, key)).toEqual({ lost: "abandoned", clear: false });
+    expect(editorMarkerAction({ kind: "expired", turnKey: key }, key)).toEqual({ lost: "expired", clear: false });
+    expect(editorMarkerAction({ kind: "pending", turnKey: key }, key)).toEqual({ lost: null, clear: false });
   });
 });

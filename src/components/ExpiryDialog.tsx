@@ -41,8 +41,9 @@ export function ExpiryDialog({ question, expiresAtMs, getNow, busy, error, submi
   // L'éditeur est rendu inerte (ni focus ni clic) tant que la fenêtre est ouverte.
   useEffect(() => {
     const root = document.getElementById(EDITOR_ROOT_ID);
-    root?.setAttribute("inert", "");
+    // Lire l'élément focalisé AVANT de rendre l'éditeur inerte (inert fait perdre le focus).
     const previous = document.activeElement as HTMLElement | null;
+    root?.setAttribute("inert", "");
     const first = ref.current?.querySelector<HTMLElement>("button:not([disabled])");
     (first ?? ref.current)?.focus();
     return () => {
@@ -97,7 +98,7 @@ export function ExpiryDialog({ question, expiresAtMs, getNow, busy, error, submi
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {submitLabel && onSubmit && <button type="button" onClick={onSubmit} disabled={busy}>{submitLabel}</button>}
           {continueLabel && onContinue && <button type="button" onClick={onContinue}>{continueLabel}</button>}
-          <button type="button" className="secondary" onClick={onAbandon}>Abandonner ce tour</button>
+          <button type="button" className="secondary" onClick={onAbandon} disabled={busy}>Abandonner ce tour</button>
         </div>
       </div>
     </div>,

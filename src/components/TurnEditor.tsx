@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ABANDONED_MESSAGE, EXPIRED_MESSAGE, clearExpired, markExpired, readMarker, turnKeyOf } from "@/lib/expired-notice";
+import { ABANDONED_MESSAGE, EXPIRED_MESSAGE, clearExpired, editorMarkerAction, markExpired, readMarker, turnKeyOf } from "@/lib/expired-notice";
 import { CLIENT_GRACE_MS, nextClock, turnPhase, type ClockState, type TurnPhase } from "@/lib/turn-timing";
 import { Countdown } from "./Countdown";
 import { DrawingEditor } from "./DrawingEditor";
@@ -45,12 +45,9 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
   }, [turn.serverNow]);
 
   useEffect(() => {
-    const m = readMarker(gameId);
-    if (m && m.turnKey === turnKey) {
-      if (m.kind !== "pending") setLost(m.kind);
-    } else if (m) {
-      clearExpired(gameId);
-    }
+    const action = editorMarkerAction(readMarker(gameId), turnKey);
+    if (action.lost) setLost(action.lost);
+    if (action.clear) clearExpired(gameId);
     setPhase(turnPhase(deadlineMs, getNow()).phase);
     setReady(true);
   }, [gameId, turnKey, deadlineMs, getNow]);

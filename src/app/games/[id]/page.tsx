@@ -71,7 +71,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
 
 async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: string) {
   const turn = await getMyTurn(db, getStorage(), { userId, gameId });
-  if (!turn) return <><ExpiredNotice gameId={gameId} /><p>En attente des autres joueurs. Vous serez prévenu(e) quand ce sera votre tour.</p></>;
+  if (!turn) return <><ExpiredNotice gameId={gameId} serverNow={new Date().toISOString()} /><p>En attente des autres joueurs. Vous serez prévenu(e) quand ce sera votre tour.</p></>;
   // La clé garde l'état de l'éditeur lors d'un rafraîchissement tant que le tour (et son échéance) ne change pas.
   return (
     <>
