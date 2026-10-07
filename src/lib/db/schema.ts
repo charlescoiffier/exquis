@@ -44,6 +44,8 @@ export const participant = pgTable(
     userId: text("user_id").notNull().references(() => user.id),
     rank: integer("rank"),
     joinedAt: timestamp("joined_at").notNull().defaultNow(),
+    /** Renseigné quand le joueur quitte une partie en cours : ses contributions restent, ses tours sont libérés. */
+    leftAt: timestamp("left_at"),
   },
   (t) => [unique("participant_game_user").on(t.gameId, t.userId), index("participant_user_idx").on(t.userId)],
 );

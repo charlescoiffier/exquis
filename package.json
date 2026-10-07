@@ -10,6 +10,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env.local src/lib/db/migrate.ts",
+    "dev:web": "tsx scripts/dev.ts web",
+    "dev:phone": "tsx scripts/dev.ts phone",
     "worker": "tsx --env-file-if-exists=.env.local src/worker.ts",
     "e2e": "playwright test",
     "typecheck": "tsc --noEmit",

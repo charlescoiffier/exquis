@@ -31,7 +31,9 @@ input, select, textarea { width:100%; min-height:44px; padding:8px 10px; border:
 input[type="checkbox"], input[type="radio"] { width:auto; min-height:0; accent-color:var(--fg); }
 input[type="range"], input[type="color"] { min-height:0; padding:0; border:0; border-radius:0; background:none; accent-color:var(--fg); }
 input:disabled, select:disabled, textarea:disabled { background:#EFEEE8; color:var(--muted); border-color:var(--muted); }
-::placeholder { color:var(--muted); opacity:1; }
+::placeholder { color:var(--dim); opacity:1; }
+input[type="number"] { appearance:textfield; -moz-appearance:textfield; }
+input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 
 /* Boutons : primaire moutarde à ombre dure ; .secondary transparent à bordure */
 button, .btn {
@@ -61,6 +63,8 @@ form button[type="submit"] { margin-top:16px; }
   border:3px solid var(--line); outline:2px solid #fff; outline-offset:-5px; box-shadow:0 0 0 3px var(--accent), 0 0 0 5px var(--line);
 }
 .palette-swatch:focus-visible { outline:3px solid var(--fg); outline-offset:2px; box-shadow:0 0 0 6px var(--accent); }
+.icon { display:inline-block; vertical-align:-3px; flex:none; }
+.pill .icon { vertical-align:-2px; margin-right:3px; }
 .sr-only { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 
 /* Tableaux et listes */
@@ -88,6 +92,8 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .banner { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--fg); color:var(--bg); padding:16px; margin:0 0 16px; }
 .banner-title { margin:0; color:var(--bg); font-size:clamp(26px, 7vw, 36px); line-height:1.05; min-width:0; overflow-wrap:anywhere; }
 .banner-action { flex:none; }
+.banner-text { min-width:0; flex:1; }
+.banner-meta { margin:6px 0 0; font-size:14px; line-height:1.35; color:#D9D6C8; }
 .card { border:2px solid var(--line); background:var(--surface); box-shadow:var(--shadow-card); padding:14px 16px; margin:0 4px 20px 0; }
 .card-call { background:var(--accent2); color:var(--on-accent2); }
 .card-call a { color:var(--on-accent2); }
@@ -143,7 +149,7 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .mirror::-webkit-scrollbar { background:transparent; }
 .mirror::-webkit-scrollbar-thumb { background:transparent; }
 .mirror-input { position:relative; display:block; background:transparent; color:transparent; caret-color:var(--fg); resize:vertical; }
-.mirror-input::placeholder { color:var(--muted); }
+.mirror-input::placeholder { color:var(--dim); }
 .mirror-dim { color:var(--dim-text); }
 .mirror-sent { background:var(--hl); color:var(--fg); border-radius:0; }
 .legend { display:flex; flex-wrap:wrap; gap:4px 16px; margin:6px 0; font-size:14px; }
@@ -182,20 +188,20 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .final-info { margin-top:28px; }
 p.meta { margin:4px 0 0; }
 .final-name { margin:0 0 16px; font-size:22px; }
-.final-art { margin:0 4px 16px 0; border:2px solid var(--line); background:var(--surface); box-shadow:var(--shadow-card); }
+.final-art { margin:0 4px 0 0; border:2px solid var(--line); background:var(--surface); box-shadow:var(--shadow-card); }
 .final-authors { margin-top:8px; }
 
 /* Texte final : une barre verticale pleine (noir / moutarde / canard, puis neutres) portant le nom de l'auteur.
    Chaque couple fond / texte du nom respecte 4,5:1. */
 :root {
-  --a0:#101010; --on-a0:#FFFFFF; --a1:#F2B705; --on-a1:#101010; --a2:#0B7A75; --on-a2:#FFFFFF; --a3:#4C4C4C; --on-a3:#FFFFFF;
+  --a0:#0B7A75; --on-a0:#FFFFFF; --a1:#F2B705; --on-a1:#101010; --a2:#B3261E; --on-a2:#FFFFFF; --a3:#4C4C4C; --on-a3:#FFFFFF;
   --a4:#FFE58A; --on-a4:#101010; --a5:#08504D; --on-a5:#FFFFFF; --a6:#6B6B64; --on-a6:#FFFFFF; --a7:#D9D6C8; --on-a7:#101010;
 }
 .final-text { margin:16px 0; }
 .final-text .switch { margin:0 0 16px; }
 .contrib { display:flex; gap:14px; margin:0 0 20px; }
 .contrib-rail { flex:none; position:relative; display:flex; justify-content:center; width:34px; min-height:56px; padding:2px 8px 2px 0; }
-.contrib-rail::after { content:""; position:absolute; top:0; bottom:0; right:2px; width:3px; background:var(--c); }
+.contrib-rail::after { content:""; position:absolute; top:0; bottom:0; right:2px; width:3px; background:var(--accent); }
 .contrib-author { writing-mode:vertical-rl; transform:rotate(180deg); color:var(--fg); font-weight:700; font-size:14px; line-height:20px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-height:100%; }
 .contrib-body { margin:0; flex:1; min-width:0; white-space:pre-wrap; overflow-wrap:anywhere; }
 .final-text ol { list-style:none; margin:0; padding:0; }
@@ -205,9 +211,11 @@ p.meta { margin:4px 0 0; }
 /* Accueil : cartes de parties */
 main ul.cards { border-top:0; margin:0 0 8px; }
 main ul.cards > li { padding:0; border-bottom:0; }
-.game-card { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
-.game-main { min-width:0; flex:1; }
-.game-side { flex:none; }
+.game-card { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:20px; }
+.game-main { min-width:0; flex:1 1 220px; }
+.game-side { flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:10px; margin-left:auto; }
+.game-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; }
+.game-head .game-title { margin:4px 0 2px; }
 .game-title { display:block; font-family:var(--font-display-stack); font-size:20px; line-height:1.15; margin:4px 0 2px; overflow-wrap:anywhere; }
 a.game-title { color:var(--fg); text-decoration:none; }
 a.game-title:hover { text-decoration:underline; }
@@ -218,13 +226,19 @@ a.game-title:hover { text-decoration:underline; }
 .card-call .btn, .card-call button { border-color:var(--fg); }
 .card-call .error { color:#fff; background:var(--danger); padding:2px 6px; }
 .game-action { margin-top:10px; }
+/* Smartphone : les actions passent en bas de la carte, alignées à droite et côte à côte (le temps restant dessous). */
+@media (max-width: 600px) {
+  .game-card { flex-direction:column; align-items:stretch; }
+  .game-main { flex:none; }
+  .game-side { flex-direction:row; flex-wrap:wrap; justify-content:flex-end; align-items:center; margin:0; padding-top:4px; gap:10px 12px; }
+  .game-side .countdown.countdown-inline { order:3; flex-basis:100%; align-items:flex-end; text-align:right; }
+  .game-side > .error { order:4; flex-basis:100%; text-align:right; }
+}
 .game-count { flex:none; text-align:right; }
 .count-num { display:block; padding-right:4px; font-family:var(--font-display-stack); font-size:34px; line-height:1; }
 .count-label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
-.pill.turn { flex:none; background:var(--accent); color:var(--on-accent); border-color:var(--fg); font-weight:700; font-size:13px; padding:4px 10px; }
 .section-head { margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:28px; }
 .section-head h2 { margin:0; }
-@media (max-width: 480px) { .game-card:has(.pill.turn) { flex-wrap:wrap; } }
 
 /* Formulaires : cartes centrées (connexion, inscription) et sections de création */
 .auth-card { max-width:440px; margin:8px auto 0; }
@@ -237,6 +251,21 @@ fieldset.form-section legend { font-family:var(--font-display-stack); font-size:
 .game-meta { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin:0 0 20px; }
 .pill.status { background:var(--surface); color:var(--fg); font-weight:700; }
 .pill.status-open { background:var(--hl); }
+/* Étiquettes d'état à droite des cartes de parties */
+.pill.tag { font-size:13px; font-weight:700; padding:2px 10px; color:var(--fg); background:var(--surface); white-space:nowrap; }
+.pill.tag-in_progress { background:var(--accent); }
+.pill.tag-open { background:var(--hl); }
+.pill.tag-join { background:var(--accent2); color:var(--on-accent2); }
+.pill.tag-call { background:#fff; color:var(--fg); }
+.pill.tag-completed { background:#D9D6C8; color:var(--fg); }
+.pill.tag-cancelled { background:var(--surface); color:var(--muted); border-color:var(--muted); }
+.banner .pill.tag { border-color:var(--bg); }
+.feedback { margin:8px 0 0; color:var(--muted); font-style:italic; font-size:14px; }
+.waiting-turn { margin:0 0 12px; }
+.countdown.countdown-inline { align-items:flex-end; padding:0; background:transparent; border:0; color:var(--fg); }
+.countdown-inline .countdown-time { font-size:20px; }
+.countdown.countdown-inline.countdown-urgent { background:transparent; color:var(--danger); }
+.waiting-turn .countdown-inline { align-items:flex-start; }
 .pill.status-in_progress { background:var(--accent); }
 .pill.status-completed { background:var(--accent2); color:var(--on-accent2); border-color:var(--accent2); }
 .card-title { font-size:22px; margin:0 0 8px; }
@@ -267,6 +296,7 @@ blockquote.quote { margin:0 0 4px; padding:10px 14px; border:2px solid var(--lin
 .expired-notice { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin:0 0 20px; box-shadow:var(--shadow-btn); }
 .dialog-backdrop { position:fixed; inset:0; background:rgba(16,16,16,.6); display:grid; place-items:center; z-index:1000; }
 .dialog { width:calc(100% - 32px); max-width:440px; max-height:calc(100% - 32px); overflow-y:auto; padding:24px; background:var(--bg); color:var(--fg); border:3px solid var(--line); border-radius:0; box-shadow:8px 8px 0 var(--line); }
+.dialog-small { max-width:400px; padding:20px; }
 .dialog-title { margin:0 0 12px; font-size:24px; }
 .dialog-timer { font-weight:700; }
 .dialog-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
@@ -286,6 +316,7 @@ blockquote.quote { margin:0 0 4px; padding:10px 14px; border:2px solid var(--lin
 .slider { width:100%; }
 .canvas-frame { position:relative; max-width:720px; margin:0 4px 0 0; touch-action:none; border:2px solid var(--line); background:#fff; box-shadow:var(--shadow-card); }
 .drawing-canvas { display:block; width:100%; height:auto; background:#fff; touch-action:none; }
+.live-canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 .guides-layer { position:absolute; inset:0; pointer-events:none; }
 .brush-ring { position:absolute; transform:translate(-50%,-50%); border-radius:50%; border:1px solid rgba(16,16,16,.28); background:rgba(16,16,16,.05); pointer-events:none; }
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Abril_Fatface, Work_Sans } from "next/font/google";
 import Link from "next/link";
+import { NoWheelNumber } from "@/components/NoWheelNumber";
 import { TabBar } from "@/components/ui/TabBar";
 import { getDb } from "@/lib/db/client";
 import { countUnread } from "@/lib/services/notifications";
@@ -39,6 +40,7 @@ export default async function RootLayout({
           {session && <TabBar unread={unread} />}
         </header>
         {children}
+        <NoWheelNumber />
       </body>
     </html>
   );

@@ -30,7 +30,8 @@ describe("exportLayout", () => {
       expect(r.label.x).toBeLessThan(r.line.x1);
       expect(r.text).toBe(["Alice", "Bob", "Chloé"][k]);
     });
-    expect(new Set(l.rails.map((r) => r.color)).size).toBe(3);
+    // Toutes les lignes de repérage sont de la même couleur d'accentuation (jamais noires).
+    expect([...new Set(l.rails.map((r) => r.color))]).toEqual(["#F2B705"]);
     // 2 jointures x (début, fin), décalées de la marge, sur la largeur de l'image
     expect(l.joints).toEqual([
       { x1: RAIL_SIZE, x2: RAIL_SIZE + 1600, y1: 1440, y2: 1440 },

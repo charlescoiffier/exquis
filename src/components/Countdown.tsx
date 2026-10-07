@@ -10,7 +10,7 @@ function clock(total: number): string {
   return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${two(m)}:${two(s)}`;
 }
 
-export function Countdown({ deadline, getNow = Date.now }: { deadline: string; getNow?: () => number }) {
+export function Countdown({ deadline, getNow = Date.now, inline = false }: { deadline: string; getNow?: () => number; inline?: boolean }) {
   const [left, setLeft] = useState<number | null>(null);
   useEffect(() => {
     const tick = () => setLeft(Math.max(0, Math.round((new Date(deadline).getTime() - getNow()) / 1000)));
@@ -20,7 +20,7 @@ export function Countdown({ deadline, getNow = Date.now }: { deadline: string; g
   }, [deadline, getNow]);
   if (left === null) return null;
   return (
-    <p className={`countdown${left < 60 ? " countdown-urgent" : ""}`}>
+    <p className={`countdown${inline ? " countdown-inline" : ""}${left < 60 ? " countdown-urgent" : ""}`}>
       <span className="countdown-label">Temps restant</span>
       <span className="countdown-time">{left === 0 ? "terminé" : clock(left)}</span>
     </p>

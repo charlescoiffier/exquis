@@ -37,6 +37,10 @@ const PALETTE: { name: string; hex: string }[] = [
   { name: "Marron", hex: "#92400e" },
 ];
 type History = { ops: Op[]; redo: Op[] };
+/** Style du trait. Un `streamline` élevé lisse davantage mais fait traîner la pointe derrière le doigt : on le garde bas. */
+/** L'aperçu du trait en cours est dessiné à cette échelle : moins de pixels à rasteriser et à envoyer au GPU, surtout sur smartphone. */
+const LIVE_SCALE = 0.5;
+const STROKE_STYLE = { thinning: 0.5, smoothing: 0.5, streamline: 0.2 };
 
 function pathFromStroke(points: number[][]): Path2D {
   const p = new Path2D();
@@ -55,15 +59,20 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   const [initial] = useState<Op[]>(() => sanitizeOps((draft as { ops?: unknown } | null)?.ops));
   const [history, setHistory] = useState<History>({ ops: initial, redo: [] });
   const { ops, redo } = history;
-  const [current, setCurrent] = useState<Op | null>(null);
+  // Tracé en cours : points accumulés dans une ref (aucun rendu React par mouvement), dessinés au plus une fois par image.
   const currentRef = useRef<Op | null>(null);
+  const opsRef = useRef<Op[]>(initial);
+  opsRef.current = ops;
+  const liveRef = useRef<HTMLCanvasElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef(0);
+
   const [tool, setTool] = useState<"brush" | "eraser" | "fill">("brush");
   const [color, setColor] = useState("#1f1b16");
   const [size, setSize] = useState(8);
   const [opacity, setOpacity] = useState(1);
-  // Anneau de taille du pinceau sous le curseur (coordonnées en px CSS dans le cadre du canvas).
-  const [ring, setRing] = useState<{ x: number; y: number } | null>(null);
-  const [scale, setScale] = useState(1);
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // URL figée pour ce tour : le serveur la re-signe à chaque rendu, un rafraîchissement ne doit pas relancer le téléchargement.
@@ -114,7 +123,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     (ctx: CanvasRenderingContext2D, op: Op) => {
       if (op.kind === "stroke") {
         // La gomme est un peu plus large que le pinceau de même taille : elle emporte aussi la frange adoucie des traits.
-        const outline = getStroke(op.points, { size: op.tool === "eraser" ? op.size + 3 : op.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
+        const outline = getStroke(op.points, { size: op.tool === "eraser" ? op.size + 3 : op.size, ...STROKE_STYLE });
         ctx.save();
         ctx.globalAlpha = op.opacity;
         if (op.tool === "eraser") {
@@ -169,7 +178,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         scratchRef.current = makeLayer();
       }
       const user = userRef.current;
-      const uctx = user.getContext("2d", { willReadFrequently: true })!;
+      const uctx = user.getContext("2d")!;
       const prev = cachedOps.current;
       const incremental =
         cacheReady.current &&
@@ -201,15 +210,40 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         ctx.drawImage(stripRef.current, r.left, r.top);
       }
       ctx.drawImage(layer, 0, 0);
+      // Le tracé validé est désormais dans le calque : on efface l'aperçu en direct.
+      if (!live) liveRef.current?.getContext("2d", { desynchronized: true })?.clearRect(0, 0, width, height);
     },
     [width, height, direction, applyOp, makeLayer],
   );
 
   useEffect(() => {
-    if (stripReady) paint(ops, current);
-  }, [ops, current, stripReady, paint]);
+    if (stripReady) paint(ops, null);
+  }, [ops, stripReady, paint]);
 
-  function toCanvas(e: React.PointerEvent): [number, number, number] {
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  /** Dessine le tracé en cours, au plus une fois par image : pinceau sur un calque d'aperçu, gomme par recomposition. */
+  function drawLive() {
+    rafRef.current = 0;
+    const op = currentRef.current;
+    if (!op || op.kind !== "stroke") return;
+    if (op.tool === "eraser") {
+      paint(opsRef.current, op);
+      return;
+    }
+    const live = liveRef.current;
+    if (!live) return;
+    const lctx = live.getContext("2d", { desynchronized: true })!;
+    lctx.setTransform(LIVE_SCALE, 0, 0, LIVE_SCALE, 0, 0);
+    lctx.clearRect(0, 0, width, height);
+    lctx.fillStyle = op.color;
+    lctx.fill(pathFromStroke(getStroke(op.points, { size: op.size, ...STROKE_STYLE })));
+  }
+  function scheduleLive() {
+    if (!rafRef.current) rafRef.current = requestAnimationFrame(drawLive);
+  }
+
+  function toCanvas(e: { clientX: number; clientY: number; pressure: number }): [number, number, number] {
     const rect = canvasRef.current!.getBoundingClientRect();
     return [((e.clientX - rect.left) * width) / rect.width, ((e.clientY - rect.top) * height) / rect.height, e.pressure || 0.5];
   }
@@ -229,31 +263,45 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     }
     const op: Op = { kind: "stroke", tool, color, size, opacity, points: [[x, y, p]] };
     currentRef.current = op;
-    setCurrent(op);
+    if (liveRef.current) {
+      liveRef.current.style.opacity = String(opacity);
+      liveRef.current.getContext("2d", { desynchronized: true })?.clearRect(0, 0, width, height);
+    }
+    moveRing(e);
+    scheduleLive();
   }
-  function updateRing(e: React.PointerEvent<HTMLCanvasElement>) {
+  // Anneau de taille du pinceau sous le curseur : positionné directement dans le DOM, sans rendu React.
+  function moveRing(e: React.PointerEvent<HTMLCanvasElement>) {
+    const el = ringRef.current;
+    if (!el) return;
     if (e.pointerType === "touch" || tool === "fill") {
-      setRing(null);
+      el.style.display = "none";
       return;
     }
     const rect = e.currentTarget.getBoundingClientRect();
-    setScale(rect.width / width);
-    setRing({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const d = Math.max(4, sizeRef.current * (rect.width / width));
+    el.style.display = "block";
+    el.style.width = `${d}px`;
+    el.style.height = `${d}px`;
+    el.style.left = `${e.clientX - rect.left}px`;
+    el.style.top = `${e.clientY - rect.top}px`;
   }
   function onMove(e: React.PointerEvent<HTMLCanvasElement>) {
-    updateRing(e);
+    moveRing(e);
     const cur = currentRef.current;
     if (!cur || cur.kind !== "stroke" || !e.isPrimary) return;
-    const [x, y, p] = toCanvas(e);
-    const next: Op = { ...cur, points: [...cur.points, [x, y, p]] };
-    currentRef.current = next;
-    setCurrent(next);
+    // Les points intermédiaires fusionnés par le navigateur rendent le trait plus fidèle au geste.
+    const native = e.nativeEvent;
+    const events = typeof native.getCoalescedEvents === "function" && native.getCoalescedEvents().length ? native.getCoalescedEvents() : [native];
+    for (const ev of events) cur.points.push(toCanvas(ev));
+    scheduleLive();
   }
   function endStroke() {
     const cur = currentRef.current;
     if (!cur) return;
     currentRef.current = null;
-    setCurrent(null);
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = 0;
     setHistory((h) => ({ ops: [...h.ops, cur], redo: [] }));
   }
   const undo = () =>
@@ -366,12 +414,14 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           onPointerUp={endStroke}
           onPointerCancel={endStroke}
           onPointerLeave={() => {
-            setRing(null);
+            if (ringRef.current) ringRef.current.style.display = "none";
             endStroke();
           }}
           className="drawing-canvas"
         />
-        {ring && <div className="brush-ring" aria-hidden="true" style={{ left: ring.x, top: ring.y, width: Math.max(4, size * scale), height: Math.max(4, size * scale) }} />}
+        {/* Aperçu du trait de pinceau en cours (au-dessus de la bande héritée), vidé quand le trait est validé */}
+        <canvas ref={liveRef} width={width * LIVE_SCALE} height={height * LIVE_SCALE} className="live-canvas" aria-hidden="true" />
+        <div ref={ringRef} className="brush-ring" aria-hidden="true" style={{ display: "none" }} />
         {/* Calque de guides : visuel uniquement, jamais exporté */}
         <div className="guides-layer" dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
       </div>

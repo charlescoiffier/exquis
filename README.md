@@ -119,7 +119,8 @@ le nom de chaque auteur.
   ponctuation ou un emoji seuls ne comptent pas.
 - Un **paragraphe** est une ligne non vide : chaque retour à la ligne commence un nouveau paragraphe. En mode « dernier
   paragraphe », le suivant reçoit la dernière ligne qui contient un mot, limitée à 150 mots.
-- Un joueur peut participer à **5 parties** en cours au plus et en créer **10 par jour**.
+- Un joueur peut participer à **8 parties** en cours au plus et en créer **10 par jour**.
+- Un joueur peut **quitter** une partie depuis l'accueil : ses tours à venir sont proposés à d'autres joueurs (appel à participation), ses contributions déjà envoyées restent dans l'œuvre.
 - Un tour non joué est remis en jeu au plus **2 fois** ; au-delà, la partie est annulée (sauf pour le dernier tour, qui
   devient un appel à participation). Les contributions d'une partie annulée restent visibles pour ses participants.
 
@@ -140,6 +141,19 @@ npm run db:migrate
 npm run dev                       # http://localhost:3000
 npm run worker                    # dans un second terminal
 ```
+
+Pour lancer le serveur et le worker en une seule commande sur ce poste : `npm run dev:web`.
+
+Pour essayer l'application depuis un smartphone connecté au même Wi-Fi, un seul terminal suffit :
+
+```bash
+npm run dev:phone     # serveur + worker, accessibles sur le réseau local
+```
+
+La commande détecte l'adresse du Mac, la fixe comme `APP_URL` (connexion et liens d'invitation) et affiche l'adresse à
+ouvrir sur le téléphone avec un code d'invitation pour créer un compte. `Ctrl+C` arrête le serveur et le worker. La base
+de données doit déjà tourner. Si la page ne s'ouvre pas : vérifier le pare-feu de macOS (autoriser les connexions
+entrantes pour Node) et l'absence de VPN ou de Wi-Fi invité qui isole les appareils.
 
 `npm run worker` et `npm run db:migrate` chargent automatiquement `.env.local` s'il existe (option
 `--env-file-if-exists`). En production, ces fichiers sont facultatifs : les vraies variables d'environnement suffisent.

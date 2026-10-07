@@ -58,7 +58,7 @@ export function InviteButton() {
           <p id="invite-message" className="invite-link muted">{message}</p>
           <div className="turn-actions">
             <button type="button" className="secondary" onClick={copy}>Copier</button>
-            {copied && <span role="status" className="ok">Copié.</span>}
+            {copied && <span role="status" className="feedback">Copié.</span>}
           </div>
         </div>
       )}

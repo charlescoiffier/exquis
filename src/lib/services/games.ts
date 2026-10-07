@@ -1,14 +1,14 @@
-import { and, asc, count, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import type { Db, Executor, Tx } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
-import { game, participant, turn } from "@/lib/db/schema";
+import { draft, game, participant, turn } from "@/lib/db/schema";
 import { parseGameParams, shuffle } from "@/lib/domain/game-rules";
 import type { Effect } from "@/lib/effects";
 import { DomainError } from "@/lib/errors";
 import { queueNotification } from "./notifications";
 
-export const MAX_ACTIVE_GAMES = 5;
+export const MAX_ACTIVE_GAMES = 8;
 export const MAX_CREATED_PER_DAY = 10;
 
 export type GameRow = typeof game.$inferSelect;
@@ -24,7 +24,7 @@ async function activeGameCount(tx: Executor, userId: string): Promise<number> {
     .select({ n: count() })
     .from(participant)
     .innerJoin(game, eq(participant.gameId, game.id))
-    .where(and(eq(participant.userId, userId), inArray(game.status, ["open", "in_progress"])));
+    .where(and(eq(participant.userId, userId), isNull(participant.leftAt), inArray(game.status, ["open", "in_progress"])));
   return n;
 }
 
@@ -123,7 +123,7 @@ export async function joinGame(
   });
 }
 
-export const PAGE_SIZE = 12;
+export const PAGE_SIZE = 8;
 
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number; pageCount: number };
 
@@ -139,7 +139,7 @@ function pageWindow(total: number, requested: number) {
   return { page, pageCount, offset: (page - 1) * PAGE_SIZE };
 }
 
-const participantCountSql = sql<number>`(select count(*)::int from participant pp where pp.game_id = ${game.id})`;
+const participantCountSql = sql<number>`(select count(*)::int from participant pp where pp.game_id = ${game.id} and pp.left_at is null)`;
 
 const listColumns = {
   id: game.id,
@@ -155,7 +155,7 @@ const listColumns = {
   participantCount: participantCountSql,
 };
 
-/** Parties ouvertes publiques, les plus anciennes d'abord. */
+/** Parties ouvertes publiques, les plus récentes d'abord. */
 export async function listOpenGames(db: Db, p: { page?: number } = {}): Promise<Page<{ id: string; name: string; type: "drawing" | "text"; turns: number; turnDurationSeconds: number; language: string | null; creatorName: string; participantCount: number; createdAt: Date }>> {
   const where = and(eq(game.status, "open"), eq(game.visibility, "public"));
   const [{ n: total }] = await db.select({ n: count() }).from(game).where(where);
@@ -175,15 +175,15 @@ export async function listOpenGames(db: Db, p: { page?: number } = {}): Promise<
     .from(game)
     .innerJoin(user, eq(user.id, game.creatorId))
     .where(where)
-    .orderBy(asc(game.createdAt))
+    .orderBy(desc(game.createdAt))
     .limit(PAGE_SIZE)
     .offset(w.offset);
   return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount };
 }
 
-/** Parties de l'utilisateur en attente de joueurs ou en cours ; celles où c'est son tour d'abord, puis les plus anciennes. */
+/** Parties de l'utilisateur en attente de joueurs ou en cours ; celles où c'est son tour d'abord, puis les plus récentes. */
 export async function listMyCurrentGames(db: Db, userId: string, p: { page?: number } = {}) {
-  const where = and(eq(participant.userId, userId), inArray(game.status, ["open", "in_progress"]));
+  const where = and(eq(participant.userId, userId), isNull(participant.leftAt), inArray(game.status, ["open", "in_progress"]));
   const [{ n: total }] = await db
     .select({ n: count() })
     .from(participant)
@@ -191,27 +191,17 @@ export async function listMyCurrentGames(db: Db, userId: string, p: { page?: num
     .where(where);
   const w = pageWindow(total, p.page ?? 1);
   const rows = await db
-    .select({ ...listColumns, activeTurnId: turn.id })
+    .select({ ...listColumns, activeTurnId: turn.id, activeDeadline: turn.deadline })
     .from(participant)
     .innerJoin(game, eq(participant.gameId, game.id))
     .innerJoin(user, eq(user.id, game.creatorId))
     .leftJoin(turn, and(eq(turn.gameId, game.id), eq(turn.status, "active"), eq(turn.assignedUserId, userId)))
     .where(where)
-    .orderBy(desc(sql`(${turn.id} is not null)`), asc(game.createdAt))
+    .orderBy(desc(sql`(${turn.id} is not null)`), desc(game.createdAt))
     .limit(PAGE_SIZE)
     .offset(w.offset);
-  const items = rows.map(({ activeTurnId, ...r }) => ({ ...r, isMyTurn: activeTurnId !== null }));
+  const items = rows.map(({ activeTurnId, activeDeadline, ...r }) => ({ ...r, isMyTurn: activeTurnId !== null, myDeadline: activeTurnId !== null ? activeDeadline : null }));
   return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount } satisfies Page<(typeof items)[number]>;
-}
-
-/** Identifiants de toutes les parties en cours (ou en attente de joueurs) de l'utilisateur. */
-export async function listMyCurrentGameIds(db: Db, userId: string): Promise<Set<string>> {
-  const rows = await db
-    .select({ id: game.id })
-    .from(participant)
-    .innerJoin(game, eq(participant.gameId, game.id))
-    .where(and(eq(participant.userId, userId), inArray(game.status, ["open", "in_progress"])));
-  return new Set(rows.map((r) => r.id));
 }
 
 /** Parties terminées ou annulées de l'utilisateur, les plus récentes d'abord. */
@@ -235,7 +225,7 @@ export async function listMyPastGames(db: Db, userId: string, p: { page?: number
   return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount } satisfies Page<(typeof items)[number]>;
 }
 
-/** Parties publiques en cours dont le dernier tour attend un volontaire, les plus anciennes d'abord. */
+/** Parties publiques en cours dont le dernier tour attend un volontaire, les plus récentes d'abord. */
 export async function listOpenCalls(db: Db, p: { page?: number } = {}) {
   const where = and(eq(turn.status, "open_call"), eq(game.status, "in_progress"), eq(game.visibility, "public"));
   const [{ n: total }] = await db.select({ n: count() }).from(turn).innerJoin(game, eq(turn.gameId, game.id)).where(where);
@@ -256,7 +246,45 @@ export async function listOpenCalls(db: Db, p: { page?: number } = {}) {
     .innerJoin(game, eq(turn.gameId, game.id))
     .innerJoin(user, eq(user.id, game.creatorId))
     .where(where)
-    .orderBy(asc(game.createdAt))
+    .orderBy(desc(game.createdAt))
+    .limit(PAGE_SIZE)
+    .offset(w.offset);
+  return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount } satisfies Page<(typeof items)[number]>;
+}
+
+const openCallRankSql = sql<number | null>`(select t.rank from turn t where t.game_id = ${game.id} and t.status = 'open_call' limit 1)`;
+
+/**
+ * Parties publiques à rejoindre : celles qui attendent des joueurs et, en tête de liste, celles en cours dont le dernier
+ * tour attend un volontaire (`openCallRank` non nul). Dans chaque groupe, les plus récentes d'abord.
+ * Les parties de l'utilisateur sont exclues : elles sont dans « Mes parties en cours ».
+ */
+export async function listJoinableGames(db: Db, p: { userId: string; page?: number }) {
+  // Les parties où l'utilisateur a une inscription (même abandonnée : il ne peut plus reprendre de tour) n'y figurent pas.
+  const where = and(
+    sql`not exists (select 1 from participant pm where pm.game_id = ${game.id} and pm.user_id = ${p.userId})`,
+    eq(game.visibility, "public"),
+    or(eq(game.status, "open"), and(eq(game.status, "in_progress"), sql`${openCallRankSql} is not null`)),
+  );
+  const [{ n: total }] = await db.select({ n: count() }).from(game).where(where);
+  const w = pageWindow(total, p.page ?? 1);
+  const items = await db
+    .select({
+      id: game.id,
+      name: game.name,
+      type: game.type,
+      turns: game.turns,
+      turnDurationSeconds: game.turnDurationSeconds,
+      language: game.language,
+      creatorName: user.name,
+      participantCount: participantCountSql,
+      openCallRank: openCallRankSql,
+      createdAt: game.createdAt,
+    })
+    .from(game)
+    .innerJoin(user, eq(user.id, game.creatorId))
+    .where(where)
+    .orderBy(desc(sql`(${openCallRankSql} is not null)`), desc(game.createdAt))
     .limit(PAGE_SIZE)
     .offset(w.offset);
   return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount } satisfies Page<(typeof items)[number]>;
@@ -282,7 +310,9 @@ export async function claimOpenCall(
       .for("update");
     if (!t) throw new DomainError("open_call_unavailable", "Ce tour a déjà été repris.", 409);
     const ps = await tx.select().from(participant).where(eq(participant.gameId, g.id));
-    if (ps.some((x) => x.userId === p.userId)) throw new DomainError("already_joined", "Vous participez déjà à cette partie.", 409);
+    const mine = ps.find((x) => x.userId === p.userId);
+    if (mine?.leftAt) throw new DomainError("already_left", "Vous avez quitté cette partie.", 409);
+    if (mine) throw new DomainError("already_joined", "Vous participez déjà à cette partie.", 409);
     if ((await activeGameCount(tx, p.userId)) >= MAX_ACTIVE_GAMES) throw new DomainError("active_limit", "Trop de parties actives.", 429);
 
     const deadline = new Date(now.getTime() + g.turnDurationSeconds * 1000);
@@ -312,7 +342,7 @@ export async function getGameView(db: Db, p: { gameId: string; userId: string; t
   const [g] = await db.select().from(game).where(eq(game.id, p.gameId));
   if (!g) throw new DomainError("not_found", "Partie introuvable.", 404);
   const ps = await db.select().from(participant).where(eq(participant.gameId, g.id));
-  const isParticipant = ps.some((x) => x.userId === p.userId);
+  const isParticipant = ps.some((x) => x.userId === p.userId && !x.leftAt);
   const isCreator = g.creatorId === p.userId;
   if (g.visibility === "invite" && !isParticipant && !isCreator && p.token !== g.inviteToken) {
     throw new DomainError("forbidden", "Invitation requise.", 403);
@@ -325,10 +355,56 @@ export async function getGameView(db: Db, p: { gameId: string; userId: string; t
   return {
     game: publicGame(g),
     creatorName: creator?.name ?? "",
-    participantCount: ps.length,
+    participantCount: ps.filter((x) => !x.leftAt).length,
     isParticipant,
     isCreator,
     inviteToken: isCreator ? g.inviteToken : null,
     openCall: !!open,
   };
+}
+
+/**
+ * Un joueur quitte une partie.
+ * - En attente de joueurs : il se désinscrit (la partie est annulée s'il était le dernier).
+ * - En cours : ses tours à venir sont libérés ; s'il jouait, son tour devient un appel à participation. Ses contributions
+ *   déjà envoyées restent dans l'œuvre. Sans joueur restant, la partie est annulée.
+ */
+export async function leaveGame(db: Db, p: { userId: string; gameId: string; now?: Date }): Promise<{ effects: Effect[] }> {
+  const now = p.now ?? new Date();
+  return db.transaction(async (tx) => {
+    const [g] = await tx.select().from(game).where(eq(game.id, p.gameId)).for("update");
+    if (!g) throw new DomainError("not_found", "Partie introuvable.", 404);
+    const ps = await tx.select().from(participant).where(eq(participant.gameId, g.id));
+    const me = ps.find((x) => x.userId === p.userId && !x.leftAt);
+    if (!me) throw new DomainError("not_participant", "Vous ne participez pas à cette partie.", 409);
+    const others = ps.filter((x) => x.id !== me.id && !x.leftAt);
+
+    if (g.status === "open") {
+      await tx.delete(participant).where(eq(participant.id, me.id));
+      if (others.length === 0) await tx.update(game).set({ status: "cancelled" }).where(eq(game.id, g.id));
+      return { effects: [] };
+    }
+    if (g.status !== "in_progress") throw new DomainError("game_not_leavable", "Cette partie est terminée.", 409);
+
+    const mine = await tx
+      .select()
+      .from(turn)
+      .where(and(eq(turn.gameId, g.id), eq(turn.assignedUserId, p.userId), inArray(turn.status, ["active", "pending"])))
+      .for("update");
+    for (const t of mine) {
+      if (t.status === "active") {
+        await tx.update(turn).set({ status: "open_call", assignedUserId: null, deadline: null, startedAt: null }).where(eq(turn.id, t.id));
+        await tx.delete(draft).where(eq(draft.turnId, t.id));
+      } else {
+        await tx.update(turn).set({ assignedUserId: null }).where(eq(turn.id, t.id));
+      }
+    }
+    await tx.update(participant).set({ leftAt: now }).where(eq(participant.id, me.id));
+    if (others.length === 0) {
+      await tx.update(game).set({ status: "cancelled" }).where(eq(game.id, g.id));
+      await tx.update(turn).set({ status: "expired" }).where(and(eq(turn.gameId, g.id), eq(turn.status, "open_call")));
+      return { effects: [{ kind: "finalize-game", gameId: g.id }] };
+    }
+    return { effects: [] };
+  });
 }

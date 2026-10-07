@@ -142,7 +142,7 @@ describe("listes paginées", () => {
   it("parsePage tolère les valeurs invalides", () => {
     expect([parsePage(undefined), parsePage("0"), parsePage("abc"), parsePage("3"), parsePage(["2", "5"])]).toEqual([1, 1, 1, 3, 2]);
   });
-  it("parties ouvertes : 12 par page, les plus anciennes d'abord, créateur indiqué", async () => {
+  it("parties ouvertes : 8 par page, les plus récentes d'abord, créateur indiqué", async () => {
     const t0 = Date.now() - 100_000;
     for (let i = 0; i < PAGE_SIZE + 1; i++) {
       const u = await makeUser(db, `c${i}`);
@@ -150,11 +150,11 @@ describe("listes paginées", () => {
     }
     const p1 = await listOpenGames(db, { page: 1 });
     expect(p1.items).toHaveLength(PAGE_SIZE);
-    expect(p1.items[0].name).toBe("g00");
-    expect(p1.items[0].creatorName).toBe("c0");
+    expect(p1.items[0].name).toBe(`g${String(PAGE_SIZE).padStart(2, "0")}`);
+    expect(p1.items[0].creatorName).toBe(`c${PAGE_SIZE}`);
     expect(p1).toMatchObject({ total: PAGE_SIZE + 1, pageCount: 2 });
     const p2 = await listOpenGames(db, { page: 2 });
-    expect(p2.items.map((g) => g.name)).toEqual([`g${PAGE_SIZE}`]);
+    expect(p2.items.map((g) => g.name)).toEqual(["g00"]);
     expect((await listOpenGames(db, { page: 99 })).page).toBe(2);
   });
   it("mes parties en cours / anciennes : séparées, anciennes triées de la plus récente à la plus ancienne", async () => {

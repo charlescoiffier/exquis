@@ -8,7 +8,7 @@ Affiche surréaliste des années 1920 : aplats, bordures noires de 2 px, ombres 
 |---|---|---|
 | `--bg` / `--surface` | `#FBFAF5` / `#FFFFFF` | fond de page / cartes, champs |
 | `--fg` / `--muted` | `#101010` / `#4C4C4C` | texte / texte secondaire (4,5:1 minimum) |
-| `--line` | `#101010` | toutes les bordures (2 px) |
+| `--line` | `#101010` | toutes les bordures (2 px) ; les lignes de repérage des auteurs (rail) sont en couleur, jamais noires |
 | `--accent` / `--on-accent` | `#F2B705` / `#101010` | action primaire, onglet actif ; texte noir uniquement |
 | `--accent2` / `--on-accent2` | `#0B7A75` / `#FFFFFF` | liens, pastilles, carte d'appel à participation |
 | `--ok` / `--danger` | `#0B7A75` / `#B3261E` | succès / erreur |
