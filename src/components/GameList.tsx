@@ -36,7 +36,7 @@ export function PastGameList({ games }: { games: PastGame[] }) {
                 turnDurationSeconds={g.turnDurationSeconds}
                 language={g.language}
                 creatorName={g.creatorName}
-                extra={[`${g.participantCount} participant${g.participantCount > 1 ? "s" : ""}`, g.status === "completed" && g.completedAt ? `terminée le ${formatDate(g.completedAt)}` : `commencée le ${formatDate(g.createdAt)}`]}
+                extra={[g.status === "completed" && g.completedAt ? `terminée le ${formatDate(g.completedAt)}` : `commencée le ${formatDate(g.createdAt)}`]}
               />
             </div>
           </Card>

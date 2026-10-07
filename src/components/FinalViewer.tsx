@@ -112,7 +112,7 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
   const rail = showGuides && (
     <div
       data-testid="names-rail"
-      style={down ? { position: "relative", width: 34, flex: "none" } : { position: "relative", height: 30 }}
+      style={down ? { position: "relative", width: 34, flex: "none" } : { position: "relative", height: 30, flex: "none" }}
     >
       {/* Aligné sur l'image : le cadre de l'œuvre (bordure de 2 px) est à côté, les noms restent en dehors. */}
       <div style={{ position: "absolute", inset: down ? "2px 0" : "0 2px" }}>
@@ -186,8 +186,8 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
         <button type="button" onClick={download} disabled={busy}>Télécharger en PNG</button>
       </div>
       {message && <p role="alert" className="notice error">{message}</p>}
-      <div data-testid="final-scroll" style={{ maxWidth: down ? 520 : "100%", overflowX: "auto", paddingBottom: 4 }}>
-        <div data-testid="final-frame" style={{ minWidth: minPx, display: "flex", flexDirection: down ? "row" : "column", alignItems: "stretch" }}>
+      <div data-testid="final-scroll" style={{ maxWidth: down ? 530 : "100%", overflowX: "auto", paddingBottom: 16 }}>
+        <div data-testid="final-frame" style={{ minWidth: minPx, display: "flex", flexDirection: down ? "row" : "column", alignItems: "stretch", gap: down ? 10 : 8 }}>
           {rail}
           {image}
         </div>

@@ -14,7 +14,7 @@ type MetaProps = {
 
 /**
  * Informations d'une partie, identiques dans toutes les listes : type (feuille ou pinceau), nombre de joueurs suivi d'un
- * personnage, durée, langue (drapeau et code), créateur. Chaque icône est monochrome et porte un libellé accessible.
+ * personnage, durée, langue, créateur. Chaque icône est monochrome et porte un libellé accessible.
  */
 export function GameMetaItems({ type, turns, turnDurationSeconds, language, creatorName, extra }: MetaProps) {
   const items: ReactNode[] = [
@@ -23,7 +23,7 @@ export function GameMetaItems({ type, turns, turnDurationSeconds, language, crea
       {turns} <Icon name="person" label={participantsLabel(type, turns).replace(/^\d+ /, "")} />
     </Fragment>,
     `${formatDuration(turnDurationSeconds)} par tour`,
-    ...(type === "text" && language ? [<span key="lang" title={languageLabel(language)}><Icon name="flag" label={languageLabel(language)} /> {language.toUpperCase()}</span>] : []),
+    ...(type === "text" && language ? [languageLabel(language)] : []),
     ...(creatorName ? [`par ${creatorName}`] : []),
     ...(extra ?? []),
   ];
