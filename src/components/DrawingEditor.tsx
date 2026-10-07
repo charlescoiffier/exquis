@@ -58,25 +58,19 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   const currentRef = useRef<Op | null>(null);
   const opsRef = useRef<Op[]>(initial);
   opsRef.current = ops;
-  const liveRef = useRef<HTMLCanvasElement>(null);
-  // Calque de la pointe du trait (dernier demi-segment, provisoire) : il est effacé à chaque image, contrairement à `liveRef`.
-  const tipRef = useRef<HTMLCanvasElement>(null);
-  const tipBox = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  // Copie du canvas visible entre deux tracés : sert à restaurer ce qui se trouvait sous un trait provisoire (translucide, gomme, forme).
+  const snapRef = useRef<HTMLCanvasElement | null>(null);
+  const dirtyRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const perfRef = useRef({ moves: 0, frames: 0, drawMs: 0, long: 0 });
   const [perf, setPerf] = useState<string | null>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
-  // Aperçu du trait : échelle du calque d'aperçu et rang du prochain point de contrôle à dessiner.
-  const liveScaleRef = useRef(1);
+  // Rang du prochain point de contrôle (ou grain) du tracé en cours à dessiner.
   const drawnRef = useRef(1);
 
   const [tool, setTool] = useState<Tool>("pencil");
   const [shapeFilled, setShapeFilled] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  const liveGroupRef = useRef<HTMLDivElement>(null);
-  // Mode d'essai (« ?mode=direct » dans l'adresse) : crayon opaque et aérographe dessinés directement sur le canvas visible,
-  // sans calques d'aperçu, pour comparer la fluidité sur smartphone avec « ?perf=1 ». Par défaut : calques d'aperçu.
-  const directMode = useRef(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mode") === "direct");
   const [color, setColor] = useState("#1f1b16");
   const [size, setSize] = useState(8);
   const [opacity, setOpacity] = useState(1);
@@ -202,18 +196,6 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     [width, height, fillBounds, makeLayer],
   );
 
-  const clearLive = useCallback(() => {
-    for (const c of [liveRef.current, tipRef.current]) {
-      const lctx = c?.getContext("2d");
-      if (!c || !lctx) continue;
-      lctx.save();
-      lctx.setTransform(1, 0, 0, 1, 0, 0);
-      lctx.clearRect(0, 0, c.width, c.height);
-      lctx.restore();
-    }
-    tipBox.current = null;
-  }, []);
-
   const paint = useCallback(
     (committed: Op[]) => {
       const canvas = canvasRef.current;
@@ -245,29 +227,17 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         ctx.drawImage(stripRef.current, r.left, r.top);
       }
       ctx.drawImage(user, 0, 0);
-      // Le tracé validé est désormais dans le calque : on efface l'aperçu en direct.
-      clearLive();
+      // Le canvas visible est à jour : on en garde une copie pour restaurer ce qui se trouve sous le prochain trait provisoire.
+      if (!snapRef.current) snapRef.current = makeLayer();
+      snapRef.current.getContext("2d")!.drawImage(canvas, 0, 0);
+      dirtyRef.current = null;
     },
-    [width, height, direction, applyOp, makeLayer, clearLive],
+    [width, height, direction, applyOp, makeLayer],
   );
 
   useEffect(() => {
     if (stripReady) paint(ops);
   }, [ops, stripReady, paint]);
-
-  // Calque d'aperçu à la résolution d'affichage (au plus celle du canvas) : moins de pixels à rasteriser sur smartphone.
-  useEffect(() => {
-    const live = liveRef.current;
-    const tip = tipRef.current;
-    const canvas = canvasRef.current;
-    if (!live || !tip || !canvas) return;
-    const scale = Math.min(1, Math.max(0.4, (canvas.clientWidth * (window.devicePixelRatio || 1)) / width));
-    liveScaleRef.current = scale;
-    for (const c of [live, tip]) {
-      c.width = Math.round(width * scale);
-      c.height = Math.round(height * scale);
-    }
-  }, [width, height]);
 
   // Mesures de fluidité, avec « ?perf=1 » dans l'adresse de la page (diagnostic sur smartphone) : affichées à l'écran et
   // envoyées automatiquement au serveur (moyennes sur les secondes où l'on dessine), toutes les 10 s et en quittant la page.
@@ -292,10 +262,8 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         dpr: window.devicePixelRatio || 1,
         viewport: `${window.innerWidth}x${window.innerHeight}`,
         canvasCssWidth: canvas?.clientWidth ?? 0,
-        liveScale: liveScaleRef.current,
         userAgent: navigator.userAgent,
         page: window.location.pathname,
-        mode: directMode.current ? "direct" : "layers",
       };
       totals.seconds = totals.moves = totals.frames = totals.drawMs = totals.long = 0;
       void fetch("/api/perf", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(report), keepalive: true }).catch(() => undefined);
@@ -329,127 +297,26 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   }, []);
 
   /**
-   * Dessine le tracé en cours, au plus une fois par image et de façon incrémentale.
-   * - Crayon, surligneur, gomme : courbes lissées ajoutées une fois pour toutes sur le calque d'aperçu ; seul le dernier
-   *   demi-segment, provisoire, est redessiné sur le calque de pointe. L'opacité s'applique au groupe des deux calques, donc
-   *   une seule fois, comme dans le dessin final. La gomme est prévisualisée en blanc (hors bande héritée).
-   * - Aérographe : grains des nouveaux points seulement.
-   * - Formes : redessinées entièrement sur le calque de pointe (leur coût est constant).
+   * Dessine le tracé en cours directement sur le canvas visible, au plus une fois par image (un seul canvas : sur smartphone,
+   * superposer des calques d'aperçu divisait la fluidité par cinq).
+   * - Crayon opaque et aérographe : seuls les nouveaux points sont tracés (courbes lissées, grains), sans pointe provisoire.
+   * - Crayon translucide, surligneur, gomme et formes : la zone touchée est restaurée depuis la copie du canvas, puis le
+   *   tracé est redessiné en une passe (l'opacité s'applique donc une seule fois). La gomme est prévisualisée en blanc, hors
+   *   bande héritée. Au relâchement, le canvas est recomposé proprement à partir des calques.
    */
   function drawLive() {
     rafRef.current = 0;
     const op = currentRef.current;
-    const live = liveRef.current;
-    const tip = tipRef.current;
-    if (!op || !live || !tip || op.kind === "fill" || op.kind === "clear") return;
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!op || !ctx || op.kind === "fill" || op.kind === "clear") return;
     const t0 = performance.now();
-    if (directMode.current && op.kind === "stroke" && (op.tool === "spray" || (op.tool === "brush" && op.opacity === 1))) {
-      drawDirect(op);
-      perfRef.current.frames += 1;
-      perfRef.current.drawMs += performance.now() - t0;
-      return;
-    }
-    const k = liveScaleRef.current;
-    const prepare = (ctx: CanvasRenderingContext2D) => {
-      ctx.save();
-      ctx.setTransform(k, 0, 0, k, 0, 0);
-      if (op.kind === "stroke" && op.tool === "eraser" && rank > 1) {
-        const r = ownRect(direction);
-        ctx.beginPath();
-        ctx.rect(r.left, r.top, r.width, r.height);
-        ctx.clip();
-      }
-    };
-    const tctx = tip.getContext("2d")!;
-    const clearTip = () => {
-      const old = tipBox.current;
-      if (!old) return;
-      tctx.save();
-      tctx.setTransform(1, 0, 0, 1, 0, 0);
-      tctx.clearRect(old.x, old.y, old.w, old.h);
-      tctx.restore();
-      tipBox.current = null;
-    };
-    const boxOf = (x1: number, y1: number, x2: number, y2: number, pad: number) => ({
-      x: Math.floor((Math.min(x1, x2) - pad) * k),
-      y: Math.floor((Math.min(y1, y2) - pad) * k),
-      w: Math.ceil((Math.abs(x1 - x2) + 2 * pad) * k) + 2,
-      h: Math.ceil((Math.abs(y1 - y2) + 2 * pad) * k) + 2,
-    });
-
-    if (op.kind === "shape") {
-      clearTip();
-      prepare(tctx);
-      drawShape(tctx, op);
-      tctx.restore();
-      tipBox.current = boxOf(op.x1, op.y1, op.x2, op.y2, op.size / 2 + 3);
-    } else if (op.tool === "spray") {
-      const lctx = live.getContext("2d")!;
-      prepare(lctx);
-      lctx.globalAlpha = op.opacity * SPRAY_DOT_OPACITY;
-      lctx.fillStyle = op.color;
-      lctx.beginPath();
-      for (const [x, y, r] of sprayDots(op, op.points, drawnRef.current)) {
-        lctx.moveTo(x + r, y);
-        lctx.arc(x, y, r, 0, Math.PI * 2);
-      }
-      lctx.fill();
-      lctx.restore();
-      drawnRef.current = op.points.length;
-    } else {
-      const w = strokeWidth(op);
-      const style = op.tool === "eraser" ? "#ffffff" : op.color;
-      const pts = op.points;
-      const n = pts.length;
-      const stroke = (ctx: CanvasRenderingContext2D) => {
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.lineWidth = w;
-        ctx.strokeStyle = style;
-        ctx.stroke();
-      };
-      // 1. Partie stable : courbes lissées, ajoutées une fois pour toutes.
-      const lctx = live.getContext("2d")!;
-      prepare(lctx);
-      lctx.beginPath();
-      if (n === 1) {
-        lctx.moveTo(pts[0][0], pts[0][1]);
-        lctx.lineTo(pts[0][0] + 0.01, pts[0][1]);
-      } else {
-        let i = drawnRef.current;
-        if (i < n - 1) {
-          const start = i <= 1 ? pts[0] : mid(pts[i - 1], pts[i]);
-          lctx.moveTo(start[0], start[1]);
-          for (; i < n - 1; i++) {
-            const m = mid(pts[i], pts[i + 1]);
-            lctx.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]);
-          }
-          drawnRef.current = i;
-        }
-      }
-      stroke(lctx);
-      lctx.restore();
-      // 2. Pointe provisoire : du milieu du dernier segment jusqu'au doigt, effacée et redessinée à chaque image.
-      clearTip();
-      if (n >= 2) {
-        const from = n === 2 ? pts[0] : mid(pts[n - 2], pts[n - 1]);
-        const to = pts[n - 1];
-        prepare(tctx);
-        tctx.beginPath();
-        tctx.moveTo(from[0], from[1]);
-        tctx.lineTo(to[0], to[1]);
-        stroke(tctx);
-        tctx.restore();
-        tipBox.current = boxOf(from[0], from[1], to[0], to[1], w / 2 + 2);
-      }
-    }
+    if (op.kind === "stroke" && (op.tool === "spray" || (op.tool === "brush" && op.opacity === 1))) drawIncremental(ctx, op);
+    else drawWithRestore(ctx, op);
     perfRef.current.frames += 1;
     perfRef.current.drawMs += performance.now() - t0;
   }
-  /** Mode d'essai : dessine les nouveaux points directement sur le canvas visible (sans pointe provisoire). */
-  function drawDirect(op: Extract<Op, { kind: "stroke" }>) {
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
+
+  function drawIncremental(ctx: CanvasRenderingContext2D, op: Extract<Op, { kind: "stroke" }>) {
     ctx.save();
     if (op.tool === "spray") {
       ctx.globalAlpha = op.opacity * SPRAY_DOT_OPACITY;
@@ -488,6 +355,59 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     }
     ctx.restore();
   }
+
+  function drawWithRestore(ctx: CanvasRenderingContext2D, op: Exclude<Op, { kind: "fill" } | { kind: "clear" }>) {
+    const snap = snapRef.current;
+    if (!snap) return;
+    // Zone touchée par le tracé (marge pour l'épaisseur), agrandie au fil du geste.
+    const pad = (op.kind === "shape" ? op.size : strokeWidth(op)) / 2 + 3;
+    let x0: number, y0: number, x1: number, y1: number;
+    if (op.kind === "shape") {
+      x0 = Math.min(op.x1, op.x2); x1 = Math.max(op.x1, op.x2);
+      y0 = Math.min(op.y1, op.y2); y1 = Math.max(op.y1, op.y2);
+    } else {
+      x0 = y0 = Infinity; x1 = y1 = -Infinity;
+      for (const [x, y] of op.points) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    const fx0 = Math.max(0, Math.floor(x0 - pad));
+    const fy0 = Math.max(0, Math.floor(y0 - pad));
+    const fx1 = Math.min(width, Math.ceil(x1 + pad));
+    const fy1 = Math.min(height, Math.ceil(y1 + pad));
+    const old = dirtyRef.current;
+    const ax0 = old ? Math.min(old.x, fx0) : fx0;
+    const ay0 = old ? Math.min(old.y, fy0) : fy0;
+    const ax1 = old ? Math.max(old.x + old.w, fx1) : fx1;
+    const ay1 = old ? Math.max(old.y + old.h, fy1) : fy1;
+    const area = { x: ax0, y: ay0, w: ax1 - ax0, h: ay1 - ay0 };
+    dirtyRef.current = area;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(area.x, area.y, area.w, area.h);
+    ctx.clip();
+    ctx.drawImage(snap, area.x, area.y, area.w, area.h, area.x, area.y, area.w, area.h);
+    ctx.globalAlpha = op.opacity;
+    if (op.kind === "shape") {
+      drawShape(ctx, op);
+    } else {
+      if (op.tool === "eraser" && rank > 1) {
+        const r = ownRect(direction);
+        ctx.beginPath();
+        ctx.rect(r.left, r.top, r.width, r.height);
+        ctx.clip();
+      }
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = strokeWidth(op);
+      ctx.strokeStyle = op.tool === "eraser" ? "#ffffff" : op.color;
+      ctx.stroke(smoothPath(op.points));
+    }
+    ctx.restore();
+  }
   function scheduleLive() {
     if (!rafRef.current) rafRef.current = requestAnimationFrame(drawLive);
   }
@@ -511,20 +431,16 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
       return;
     }
     let op: Op;
-    let groupOpacity = opacity;
     if (SHAPE_TOOLS.includes(tool)) {
       op = { kind: "shape", shape: tool as ShapeKind, filled: shapeFilled, color, size, opacity, x1: x, y1: y, x2: x, y2: y };
     } else {
       const strokeTool = STROKE_OF_TOOL[tool as keyof typeof STROKE_OF_TOOL];
       const strokeOpacity = strokeTool === "highlighter" ? HIGHLIGHTER_OPACITY : opacity;
-      groupOpacity = strokeTool === "spray" ? 1 : strokeOpacity;
       op = { kind: "stroke", tool: strokeTool, color, size, opacity: strokeOpacity, points: [[x, y, p]], ...(strokeTool === "spray" ? { seed: (Math.random() * 2 ** 32) >>> 0 } : {}) };
     }
     currentRef.current = op;
     drawnRef.current = 1;
     if (op.kind === "stroke" && op.tool === "spray") drawnRef.current = 0;
-    if (liveGroupRef.current) liveGroupRef.current.style.opacity = String(groupOpacity);
-    clearLive();
     // Pendant un tracé, le sondage de la page est suspendu (un rendu serveur en plein geste ferait saccader le dessin).
     document.body.dataset.drawing = "1";
     moveRing(e);
@@ -577,7 +493,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     delete document.body.dataset.drawing;
     // Une forme réduite à un point n'est pas enregistrée.
     if (cur.kind === "shape" && Math.hypot(cur.x2 - cur.x1, cur.y2 - cur.y1) < 3) {
-      clearLive();
+      paint(opsRef.current);
       return;
     }
     setHistory((h) => ({ ops: [...h.ops, cur], redo: [] }));
@@ -722,12 +638,6 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           }}
           className="drawing-canvas"
         />
-        {/* Aperçu du trait de pinceau en cours (au-dessus de la bande héritée), vidé quand le trait est validé */}
-        {/* Aperçu en direct : l'opacité du trait s'applique au groupe des deux calques (pas de surcharge à leur jonction). */}
-        <div ref={liveGroupRef} className="live-group" aria-hidden="true">
-          <canvas ref={liveRef} className="live-canvas" />
-          <canvas ref={tipRef} className="live-canvas" />
-        </div>
         <div ref={ringRef} className="brush-ring" aria-hidden="true" style={{ display: "none" }} />
         {/* Calque de guides : visuel uniquement, jamais exporté */}
         <div className="guides-layer" dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
