@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canvasSize, finalLength, guideLines, guidesSvg, inheritedRect, jointsFor, outgoingRect, ownRect } from "@/lib/images/geometry";
+import { canvasSize, finalLength, guideLines, authorSegments, guidesSvg, inheritedRect, jointsFor, outgoingRect, ownRect } from "@/lib/images/geometry";
 
 describe("geometry", () => {
   it("dimensions selon le sens", () => {
@@ -24,6 +24,20 @@ describe("geometry", () => {
   it("longueur finale et jointures", () => {
     expect(finalLength(2)).toBe(3040);
     expect(jointsFor(3)).toEqual([{ start: 1440, end: 1600 }, { start: 2880, end: 3040 }]);
+  });
+  it("segments d'auteurs : zones dessinées entre les jointures", () => {
+    expect(authorSegments(1)).toEqual([{ rank: 1, start: 0, end: 1600 }]);
+    expect(authorSegments(2)).toEqual([{ rank: 1, start: 0, end: 1440 }, { rank: 2, start: 1600, end: 3040 }]);
+    const s3 = authorSegments(3);
+    expect(s3).toEqual([
+      { rank: 1, start: 0, end: 1440 },
+      { rank: 2, start: 1600, end: 2880 },
+      { rank: 3, start: 3040, end: 4480 },
+    ]);
+    const joints = jointsFor(3);
+    expect(s3[0].end).toBe(joints[0].start);
+    expect(s3[1].start).toBe(joints[0].end);
+    expect(s3[2].end).toBe(finalLength(3));
   });
   it("SVG de guides en pointillés", () => {
     const svg = guidesSvg("down", 1200, 1600, [160]);

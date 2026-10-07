@@ -4,6 +4,7 @@ import type { Db } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
 import { contribution, finalWork, game, participant, turn } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
+import { authorSegments } from "@/lib/images/geometry";
 import { assembleDrawing, renderWithGuides } from "@/lib/images/strip";
 import type { Storage } from "@/lib/storage";
 import { queueNotification } from "./notifications";
@@ -62,6 +63,8 @@ export type FinalView = {
   width: number | null;
   height: number | null;
   joints: { start: number; end: number }[];
+  /** Zone dessinée par chaque auteur le long de l'axe (dessin uniquement ; vide pour le texte). */
+  segments: { rank: number; author: string; start: number; end: number }[];
   contributions: { rank: number; author: string; text: string | null }[];
 };
 
@@ -84,6 +87,10 @@ export async function getFinal(db: Db, p: { userId: string; gameId: string }): P
     width: fw?.width ?? null,
     height: fw?.height ?? null,
     joints: fw?.joints ?? [],
+    segments:
+      g.type === "drawing"
+        ? authorSegments(rows.length).map((s, i) => ({ ...s, author: rows[i].author }))
+        : [],
     contributions: rows,
   };
 }

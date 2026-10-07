@@ -27,7 +27,7 @@ export default async function FinalPage({ params }: { params: Promise<{ id: stri
       {view.contributions.length === 0 && (view.type === "text" || view.ready) ? (
         <p>Aucune contribution n&apos;a été enregistrée.</p>
       ) : view.type === "drawing" ? (
-        view.ready ? <FinalViewer gameId={id} direction={view.direction!} width={view.width!} height={view.height!} joints={view.joints} /> : <p>L&apos;œuvre est en cours d&apos;assemblage, revenez dans un instant.</p>
+        view.ready ? <FinalViewer gameId={id} direction={view.direction!} width={view.width!} height={view.height!} joints={view.joints} segments={view.segments} /> : <p>L&apos;œuvre est en cours d&apos;assemblage, revenez dans un instant.</p>
       ) : (
         <FinalText contributions={view.contributions} />
       )}

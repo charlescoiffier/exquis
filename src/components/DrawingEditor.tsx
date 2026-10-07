@@ -20,6 +20,20 @@ type Props = {
   submitState: RefObject<SubmitState>;
   onLost: (kind: LostKind) => void;
 };
+const PALETTE: { name: string; hex: string }[] = [
+  { name: "Noir", hex: "#1f1b16" },
+  { name: "Gris", hex: "#8a8a8a" },
+  { name: "Blanc", hex: "#ffffff" },
+  { name: "Rouge", hex: "#e11d48" },
+  { name: "Orange", hex: "#f97316" },
+  { name: "Jaune", hex: "#facc15" },
+  { name: "Vert", hex: "#16a34a" },
+  { name: "Turquoise", hex: "#14b8a6" },
+  { name: "Bleu", hex: "#2563eb" },
+  { name: "Violet", hex: "#7c3aed" },
+  { name: "Rose", hex: "#ec4899" },
+  { name: "Marron", hex: "#92400e" },
+];
 type History = { ops: Op[]; redo: Op[] };
 
 function pathFromStroke(points: number[][]): Path2D {
@@ -230,7 +244,48 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         <button type="button" className={tool === "brush" ? "" : "secondary"} onClick={() => setTool("brush")}>Pinceau</button>
         <button type="button" className={tool === "eraser" ? "" : "secondary"} onClick={() => setTool("eraser")}>Gomme</button>
         <button type="button" className={tool === "fill" ? "" : "secondary"} onClick={() => setTool("fill")}>Pot de peinture</button>
-        <input aria-label="Couleur" type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 48 }} />
+        <div role="group" aria-label="Couleur" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <label
+            style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44, padding: "0 10px", border: "2px solid var(--line)", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}
+          >
+            <span aria-hidden="true" data-testid="active-color" style={{ width: 40, height: 40, borderRadius: 8, background: color, border: "2px solid #1f1b16", display: "block" }} />
+            Couleur
+            <input
+              aria-label="Couleur libre"
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              style={{ width: 44, height: 40, padding: 0, border: 0, background: "none", cursor: "pointer" }}
+            />
+          </label>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 300 }}>
+            {PALETTE.map((c) => {
+              const active = c.hex.toLowerCase() === color.toLowerCase();
+              return (
+                <button
+                  key={c.hex}
+                  type="button"
+                  aria-label={c.name}
+                  aria-pressed={active}
+                  title={c.name}
+                  onClick={() => setColor(c.hex)}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    minWidth: 36,
+                    padding: 0,
+                    borderRadius: "50%",
+                    background: c.hex,
+                    border: active ? "3px solid #1f1b16" : "1px solid #9a9488",
+                    outline: active ? "2px solid #fff" : "none",
+                    outlineOffset: -5,
+                    boxShadow: active ? "0 0 0 2px #2563eb" : "none",
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
         <input aria-label="Taille" type="range" min={1} max={60} value={size} onChange={(e) => setSize(Number(e.target.value))} style={{ width: 120 }} />
         <input aria-label="Opacité" type="range" min={0.1} max={1} step={0.1} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} style={{ width: 100 }} />
         <button type="button" className="secondary" onClick={undo} disabled={!ops.length}>Annuler</button>

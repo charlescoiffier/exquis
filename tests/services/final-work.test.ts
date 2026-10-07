@@ -41,6 +41,10 @@ describe("assembleFinalWork / getFinal (dessin)", () => {
     const view = await getFinal(db, { userId: users[0], gameId });
     expect(view).toMatchObject({ type: "drawing", ready: true, direction: "down", width: 1200, height: 3040 });
     expect(view.contributions.map((c) => c.rank)).toEqual([1, 2]);
+    expect(view.segments).toEqual([
+      { rank: 1, author: view.contributions[0].author, start: 0, end: 1440 },
+      { rank: 2, author: view.contributions[1].author, start: 1600, end: 3040 },
+    ]);
     expect(view.contributions.every((c) => c.author.length > 0)).toBe(true);
   });
   it("sert l'image propre et la variante avec jointures, différentes l'une de l'autre", async () => {
@@ -77,6 +81,7 @@ describe("œuvre finale (texte)", () => {
     const view = await getFinal(db, { userId: users[0], gameId });
     expect(view.type).toBe("text");
     expect(view.contributions.map((c) => c.text)).toEqual(["premier texte", "second texte"]);
+    expect(view.segments).toEqual([]);
   });
 });
 
@@ -126,6 +131,7 @@ describe("partie annulée (spec §5.4 : les contributions restent visibles)", ()
     const view = await getFinal(db, { userId: users[2], gameId });
     expect(view).toMatchObject({ cancelled: true, ready: true });
     expect(view.contributions.map((c) => c.rank)).toEqual([1]);
+    expect(view.segments).toEqual([{ rank: 1, author: view.contributions[0].author, start: 0, end: 1600 }]);
     const img = await getFinalImage(db, storage, { userId: users[2], gameId, guides: false });
     expect((await sharp(img).metadata()).height).toBe(finalLength(1));
   });
