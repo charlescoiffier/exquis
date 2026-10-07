@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { InboxActions } from "@/components/InboxActions";
 import { InviteButton } from "@/components/InviteButton";
 import { getDb } from "@/lib/db/client";
@@ -21,6 +22,7 @@ export default async function InboxPage() {
   ]);
   return (
     <main>
+      <AutoRefresh />
       <h1>Notifications</h1>
       <InboxActions emailEnabled={p?.emailEnabled ?? true} />
       <h2>Inviter des amis</h2>

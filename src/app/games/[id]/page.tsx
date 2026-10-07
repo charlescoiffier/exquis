@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { JoinButton } from "@/components/JoinButton";
 import { TurnEditor } from "@/components/TurnEditor";
+import { TurnTitle } from "@/components/TurnTitle";
 import { getDb } from "@/lib/db/client";
 import { DomainError } from "@/lib/errors";
 import { formatDuration } from "@/lib/format";
@@ -32,6 +34,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
 
   return (
     <main>
+      {game.status !== "completed" && game.status !== "cancelled" && <AutoRefresh />}
       <h1>{game.name}</h1>
       <p className="muted">
         {game.type === "drawing" ? "Dessin" : `Texte (${game.language})`} — {game.turns} tours de {formatDuration(game.turnDurationSeconds)} — statut : {game.status}
@@ -68,9 +71,13 @@ export default async function GamePage({ params, searchParams }: { params: Promi
 async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: string) {
   const turn = await getMyTurn(db, getStorage(), { userId, gameId });
   if (!turn) return <p>En attente des autres joueurs. Vous serez prévenu(e) quand ce sera votre tour.</p>;
+  // La clé garde l'état de l'éditeur lors d'un rafraîchissement tant que le tour (et son échéance) ne change pas.
   return (
-    <TurnEditor
-      gameId={gameId}
+    <>
+      <TurnTitle myTurn />
+      <TurnEditor
+        key={`${turn.turnId}-${turn.deadline.toISOString()}`}
+        gameId={gameId}
       turn={{
         rank: turn.rank,
         total: turn.total,
@@ -80,6 +87,7 @@ async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: 
         draft: turn.draft,
         game: { type: turn.game.type, direction: turn.game.direction, minWords: turn.game.minWords, maxWords: turn.game.maxWords },
       }}
-    />
+      />
+    </>
   );
 }

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { JoinButton } from "@/components/JoinButton";
+import { TurnTitle } from "@/components/TurnTitle";
 import { getDb } from "@/lib/db/client";
 import { formatDuration } from "@/lib/format";
 import { listMyGames, listOpenCalls, listOpenGames } from "@/lib/services/games";
@@ -17,6 +19,8 @@ export default async function Home() {
 
   return (
     <main>
+      <AutoRefresh />
+      <TurnTitle myTurn={mine.some((g) => g.isMyTurn)} />
       <h1>Mes parties</h1>
       {mine.length === 0 ? <p className="muted">Aucune partie pour l&apos;instant.</p> : (
         <ul>
