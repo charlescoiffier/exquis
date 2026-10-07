@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { EXPIRED_MESSAGE, clearExpired, expiredTurnKey, markExpired } from "@/lib/expired-notice";
+import { EXPIRED_MESSAGE, clearExpired, isTurnLost, isTurnMarked, markExpired } from "@/lib/expired-notice";
 import { clockOffset, turnPhase } from "@/lib/turn-timing";
 import { Countdown } from "./Countdown";
 import { DrawingEditor } from "./DrawingEditor";
@@ -24,11 +24,11 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
   const turnKey = `${gameId}:${turn.deadline}:${turn.rank}`;
   const deadlineMs = Date.parse(turn.deadline);
   const [offset] = useState(() => clockOffset(turn.serverNow, Date.now()));
-  const [lost, setLost] = useState(() => expiredTurnKey(gameId) === turnKey);
+  const [lost, setLost] = useState(() => isTurnLost(gameId, turnKey));
   const [now, setNow] = useState(() => Date.now() + offset);
 
   useEffect(() => {
-    if (expiredTurnKey(gameId) !== turnKey) clearExpired(gameId);
+    if (!isTurnMarked(gameId, turnKey)) clearExpired(gameId);
   }, [gameId, turnKey]);
 
   useEffect(() => {
@@ -40,10 +40,16 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
 
   // Tour perdu (fin de la fenêtre, abandon, ou envoi refusé) : l'éditeur est démonté (état local vidé), la page rechargée.
   const lose = useCallback(() => {
-    markExpired(gameId, turnKey);
+    markExpired(gameId, turnKey, true);
     setLost(true);
     router.refresh();
   }, [gameId, turnKey, router]);
+
+  // Dès l'échéance, on note que le tour peut être repris par le serveur : si la page est rafraîchie sans éditeur, le message s'affichera.
+  const pastDeadline = phase !== "open";
+  useEffect(() => {
+    if (pastDeadline && !isTurnLost(gameId, turnKey)) markExpired(gameId, turnKey, false);
+  }, [pastDeadline, gameId, turnKey]);
 
   useEffect(() => {
     if (phase === "expired" && !lost) lose();

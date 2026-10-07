@@ -3,6 +3,7 @@ import { getStroke } from "perfect-freehand";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { floodFill, hexToRgba, isInsideOwnZone, sanitizeOps, type Op } from "@/lib/drawing/ops";
+import { clearExpired } from "@/lib/expired-notice";
 import { ExpiryDialog } from "./ExpiryDialog";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 import { canvasSize, guideLines, guidesSvg, inheritedRect, type Direction } from "@/lib/images/geometry";
@@ -210,6 +211,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         setBusy(false);
         return;
       }
+      clearExpired(gameId);
       router.refresh();
     } catch {
       setError("Envoi impossible.");

@@ -2,20 +2,24 @@
 // au lieu de rouvrir l'éditeur (le serveur accepte encore l'envoi jusqu'à la fin de la fenêtre de validation).
 const key = (gameId: string) => `exquis:expired:${gameId}`;
 
-export function markExpired(gameId: string, turnKey: string): void {
+/** `final` : abandon ou fin de fenêtre (l'éditeur ne doit plus rouvrir). Sinon : échéance passée, tour peut-être déjà repris par le serveur. */
+export function markExpired(gameId: string, turnKey: string, final: boolean): void {
   try {
-    sessionStorage.setItem(key(gameId), turnKey);
+    sessionStorage.setItem(key(gameId), `${final ? "lost" : "pending"}|${turnKey}`);
   } catch {
     // stockage indisponible : le message reste affiché tant que le composant est monté
   }
 }
-export function expiredTurnKey(gameId: string): string | null {
+function stored(gameId: string): string | null {
   try {
     return sessionStorage.getItem(key(gameId));
   } catch {
     return null;
   }
 }
+export const hasExpiredNotice = (gameId: string): boolean => stored(gameId) !== null;
+export const isTurnLost = (gameId: string, turnKey: string): boolean => stored(gameId) === `lost|${turnKey}`;
+export const isTurnMarked = (gameId: string, turnKey: string): boolean => stored(gameId)?.endsWith(`|${turnKey}`) ?? false;
 export function clearExpired(gameId: string): void {
   try {
     sessionStorage.removeItem(key(gameId));

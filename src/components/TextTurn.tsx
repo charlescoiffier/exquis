@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { countWords, sanitizeText, transmittedRange, type ExcerptRule } from "@/lib/domain/text";
 import { gaugeState, mirrorSegments } from "@/lib/domain/text-editor";
+import { clearExpired } from "@/lib/expired-notice";
 import { ExpiryDialog } from "./ExpiryDialog";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 
@@ -38,6 +39,7 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, val
         setBusy(false);
         return;
       }
+      clearExpired(gameId);
       router.refresh();
     } catch {
       setError("Envoi impossible.");
