@@ -72,7 +72,8 @@ test("deux joueurs terminent une partie de texte", async ({ browser }) => {
     }
     await active.getByLabel("Votre texte").fill(text);
     await active.getByRole("button", { name: "Envoyer" }).click();
-    await expect(active.getByLabel("Votre texte")).toBeHidden();
+    // Au dernier tour, la page de l'œuvre est compilée à froid par le serveur de dev : on laisse plus de temps.
+    await expect(active.getByLabel("Votre texte")).toBeHidden({ timeout: 45_000 });
   }
 
   await alice.goto(`${gameUrl}/final`);
