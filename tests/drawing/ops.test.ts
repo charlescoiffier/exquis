@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { floodFill, hexToRgba, isInsideOwnZone, sanitizeOps } from "@/lib/drawing/ops";
+import { floodFill, hexToRgba, isInsideCanvas, sanitizeOps } from "@/lib/drawing/ops";
 
 function image(w: number, h: number, fill: [number, number, number, number] = [255, 255, 255, 255]) {
   const data = new Uint8ClampedArray(w * h * 4);
@@ -37,19 +37,19 @@ describe("floodFill", () => {
   });
 });
 
-describe("isInsideOwnZone", () => {
-  it("tour 1 : tout le canvas", () => expect(isInsideOwnZone(10, 10, 1, "down")).toBe(true));
+describe("isInsideCanvas", () => {
+  it("tour 1 : tout le canvas", () => expect(isInsideCanvas(10, 10, "down")).toBe(true));
   it("tour 2 : autorise aussi la bande héritée (down)", () => {
-    expect(isInsideOwnZone(10, 100, 2, "down")).toBe(true);
-    expect(isInsideOwnZone(10, 200, 2, "down")).toBe(true);
+    expect(isInsideCanvas(10, 100, "down")).toBe(true);
+    expect(isInsideCanvas(10, 200, "down")).toBe(true);
   });
   it("tour 2 : autorise aussi la bande héritée (right)", () => {
-    expect(isInsideOwnZone(100, 10, 2, "right")).toBe(true);
-    expect(isInsideOwnZone(200, 10, 2, "right")).toBe(true);
+    expect(isInsideCanvas(100, 10, "right")).toBe(true);
+    expect(isInsideCanvas(200, 10, "right")).toBe(true);
   });
   it("refuse un point hors du canvas", () => {
-    expect(isInsideOwnZone(-1, 10, 2, "down")).toBe(false);
-    expect(isInsideOwnZone(10, 1600, 2, "down")).toBe(false);
+    expect(isInsideCanvas(-1, 10, "down")).toBe(false);
+    expect(isInsideCanvas(10, 1600, "down")).toBe(false);
   });
 });
 

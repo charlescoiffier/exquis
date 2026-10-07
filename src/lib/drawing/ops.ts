@@ -55,7 +55,7 @@ export function floodFill(
 }
 
 /** Le joueur peut peindre sur toute la surface, y compris la bande héritée. */
-export function isInsideOwnZone(x: number, y: number, _rank: number, direction: Direction): boolean {
+export function isInsideCanvas(x: number, y: number, direction: Direction): boolean {
   const { width, height } = canvasSize(direction);
   return x >= 0 && y >= 0 && x < width && y < height;
 }
