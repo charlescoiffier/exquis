@@ -12,6 +12,8 @@ export function NewGameForm() {
   const [error, setError] = useState<string | null>(null);
   const [turns, setTurns] = useState(4);
   const [theme, setTheme] = useState("");
+  // Vrai tant que le thème vient du tirage au hasard : il suit alors le type de partie ; un thème saisi est toujours conservé.
+  const [themeIsRandom, setThemeIsRandom] = useState(false);
   const [labels, setLabels] = useState<string[]>(["", "", "", ""]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -53,24 +55,46 @@ export function NewGameForm() {
       <fieldset className="form-section">
         <legend>Type</legend>
         <label htmlFor="name">Titre de la partie (facultatif)</label>
-        <input id="name" name="name" maxLength={80} placeholder={type === "text" ? "Texte de <votre nom>" : "Dessin de <votre nom>"} aria-describedby="name-hint" />
-        <p id="name-hint" className="hint">Laissé vide, un titre est proposé automatiquement.</p>
+        <input id="name" name="name" maxLength={80} placeholder={type === "text" ? "Texte de <votre nom>" : "Dessin de <votre nom>"} />
         <label htmlFor="type">Type</label>
-        <select id="type" value={type} onChange={(e) => setType(e.target.value as "drawing" | "text")} aria-describedby="type-hint">
+        <select id="type" value={type} onChange={(e) => {
+            const next = e.target.value as "drawing" | "text";
+            setType(next);
+            if (themeIsRandom) setTheme(randomTheme(next));
+          }}
+        >
           <option value="text">Texte</option>
           <option value="drawing">Dessin</option>
         </select>
-        <p id="type-hint" className="hint">{type === "text" ? "Chacun écrit une suite en ne voyant que la fin du passage précédent." : "Chacun dessine la suite en ne voyant qu'une bande du dessin précédent."}</p>
         <label htmlFor="theme">Thème (facultatif)</label>
-        <input id="theme" name="theme" value={theme} maxLength={120} onChange={(e) => setTheme(e.target.value)} placeholder={type === "text" ? "Un voyage en train qui ne s'arrête jamais" : "Un monstre sympathique"} />
-        <div className="field-foot">
-          <button type="button" className="secondary" onClick={() => setTheme(randomTheme(type))}>Au hasard</button>
+        <div className="field-row">
+          <input
+            id="theme"
+            name="theme"
+            value={theme}
+            maxLength={120}
+            onChange={(e) => {
+              setTheme(e.target.value);
+              setThemeIsRandom(false);
+            }}
+            placeholder={type === "text" ? "Un voyage en train qui ne s'arrête jamais" : "Un monstre sympathique"}
+          />
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setTheme(randomTheme(type));
+              setThemeIsRandom(true);
+            }}
+          >
+            Au hasard
+          </button>
         </div>
       </fieldset>
 
       <fieldset className="form-section">
         <legend>Tours et durée</legend>
-        <label htmlFor="turns">Nombre de tours</label>
+        <label htmlFor="turns">{type === "text" ? "Nombre d'écrivains" : "Nombre de dessinateurs"}</label>
         <select
           id="turns"
           name="turns"
@@ -80,11 +104,9 @@ export function NewGameForm() {
             setTurns(n);
             setLabels((prev) => Array.from({ length: n }, (_, i) => prev[i] ?? ""));
           }}
-          aria-describedby="turns-hint"
         >
           {[2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
-        <p id="turns-hint" className="hint">Entre 2 et 8. {type === "text" ? `${turns} écrivains, un par tour.` : `${turns} dessinateurs, un par tour.`}</p>
         <label htmlFor="duration">Durée d&apos;un tour</label>
         <select id="duration" name="duration" defaultValue={86400} aria-describedby="duration-hint">
           {DURATION_OPTIONS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
@@ -129,11 +151,10 @@ export function NewGameForm() {
         <fieldset className="form-section">
           <legend>Options du texte</legend>
           <label htmlFor="language">Langue</label>
-          <select id="language" name="language" defaultValue="fr" aria-describedby="language-hint">
+          <select id="language" name="language" defaultValue="fr">
             <option value="fr">Français</option>
             <option value="en">Anglais</option>
           </select>
-          <p id="language-hint" className="hint">Langue dans laquelle les joueurs écrivent.</p>
           <label htmlFor="minWords">Mots minimum</label>
           <input id="minWords" name="minWords" type="number" min={1} defaultValue={20} required aria-describedby="words-hint" />
           <label htmlFor="maxWords">Mots maximum</label>

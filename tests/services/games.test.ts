@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { game, notification, participant, turn } from "@/lib/db/schema";
-import { STALE_OPEN_GAME_MS, purgeStaleGames, MAX_ACTIVE_GAMES, MAX_CREATED_PER_DAY, createGame, getGameView, joinGame, listMyCurrentGames, listMyPastGames, listOpenGames, PAGE_SIZE, parsePage } from "@/lib/services/games";
+import { draft, game, notification, participant, turn } from "@/lib/db/schema";
+import { STALE_GAME_MS, purgeStaleGames, MAX_ACTIVE_GAMES, MAX_CREATED_PER_DAY, createGame, getGameView, joinGame, listMyCurrentGames, listMyPastGames, listOpenGames, PAGE_SIZE, parsePage } from "@/lib/services/games";
 import { makeUser, resetDb, testDb } from "../helpers/db";
 import { activeTurn, drawingParams, startedGame, textParams } from "../helpers/games";
 
@@ -138,18 +138,23 @@ describe("intitulés de tours", () => {
   });
 });
 
-describe("purge des parties non lancées", () => {
-  it("supprime les parties en attente de plus d'une semaine, pas les récentes ni celles lancées", async () => {
+describe("purge des parties sans activité", () => {
+  it("supprime les parties en attente ou en cours sans activité depuis une semaine, pas les autres", async () => {
     const now = new Date();
-    const old = new Date(now.getTime() - STALE_OPEN_GAME_MS - 60_000);
+    const old = new Date(now.getTime() - STALE_GAME_MS - 60_000);
+    const recent = new Date(now.getTime() - STALE_GAME_MS + 3600_000);
     const u = await makeUser(db, "p");
-    await createGame(db, u, textParams(2, { name: "vieille" }), old);
-    await createGame(db, u, textParams(2, { name: "récente" }), new Date(now.getTime() - STALE_OPEN_GAME_MS + 3600_000));
-    const started = await startedGame(db, textParams(2, { name: "lancée" }), old);
-    expect(await purgeStaleGames(db, now)).toBe(1);
+    await createGame(db, u, textParams(2, { name: "attente ancienne" }), old);
+    await createGame(db, u, textParams(2, { name: "attente récente" }), recent);
+    await startedGame(db, textParams(2, { name: "en cours inactive" }), old);
+    await startedGame(db, textParams(2, { name: "en cours récente" }), recent);
+    // En cours, lancée il y a longtemps, mais un brouillon a été enregistré récemment : la partie est active.
+    const lively = await startedGame(db, textParams(2, { name: "en cours active" }), old);
+    const t = await activeTurn(db, lively.gameId);
+    await db.insert(draft).values({ turnId: t.id, userId: t.assignedUserId, content: { text: "un deux" }, updatedAt: new Date(now.getTime() - 3600_000) });
+    expect(await purgeStaleGames(db, now)).toBe(2);
     const names = (await db.select({ n: game.name }).from(game)).map((g) => g.n).sort();
-    expect(names).toEqual(["lancée", "récente"]);
-    expect(started.gameId).toBeTruthy();
+    expect(names).toEqual(["attente récente", "en cours active", "en cours récente"]);
   });
 });
 

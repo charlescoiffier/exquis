@@ -87,6 +87,11 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .notice.success { border-color:var(--ok); }
 .pill { display:inline-block; font-size:12px; font-weight:500; padding:1px 9px; border:2px solid var(--line); border-radius:999px; color:var(--muted); }
 .pill.call { background:var(--accent2); color:var(--on-accent2); border-color:var(--accent2); font-weight:700; }
+/* Champ suivi d'une action : côte à côte sur ordinateur, l'action passe dessous (à droite) sur smartphone */
+.field-row { display:flex; gap:10px; align-items:stretch; }
+.field-row input { flex:1; min-width:0; }
+.field-row button { flex:none; }
+@media (max-width: 600px) { .field-row { flex-direction:column; gap:8px; } .field-row button { align-self:flex-end; } }
 /* Remarque sous un champ, avec une action alignée à droite sur la même ligne */
 .field-foot { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-top:6px; }
 .field-foot > :only-child { margin-left:auto; }

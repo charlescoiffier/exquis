@@ -46,10 +46,10 @@ export async function handleSweep(deps: Deps): Promise<Effect[]> {
   return expireOverdue(deps.db, nowOf(deps));
 }
 
-/** Supprime les parties jamais lancées depuis plus d'une semaine. */
+/** Supprime les parties sans activité depuis plus d'une semaine. */
 export async function handlePurge(deps: Deps): Promise<void> {
   const n = await purgeStaleGames(deps.db, nowOf(deps));
-  if (n > 0) console.log(`[purge] ${n} partie(s) en attente supprimée(s)`);
+  if (n > 0) console.log(`[purge] ${n} partie(s) sans activité supprimée(s)`);
 }
 
 export async function handleFlush(deps: Deps): Promise<void> {
