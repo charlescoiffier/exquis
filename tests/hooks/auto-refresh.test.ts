@@ -148,3 +148,23 @@ describe("pageTitle", () => {
     expect(pageTitle(false, "Cadavre exquis")).toBe("Cadavre exquis");
   });
 });
+
+describe("reprise sur retour du réseau", () => {
+  it("l'événement online relance le sondage arrêté après des échecs", async () => {
+    let offline = true;
+    const s = setup({ refresh: () => (offline ? Promise.reject(new Error("hors ligne")) : undefined) });
+    s.ar.start();
+    const flush = () => new Promise((r) => setTimeout(r, 0));
+    for (let i = 0; i < 6; i++) {
+      s.ticks.forEach((fn) => fn());
+      await flush();
+    }
+    expect(s.ticks.size).toBe(0);
+    const calls = s.refresh.mock.calls.length;
+    offline = false;
+    s.emit("win:online");
+    await flush();
+    expect(s.refresh.mock.calls.length).toBe(calls + 1);
+    expect(s.ticks.size).toBe(1);
+  });
+});

@@ -11,7 +11,7 @@ export type AutoRefresh = { start: () => void; stop: () => void };
 
 export function createAutoRefresh(opts: {
   intervalMs: number;
-  /** Échecs consécutifs avant d'arrêter le sondage jusqu'au prochain focus (défaut 6). */
+  /** Échecs consécutifs avant d'arrêter le sondage jusqu'au prochain focus ou retour du réseau (défaut 6). */
   maxFailures?: number;
   /** Peut renvoyer une promesse : tant qu'elle n'est pas réglée, aucun autre rafraîchissement ne part. */
   refresh: () => Promise<void> | void;
@@ -80,6 +80,7 @@ export function createAutoRefresh(opts: {
       running = true;
       doc.addEventListener("visibilitychange", onVisibility);
       win.addEventListener("focus", onFocus);
+      win.addEventListener("online", onFocus);
       if (doc.visibilityState !== "hidden") schedule();
     },
     stop() {
@@ -88,6 +89,7 @@ export function createAutoRefresh(opts: {
       clear();
       doc.removeEventListener("visibilitychange", onVisibility);
       win.removeEventListener("focus", onFocus);
+      win.removeEventListener("online", onFocus);
     },
   };
 }
