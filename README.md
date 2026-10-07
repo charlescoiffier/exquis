@@ -141,6 +141,8 @@ npm run dev                       # http://localhost:3000
 npm run worker                    # dans un second terminal
 ```
 
+Pour lancer le serveur et le worker en une seule commande sur ce poste : `npm run dev:web`.
+
 Pour essayer l'application depuis un smartphone connecté au même Wi-Fi, un seul terminal suffit :
 
 ```bash

@@ -1,12 +1,14 @@
 /**
- * `npm run dev:phone` : serveur de développement + worker accessibles depuis un smartphone du même réseau Wi-Fi.
- * Détecte l'adresse locale du Mac, la passe en APP_URL (connexion, liens d'invitation) et affiche l'adresse à ouvrir
- * avec un code d'invitation. La base de dev doit tourner (`npm run db:dev`).
+ * Serveur de développement + worker en une seule commande (la base de dev doit tourner : `npm run db:dev`).
+ * - `npm run dev:web`   : sur ce poste uniquement, http://localhost:3000.
+ * - `npm run dev:phone` : accessible depuis un smartphone du même réseau Wi-Fi ; détecte l'adresse locale du Mac, la passe
+ *   en APP_URL (connexion, liens d'invitation) et affiche l'adresse à ouvrir avec un code d'invitation.
  */
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { networkInterfaces } from "node:os";
 
 const PORT = process.env.PORT ?? "3000";
+const phone = process.argv[2] === "phone";
 
 function lanAddress(): string | null {
   const candidates: string[] = [];
@@ -19,7 +21,7 @@ function lanAddress(): string | null {
   return pick ? pick.split("\t")[1] : null;
 }
 
-const ip = lanAddress();
+const ip = phone ? lanAddress() : "localhost";
 if (!ip) {
   console.error("Aucune adresse réseau locale trouvée : connectez le Mac à un réseau Wi-Fi.");
   process.exit(1);
@@ -28,7 +30,7 @@ const url = `http://${ip}:${PORT}`;
 const env = { ...process.env, APP_URL: url } as NodeJS.ProcessEnv;
 
 const children: ChildProcess[] = [
-  spawn("npx", ["next", "dev", "--turbopack", "-H", "0.0.0.0", "-p", PORT], { env, stdio: "inherit" }),
+  spawn("npx", ["next", "dev", "--turbopack", ...(phone ? ["-H", "0.0.0.0"] : []), "-p", PORT], { env, stdio: "inherit" }),
   spawn("npm", ["run", "worker"], { env, stdio: "inherit" }),
 ];
 let stopping = false;
@@ -48,4 +50,4 @@ try {
 } catch {
   // base indisponible : on n'affiche simplement pas de code
 }
-console.log(`\n  Sur le smartphone (même Wi-Fi) : ${url}${code ? `\n  Code d'invitation pour créer un compte : ${code}` : ""}\n  Ctrl+C pour arrêter le serveur et le worker.\n`);
+console.log(`\n  ${phone ? "Sur le smartphone (même Wi-Fi)" : "Sur ce poste"} : ${url}${code ? `\n  Code d'invitation pour créer un compte : ${code}` : ""}\n  Ctrl+C pour arrêter le serveur et le worker.\n`);
