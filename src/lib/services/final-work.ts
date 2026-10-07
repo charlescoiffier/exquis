@@ -81,7 +81,10 @@ export type FinalView = {
 };
 
 export async function getFinal(db: Db, p: { userId: string; gameId: string }): Promise<FinalView> {
-  const g = await authorize(db, p.userId, p.gameId);
+  return buildFinalView(db, await authorize(db, p.userId, p.gameId));
+}
+
+async function buildFinalView(db: Db, g: typeof game.$inferSelect): Promise<FinalView> {
   const [fw] = await db.select().from(finalWork).where(eq(finalWork.gameId, g.id));
   const raw = await db
     .select({ rank: turn.rank, author: user.name, text: contribution.text })
@@ -135,4 +138,19 @@ export async function getFinalImage(db: Db, storage: Storage, p: { userId: strin
   const out = await renderWithGuides(clean, g.direction!, fw.width!, fw.height!, fw.joints ?? []);
   await storage.put(guidesKey(g.id), out, "image/png");
   return out;
+}
+
+/** Œuvre d'une partie terminée à partir de son jeton public (sans connexion) ; introuvable si le lien n'est pas activé. */
+export async function getPublicFinal(db: Db, token: string): Promise<FinalView> {
+  const [g] = await db.select().from(game).where(eq(game.publicToken, token));
+  if (!g || g.status !== "completed") throw new DomainError("not_found", "Lien introuvable.", 404);
+  return buildFinalView(db, g);
+}
+
+export async function getPublicImage(db: Db, storage: Storage, token: string): Promise<Buffer> {
+  const [g] = await db.select().from(game).where(eq(game.publicToken, token));
+  if (!g || g.status !== "completed") throw new DomainError("not_found", "Lien introuvable.", 404);
+  const [fw] = await db.select().from(finalWork).where(eq(finalWork.gameId, g.id));
+  if (!fw?.imageKey) throw new DomainError("not_ready", "L'œuvre est en cours d'assemblage.", 404);
+  return storage.get(fw.imageKey);
 }

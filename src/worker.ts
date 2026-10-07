@@ -2,7 +2,7 @@ import PgBoss from "pg-boss";
 import { getDb } from "@/lib/db/client";
 import { env } from "@/lib/env";
 import type { Effect } from "@/lib/effects";
-import { handleExpire, handleFinalize, handleFlush, handleRemind, handleSweep, type Deps } from "@/lib/jobs/handlers";
+import { handleExpire, handleFinalize, handleFlush, handlePurge, handleRemind, handleSweep, type Deps } from "@/lib/jobs/handlers";
 import { QUEUES, createQueues, runEffectsWithRetry } from "@/lib/jobs/queue";
 import { getMailer } from "@/lib/notifications/mailer";
 import { getStorage } from "@/lib/storage";
@@ -31,7 +31,9 @@ async function main() {
   await boss.work(QUEUES.finalize, wrap(handleFinalize));
   await boss.work(QUEUES.flush, wrap(async (d: Deps) => handleFlush(d)));
   await boss.work(QUEUES.sweep, wrap(async (d: Deps) => handleSweep(d)));
+  await boss.work(QUEUES.purge, wrap(async (d: Deps) => handlePurge(d)));
   await boss.schedule(QUEUES.sweep, "* * * * *");
+  await boss.schedule(QUEUES.purge, "17 * * * *");
   await boss.schedule(QUEUES.flush, "* * * * *");
 
   const shutdown = () => {

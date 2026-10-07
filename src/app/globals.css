@@ -86,9 +86,11 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .notice.success { border-color:var(--ok); }
 .pill { display:inline-block; font-size:12px; font-weight:500; padding:1px 9px; border:2px solid var(--line); border-radius:999px; color:var(--muted); }
 .pill.call { background:var(--accent2); color:var(--on-accent2); border-color:var(--accent2); font-weight:700; }
-.field-row { display:flex; gap:10px; align-items:stretch; }
-.field-row input { flex:1; min-width:0; }
-.field-row button { flex:none; }
+/* Remarque sous un champ, avec une action alignée à droite sur la même ligne */
+.field-foot { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-top:6px; }
+.field-foot > :only-child { margin-left:auto; }
+.field-foot .hint { margin:0; flex:1; min-width:0; }
+.field-foot button { flex:none; }
 .hint { color:var(--muted); font-size:14px; margin:4px 0 0; }
 
 /* Composants partagés : bandeau, carte, barre d'onglets */
@@ -193,6 +195,12 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .info-list dd { margin:0; overflow-wrap:anywhere; }
 .final-info { margin-top:28px; }
 p.meta { margin:4px 0 0; }
+.comments { margin-bottom:12px; }
+.comment { margin-bottom:12px; }
+.comment-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin-bottom:6px; }
+.comment-head .comment-delete { margin-left:auto; min-height:32px; padding:2px 10px; font-size:14px; }
+.comment-body { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.comment-form { margin-top:8px; }
 .final-name { margin:0 0 16px; font-size:22px; }
 .final-art { margin:0 4px 0 0; border:2px solid var(--line); background:var(--surface); box-shadow:var(--shadow-card); }
 .final-authors { margin-top:8px; }

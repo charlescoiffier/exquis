@@ -78,4 +78,17 @@ test("deux joueurs terminent une partie de texte", async ({ browser }) => {
   await alice.goto(`${gameUrl}/final`);
   await expect(alice.getByRole("heading", { name: "Œuvre finale" })).toBeVisible();
   await expect(alice.getByText("qui rencontra un chevalier")).toBeVisible();
+
+  // Commentaire d'Alice, puis lien public ouvert par un visiteur sans compte.
+  await alice.getByLabel("Votre commentaire").fill("Quelle histoire !");
+  await alice.getByRole("button", { name: "Publier" }).click();
+  await expect(alice.getByText("Quelle histoire !")).toBeVisible();
+  await alice.getByRole("button", { name: "Activer le lien public" }).click();
+  const link = await alice.locator("code.invite-link").textContent();
+  expect(link).toMatch(/\/p\/[A-Za-z0-9_-]{32}$/);
+  const visitor = await (await browser.newContext()).newPage();
+  await visitor.goto(new URL(link!).pathname);
+  await expect(visitor.getByRole("heading", { name: gameName })).toBeVisible();
+  await expect(visitor.getByText("qui rencontra un chevalier")).toBeVisible();
+  await expect(visitor.getByText("Quelle histoire !")).toHaveCount(0);
 });

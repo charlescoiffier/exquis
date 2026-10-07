@@ -9,6 +9,7 @@ export const QUEUES = {
   finalize: "game-finalize",
   flush: "notifications-flush",
   sweep: "turn-sweep",
+  purge: "game-purge",
 } as const;
 
 export const MIN_REMINDER_DURATION = 120;

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import type { Db, Executor, Tx } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
@@ -12,10 +12,10 @@ export const MAX_ACTIVE_GAMES = 8;
 export const MAX_CREATED_PER_DAY = 10;
 
 export type GameRow = typeof game.$inferSelect;
-export type PublicGame = Omit<GameRow, "inviteToken">;
+export type PublicGame = Omit<GameRow, "inviteToken" | "publicToken">;
 
 export function publicGame(g: GameRow): PublicGame {
-  const { inviteToken: _omit, ...rest } = g;
+  const { inviteToken: _omit, publicToken: _omitPublic, ...rest } = g;
   return rest;
 }
 
@@ -122,6 +122,18 @@ export async function joinGame(
     }
     return { started: false, effects: [] };
   });
+}
+
+/** Une partie jamais lancée (en attente de joueurs) est supprimée au bout d'une semaine. */
+export const STALE_OPEN_GAME_MS = 7 * 86400_000;
+
+/** Supprime les parties en attente de joueurs créées il y a plus d'une semaine (leurs inscriptions et notifications suivent). */
+export async function purgeStaleGames(db: Db, now = new Date()): Promise<number> {
+  const rows = await db
+    .delete(game)
+    .where(and(eq(game.status, "open"), lt(game.createdAt, new Date(now.getTime() - STALE_OPEN_GAME_MS))))
+    .returning({ id: game.id });
+  return rows.length;
 }
 
 export const PAGE_SIZE = 8;
