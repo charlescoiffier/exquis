@@ -74,6 +74,11 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   const opsRef = useRef<Op[]>(initial);
   opsRef.current = ops;
   const liveRef = useRef<HTMLCanvasElement>(null);
+  // Calque de la pointe du trait (dernier demi-segment, provisoire) : il est effacé à chaque image, contrairement à `liveRef`.
+  const tipRef = useRef<HTMLCanvasElement>(null);
+  const tipBox = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const perfRef = useRef({ moves: 0, frames: 0, drawMs: 0, long: 0 });
+  const [perf, setPerf] = useState<string | null>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
   // Aperçu du trait : échelle du calque d'aperçu et rang du prochain point de contrôle à dessiner.
@@ -182,6 +187,18 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     [width, height, fillBounds, makeLayer],
   );
 
+  const clearLive = useCallback(() => {
+    for (const c of [liveRef.current, tipRef.current]) {
+      const lctx = c?.getContext("2d");
+      if (!c || !lctx) continue;
+      lctx.save();
+      lctx.setTransform(1, 0, 0, 1, 0, 0);
+      lctx.clearRect(0, 0, c.width, c.height);
+      lctx.restore();
+    }
+    tipBox.current = null;
+  }, []);
+
   const paint = useCallback(
     (committed: Op[]) => {
       const canvas = canvasRef.current;
@@ -216,7 +233,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
       // Le tracé validé est désormais dans le calque : on efface l'aperçu en direct.
       clearLive();
     },
-    [width, height, direction, applyOp, makeLayer],
+    [width, height, direction, applyOp, makeLayer, clearLive],
   );
 
   useEffect(() => {
@@ -226,31 +243,36 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   // Calque d'aperçu à la résolution d'affichage (au plus celle du canvas) : moins de pixels à rasteriser sur smartphone.
   useEffect(() => {
     const live = liveRef.current;
+    const tip = tipRef.current;
     const canvas = canvasRef.current;
-    if (!live || !canvas) return;
+    if (!live || !tip || !canvas) return;
     const scale = Math.min(1, Math.max(0.4, (canvas.clientWidth * (window.devicePixelRatio || 1)) / width));
     liveScaleRef.current = scale;
-    live.width = Math.round(width * scale);
-    live.height = Math.round(height * scale);
+    for (const c of [live, tip]) {
+      c.width = Math.round(width * scale);
+      c.height = Math.round(height * scale);
+    }
   }, [width, height]);
 
-  function clearLive() {
-    const live = liveRef.current;
-    const lctx = live?.getContext("2d");
-    if (!live || !lctx) return;
-    lctx.save();
-    lctx.setTransform(1, 0, 0, 1, 0, 0);
-    lctx.clearRect(0, 0, live.width, live.height);
-    lctx.restore();
-  }
-
-  useEffect(
-    () => () => {
-      cancelAnimationFrame(rafRef.current);
-      delete document.body.dataset.drawing;
-    },
-    [],
-  );
+  // Mesures de fluidité, affichées seulement avec « ?perf=1 » dans l'adresse de la page (diagnostic sur smartphone).
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("perf")) return;
+    const observer = typeof PerformanceObserver !== "undefined" ? new PerformanceObserver((l) => (perfRef.current.long += l.getEntries().length)) : null;
+    try {
+      observer?.observe({ entryTypes: ["longtask"] });
+    } catch {
+      // longtask non pris en charge : on ignore
+    }
+    const id = setInterval(() => {
+      const m = perfRef.current;
+      setPerf(`événements/s ${m.moves} · images/s ${m.frames} · dessin ${m.frames ? (m.drawMs / m.frames).toFixed(2) : "0"} ms/image · tâches longues ${m.long}`);
+      perfRef.current = { moves: 0, frames: 0, drawMs: 0, long: m.long };
+    }, 1000);
+    return () => {
+      clearInterval(id);
+      observer?.disconnect();
+    };
+  }, []);
 
   /**
    * Dessine le tracé en cours, au plus une fois par image et de façon incrémentale : seuls les points ajoutés depuis la
@@ -262,40 +284,76 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     rafRef.current = 0;
     const op = currentRef.current;
     const live = liveRef.current;
-    if (!op || op.kind !== "stroke" || !live) return;
-    const ctx = live.getContext("2d")!;
+    const tip = tipRef.current;
+    if (!op || op.kind !== "stroke" || !live || !tip) return;
+    const t0 = performance.now();
     const k = liveScaleRef.current;
-    ctx.save();
-    ctx.setTransform(k, 0, 0, k, 0, 0);
-    if (op.tool === "eraser" && rank > 1) {
-      const r = ownRect(direction);
-      ctx.beginPath();
-      ctx.rect(r.left, r.top, r.width, r.height);
-      ctx.clip();
-    }
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = strokeWidth(op);
-    ctx.strokeStyle = op.tool === "eraser" ? "#ffffff" : op.color;
+    const w = strokeWidth(op);
+    const style = op.tool === "eraser" ? "#ffffff" : op.color;
     const pts = op.points;
     const n = pts.length;
-    ctx.beginPath();
+    const prepare = (ctx: CanvasRenderingContext2D) => {
+      ctx.save();
+      ctx.setTransform(k, 0, 0, k, 0, 0);
+      if (op.tool === "eraser" && rank > 1) {
+        const r = ownRect(direction);
+        ctx.beginPath();
+        ctx.rect(r.left, r.top, r.width, r.height);
+        ctx.clip();
+      }
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = w;
+      ctx.strokeStyle = style;
+      ctx.beginPath();
+    };
+    // 1. Partie stable : courbes lissées, ajoutées une fois pour toutes.
+    const lctx = live.getContext("2d")!;
+    prepare(lctx);
     if (n === 1) {
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      ctx.lineTo(pts[0][0] + 0.01, pts[0][1]);
+      lctx.moveTo(pts[0][0], pts[0][1]);
+      lctx.lineTo(pts[0][0] + 0.01, pts[0][1]);
     } else {
       let i = drawnRef.current;
-      const start = i <= 1 ? pts[0] : mid(pts[i - 1], pts[i]);
-      ctx.moveTo(start[0], start[1]);
-      for (; i < n - 1; i++) {
-        const m = mid(pts[i], pts[i + 1]);
-        ctx.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]);
+      if (i < n - 1) {
+        const start = i <= 1 ? pts[0] : mid(pts[i - 1], pts[i]);
+        lctx.moveTo(start[0], start[1]);
+        for (; i < n - 1; i++) {
+          const m = mid(pts[i], pts[i + 1]);
+          lctx.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]);
+        }
+        drawnRef.current = i;
       }
-      drawnRef.current = i;
-      ctx.lineTo(pts[n - 1][0], pts[n - 1][1]);
     }
-    ctx.stroke();
-    ctx.restore();
+    lctx.stroke();
+    lctx.restore();
+    // 2. Pointe provisoire : du milieu du dernier segment jusqu'au doigt, effacée et redessinée à chaque image (sans laisser d'« écailles »).
+    const tctx = tip.getContext("2d")!;
+    const old = tipBox.current;
+    if (old) {
+      tctx.save();
+      tctx.setTransform(1, 0, 0, 1, 0, 0);
+      tctx.clearRect(old.x, old.y, old.w, old.h);
+      tctx.restore();
+    }
+    if (n >= 2) {
+      const from = n === 2 ? pts[0] : mid(pts[n - 2], pts[n - 1]);
+      const to = pts[n - 1];
+      prepare(tctx);
+      tctx.moveTo(from[0], from[1]);
+      tctx.lineTo(to[0], to[1]);
+      tctx.stroke();
+      tctx.restore();
+      const pad = w / 2 + 2;
+      tipBox.current = {
+        x: Math.floor((Math.min(from[0], to[0]) - pad) * k),
+        y: Math.floor((Math.min(from[1], to[1]) - pad) * k),
+        w: Math.ceil((Math.abs(from[0] - to[0]) + 2 * pad) * k) + 2,
+        h: Math.ceil((Math.abs(from[1] - to[1]) + 2 * pad) * k) + 2,
+      };
+    }
+    perfRef.current.frames += 1;
+    perfRef.current.drawMs += performance.now() - t0;
   }
   function scheduleLive() {
     if (!rafRef.current) rafRef.current = requestAnimationFrame(drawLive);
@@ -323,6 +381,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     currentRef.current = op;
     drawnRef.current = 1;
     if (liveRef.current) liveRef.current.style.opacity = String(opacity);
+    if (tipRef.current) tipRef.current.style.opacity = String(opacity);
     clearLive();
     // Pendant un tracé, le sondage de la page est suspendu (un rendu serveur en plein geste ferait saccader le dessin).
     document.body.dataset.drawing = "1";
@@ -347,6 +406,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   }
   function onMove(e: React.PointerEvent<HTMLCanvasElement>) {
     moveRing(e);
+    perfRef.current.moves += 1;
     const cur = currentRef.current;
     if (!cur || cur.kind !== "stroke" || !e.isPrimary) return;
     // Les points intermédiaires fusionnés par le navigateur rendent le trait plus fidèle au geste.
@@ -485,6 +545,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         />
         {/* Aperçu du trait de pinceau en cours (au-dessus de la bande héritée), vidé quand le trait est validé */}
         <canvas ref={liveRef} className="live-canvas" aria-hidden="true" />
+        <canvas ref={tipRef} className="live-canvas" aria-hidden="true" />
         <div ref={ringRef} className="brush-ring" aria-hidden="true" style={{ display: "none" }} />
         {/* Calque de guides : visuel uniquement, jamais exporté */}
         <div className="guides-layer" dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
@@ -504,6 +565,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           onAbandon={() => onLost("abandoned")}
         />
       )}
+      {perf && <p className="perf-overlay" aria-hidden="true">{perf}</p>}
       <div className="turn-actions">
         <button type="button" onClick={submit} disabled={busy || !stripReady || stripError}>Envoyer mon dessin</button>
       </div>
