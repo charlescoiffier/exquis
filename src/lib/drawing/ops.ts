@@ -1,9 +1,18 @@
 import { canvasSize, type Direction } from "@/lib/images/geometry";
 
 export type StrokePoint = [number, number, number];
+/** `brush` : crayon (fin, moyen ou épais selon la taille) ; `highlighter` : surligneur translucide ; `spray` : aérographe. */
+export type StrokeTool = "brush" | "eraser" | "highlighter" | "spray";
+export type ShapeKind = "line" | "rect" | "oval";
 export type Op =
-  | { kind: "stroke"; tool: "brush" | "eraser"; color: string; size: number; opacity: number; points: StrokePoint[] }
-  | { kind: "fill"; x: number; y: number; color: string };
+  | { kind: "stroke"; tool: StrokeTool; color: string; size: number; opacity: number; points: StrokePoint[]; /** Graine de l'aérographe (le semis est déterministe). */ seed?: number }
+  | { kind: "fill"; x: number; y: number; color: string }
+  | { kind: "shape"; shape: ShapeKind; filled: boolean; color: string; size: number; opacity: number; x1: number; y1: number; x2: number; y2: number }
+  /** Efface tous les traits du joueur (la bande héritée reste) ; annulable comme les autres opérations. */
+  | { kind: "clear" };
+
+const STROKE_TOOLS: readonly string[] = ["brush", "eraser", "highlighter", "spray"];
+const SHAPES: readonly string[] = ["line", "rect", "oval"];
 
 export function hexToRgba(hex: string): [number, number, number, number] {
   const n = parseInt(hex.slice(1), 16);
@@ -72,21 +81,38 @@ export function sanitizeOps(raw: unknown): Op[] {
   for (const item of raw.slice(0, MAX_OPS)) {
     if (!item || typeof item !== "object") continue;
     const o = item as Record<string, unknown>;
+    if (o.kind === "clear") {
+      out.push({ kind: "clear" });
+      continue;
+    }
     if (typeof o.color !== "string" || !HEX.test(o.color)) continue;
     if (o.kind === "fill") {
       if (fin(o.x) && fin(o.y)) out.push({ kind: "fill", x: o.x, y: o.y, color: o.color });
     } else if (o.kind === "stroke") {
-      if ((o.tool !== "brush" && o.tool !== "eraser") || !fin(o.size) || !fin(o.opacity)) continue;
+      if (typeof o.tool !== "string" || !STROKE_TOOLS.includes(o.tool) || !fin(o.size) || !fin(o.opacity)) continue;
       if (!Array.isArray(o.points) || o.points.length === 0 || o.points.length > MAX_POINTS) continue;
       const ok = o.points.every((q) => Array.isArray(q) && q.length === 3 && q.every(fin));
       if (!ok) continue;
       out.push({
         kind: "stroke",
-        tool: o.tool,
+        tool: o.tool as StrokeTool,
         color: o.color,
         size: Math.min(200, Math.max(0.5, o.size)),
         opacity: Math.min(1, Math.max(0, o.opacity)),
         points: o.points as StrokePoint[],
+        ...(fin(o.seed) ? { seed: Math.floor(o.seed) >>> 0 } : {}),
+      });
+    } else if (o.kind === "shape") {
+      if (typeof o.shape !== "string" || !SHAPES.includes(o.shape) || typeof o.filled !== "boolean") continue;
+      if (![o.size, o.opacity, o.x1, o.y1, o.x2, o.y2].every(fin)) continue;
+      out.push({
+        kind: "shape",
+        shape: o.shape as ShapeKind,
+        filled: o.filled,
+        color: o.color,
+        size: Math.min(200, Math.max(0.5, o.size as number)),
+        opacity: Math.min(1, Math.max(0, o.opacity as number)),
+        x1: o.x1 as number, y1: o.y1 as number, x2: o.x2 as number, y2: o.y2 as number,
       });
     }
   }

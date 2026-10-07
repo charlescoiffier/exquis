@@ -330,6 +330,7 @@ blockquote.quote { margin:0 0 4px; padding:10px 14px; border:2px solid var(--lin
 .slider { width:100%; }
 .canvas-frame { position:relative; max-width:720px; margin:0 4px 0 0; touch-action:none; border:2px solid var(--line); background:#fff; box-shadow:var(--shadow-card); }
 .drawing-canvas { display:block; width:100%; height:auto; background:#fff; touch-action:none; }
+.live-group { position:absolute; inset:0; pointer-events:none; }
 .live-canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 .perf-overlay { position:fixed; z-index:50; left:8px; right:8px; bottom:calc(var(--tabbar-h) + 8px); margin:0; padding:6px 8px; background:#101010; color:#fff; font:12px/1.3 monospace; pointer-events:none; }
 .guides-layer { position:absolute; inset:0; pointer-events:none; }
