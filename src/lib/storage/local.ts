@@ -5,7 +5,8 @@ import { signToken } from "./token";
 
 export class LocalStorage implements Storage {
   private readonly root: string;
-  constructor(dir: string, private readonly secret: string, private readonly baseUrl: string) {
+  /** `baseUrl` vide : URLs relatives, résolues par le navigateur sur l'adresse d'où la page est servie (localhost, IP du réseau local…). */
+  constructor(dir: string, private readonly secret: string, private readonly baseUrl = "") {
     this.root = path.resolve(dir);
   }
   private resolve(key: string): string {

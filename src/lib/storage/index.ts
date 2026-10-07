@@ -22,6 +22,6 @@ export function getStorage(): Storage {
           accessKeyId: e.S3_ACCESS_KEY_ID!,
           secretAccessKey: e.S3_SECRET_ACCESS_KEY!,
         })
-      : new LocalStorage(e.STORAGE_DIR, e.STORAGE_SECRET, e.APP_URL);
+      : new LocalStorage(e.STORAGE_DIR, e.STORAGE_SECRET);
   return cached;
 }

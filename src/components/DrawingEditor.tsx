@@ -37,8 +37,8 @@ const PALETTE: { name: string; hex: string }[] = [
   { name: "Marron", hex: "#92400e" },
 ];
 type History = { ops: Op[]; redo: Op[] };
-/** Points du tracé déjà dessiné qui sont repris à chaque image de l'aperçu pour raccorder le nouveau morceau. */
-const LIVE_OVERLAP = 6;
+/** Style du trait. Un `streamline` élevé lisse davantage mais fait traîner la pointe derrière le doigt : on le garde bas. */
+const STROKE_STYLE = { thinning: 0.5, smoothing: 0.5, streamline: 0.2 };
 
 function pathFromStroke(points: number[][]): Path2D {
   const p = new Path2D();
@@ -64,8 +64,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   const liveRef = useRef<HTMLCanvasElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
-  // Nombre de points du tracé en cours déjà dessinés sur le calque d'aperçu.
-  const drawnRef = useRef(0);
+
   const [tool, setTool] = useState<"brush" | "eraser" | "fill">("brush");
   const [color, setColor] = useState("#1f1b16");
   const [size, setSize] = useState(8);
@@ -122,7 +121,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     (ctx: CanvasRenderingContext2D, op: Op) => {
       if (op.kind === "stroke") {
         // La gomme est un peu plus large que le pinceau de même taille : elle emporte aussi la frange adoucie des traits.
-        const outline = getStroke(op.points, { size: op.tool === "eraser" ? op.size + 3 : op.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
+        const outline = getStroke(op.points, { size: op.tool === "eraser" ? op.size + 3 : op.size, ...STROKE_STYLE });
         ctx.save();
         ctx.globalAlpha = op.opacity;
         if (op.tool === "eraser") {
@@ -232,13 +231,10 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     }
     const live = liveRef.current;
     if (!live) return;
-    // Aperçu incrémental : on ne redessine que les points ajoutés depuis la dernière image, avec un petit recouvrement
-    // pour raccorder le trait. Un remplissage plein étant idempotent, rien n'est effacé : le coût ne dépend plus de la longueur du tracé.
-    const from = Math.max(0, drawnRef.current - LIVE_OVERLAP);
-    drawnRef.current = op.points.length;
     const lctx = live.getContext("2d")!;
+    lctx.clearRect(0, 0, width, height);
     lctx.fillStyle = op.color;
-    lctx.fill(pathFromStroke(getStroke(op.points.slice(from), { size: op.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 })));
+    lctx.fill(pathFromStroke(getStroke(op.points, { size: op.size, ...STROKE_STYLE })));
   }
   function scheduleLive() {
     if (!rafRef.current) rafRef.current = requestAnimationFrame(drawLive);
@@ -264,7 +260,6 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     }
     const op: Op = { kind: "stroke", tool, color, size, opacity, points: [[x, y, p]] };
     currentRef.current = op;
-    drawnRef.current = 0;
     if (liveRef.current) {
       liveRef.current.style.opacity = String(opacity);
       liveRef.current.getContext("2d")?.clearRect(0, 0, width, height);

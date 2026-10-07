@@ -16,6 +16,10 @@ describe("LocalStorage", () => {
     expect(await s.exists("nope")).toBe(false);
     expect(await s.signedUrl("games/1/a.png", 300)).toMatch(/^http:\/\/x\/api\/storage\//);
   });
+  it("sans adresse de base, l'URL signée est relative (même origine que la page)", async () => {
+    const s = new LocalStorage(await dirPromise, "s".repeat(32));
+    expect(await s.signedUrl("games/1/a.png", 300)).toMatch(/^\/api\/storage\//);
+  });
   it("refuse les clés qui sortent du dossier", async () => {
     const s = new LocalStorage(await dirPromise, "s".repeat(32), "http://x");
     await expect(s.put("../evil", Buffer.from("x"), "text/plain")).rejects.toThrow();
