@@ -21,7 +21,7 @@ export async function setPublicLink(db: Db, p: { userId: string; gameId: string;
   const [g] = await db.select().from(game).where(eq(game.id, p.gameId));
   if (!g) throw new DomainError("not_found", "Partie introuvable.", 404);
   if (g.creatorId !== p.userId) throw new DomainError("forbidden", "Seul le créateur de la partie gère le lien public.", 403);
-  if (g.status !== "completed") throw new DomainError("game_not_completed", "Seule une œuvre terminée se partage.", 409);
+  if (g.status !== "completed" || g.hiddenAt) throw new DomainError("game_not_completed", "Seule une œuvre terminée se partage.", 409);
   if (!p.enabled) {
     await db.update(game).set({ publicToken: null }).where(eq(game.id, g.id));
     return { token: null };

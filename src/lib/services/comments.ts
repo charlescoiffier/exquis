@@ -1,13 +1,14 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
-import { comment, game, participant } from "@/lib/db/schema";
+import { resolveAvatar, type AvatarSpec } from "@/lib/avatar";
+import { comment, game, participant, profile } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
 import { queueNotification } from "./notifications";
 
 export const MAX_COMMENT_LENGTH = 500;
 
-export type CommentView = { id: string; authorId: string; author: string; body: string; createdAt: Date };
+export type CommentView = { id: string; authorId: string; author: string; avatar: AvatarSpec; body: string; createdAt: Date };
 
 async function requireParticipant(db: Db, userId: string, gameId: string) {
   const [g] = await db.select().from(game).where(eq(game.id, gameId));
@@ -20,12 +21,17 @@ async function requireParticipant(db: Db, userId: string, gameId: string) {
 /** Commentaires d'une œuvre, du plus ancien au plus récent. Réservés aux participants de la partie. */
 export async function listComments(db: Db, p: { userId: string; gameId: string }): Promise<CommentView[]> {
   await requireParticipant(db, p.userId, p.gameId);
-  return db
-    .select({ id: comment.id, authorId: comment.userId, author: user.name, body: comment.body, createdAt: comment.createdAt })
+  const rows = await db
+    .select({
+      id: comment.id, authorId: comment.userId, author: user.name, body: comment.body, createdAt: comment.createdAt,
+      avatarShape: profile.avatarShape, avatarColor: profile.avatarColor, avatarBg: profile.avatarBg,
+    })
     .from(comment)
     .innerJoin(user, eq(user.id, comment.userId))
-    .where(eq(comment.gameId, p.gameId))
+    .leftJoin(profile, eq(profile.userId, comment.userId))
+    .where(and(eq(comment.gameId, p.gameId), isNull(comment.hiddenAt)))
     .orderBy(asc(comment.createdAt), asc(comment.id));
+  return rows.map(({ avatarShape, avatarColor, avatarBg, ...c }) => ({ ...c, avatar: resolveAvatar(c.authorId, { avatarShape, avatarColor, avatarBg }) }));
 }
 
 /** Ajoute un commentaire sous une œuvre terminée ; les autres participants sont prévenus dans l'application. */
@@ -34,7 +40,7 @@ export async function addComment(db: Db, p: { userId: string; gameId: string; bo
   if (!body) throw new DomainError("empty_comment", "Le commentaire est vide.", 400);
   if (body.length > MAX_COMMENT_LENGTH) throw new DomainError("comment_too_long", `Un commentaire fait ${MAX_COMMENT_LENGTH} caractères au plus.`, 400);
   const g = await requireParticipant(db, p.userId, p.gameId);
-  if (g.status !== "completed") throw new DomainError("game_not_completed", "On ne commente que les œuvres terminées.", 409);
+  if (g.status !== "completed" || g.hiddenAt) throw new DomainError("game_not_completed", "On ne commente que les œuvres terminées.", 409);
   return db.transaction(async (tx) => {
     const [row] = await tx.insert(comment).values({ gameId: g.id, userId: p.userId, body, createdAt: p.now ?? new Date() }).returning({ id: comment.id });
     const others = await tx.select({ userId: participant.userId }).from(participant).where(eq(participant.gameId, g.id));

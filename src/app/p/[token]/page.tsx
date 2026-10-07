@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FinalText } from "@/components/FinalText";
+import { FinalViewer } from "@/components/FinalViewer";
 import { Banner } from "@/components/ui/Banner";
 import { Card } from "@/components/ui/Card";
 import { ButtonLink } from "@/components/ui/Button";
@@ -43,10 +44,7 @@ export default async function PublicWorkPage({ params }: { params: Promise<{ tok
       <Banner title={view.name} theme={view.info.theme} />
       {view.type === "drawing" ? (
         view.ready ? (
-          <div className="final-art" style={{ maxWidth: 520 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/public/${token}/image`} alt={`Œuvre « ${view.name} »`} style={{ width: "100%", height: "auto", display: "block", background: "#fff" }} />
-          </div>
+          <FinalViewer imageSrc={`/api/public/${token}/image`} direction={view.direction!} width={view.width!} height={view.height!} joints={view.joints} segments={view.segments} />
         ) : (
           <Card><p style={{ margin: 0 }}>L&apos;œuvre est en cours d&apos;assemblage, revenez dans un instant.</p></Card>
         )

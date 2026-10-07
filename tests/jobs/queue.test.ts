@@ -18,15 +18,18 @@ function fakeBoss(failTimes = 0) {
 
 describe("runEffects", () => {
   const FUTURE = Date.now() + 3600_000;
-  it("schedule-turn : expiration + rappel", async () => {
+  it("schedule-turn : expiration + un rappel par étape (50, 25 et 10 % du temps restant)", async () => {
     const { boss, sent } = fakeBoss();
     const deadline = new Date(FUTURE);
     await runEffects(boss, [{ kind: "schedule-turn", turnId: "t", deadline, durationSeconds: 3600 }]);
-    expect(sent).toHaveLength(2);
+    expect(sent).toHaveLength(4);
     expect(sent[0].name).toBe(QUEUES.expire);
     expect(sent[0].opts!.startAfter).toEqual(new Date(FUTURE + SUBMIT_GRACE_MS));
-    expect(sent[1].name).toBe(QUEUES.remind);
-    expect(sent[1].opts!.startAfter).toEqual(new Date(FUTURE - 900_000));
+    expect(sent.slice(1).map((s) => [s.name, (s.data as { stage: number }).stage, s.opts!.startAfter])).toEqual([
+      [QUEUES.remind, 50, new Date(FUTURE - 1_800_000)],
+      [QUEUES.remind, 25, new Date(FUTURE - 900_000)],
+      [QUEUES.remind, 10, new Date(FUTURE - 360_000)],
+    ]);
   });
   it("pas de rappel pour 60 s ni pour un rappel passé", async () => {
     const a = fakeBoss();

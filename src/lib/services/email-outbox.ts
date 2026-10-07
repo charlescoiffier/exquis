@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
 import { game, notification } from "@/lib/db/schema";
@@ -13,13 +13,13 @@ export async function flushNotifications(db: Db, mailer: Mailer, now = new Date(
     .from(notification)
     .innerJoin(user, eq(user.id, notification.userId))
     .innerJoin(game, eq(game.id, notification.gameId))
-    .where(and(eq(notification.emailPending, true), isNull(notification.emailedAt)))
+    .where(and(eq(notification.emailPending, true), isNull(notification.emailedAt), isNotNull(notification.gameId)))
     .orderBy(notification.createdAt)
     .limit(50);
   let sent = 0;
   for (const r of rows) {
     try {
-      const m = renderEmail(r.type as NotificationType, { gameName: r.gameName, appUrl: env().APP_URL, gameId: r.gameId });
+      const m = renderEmail(r.type as NotificationType, { gameName: r.gameName, appUrl: env().APP_URL, gameId: r.gameId! });
       await mailer.send({ to: r.email, ...m });
       await db.update(notification).set({ emailedAt: now }).where(eq(notification.id, r.id));
       sent++;

@@ -1,14 +1,15 @@
-import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { EmailPreference, NameForm } from "@/components/AccountForms";
+import { AvatarForm, EmailPreference, NameForm, ReminderPreference } from "@/components/AccountForms";
 import { PastGameList } from "@/components/GameList";
 import { InviteButton } from "@/components/InviteButton";
 import { SignOutButton } from "@/components/SignOutButton";
 import { Banner } from "@/components/ui/Banner";
 import { Card } from "@/components/ui/Card";
+import { ButtonLink } from "@/components/ui/Button";
+import { countOpenReports, isModerator } from "@/lib/services/moderation";
 import { Pagination } from "@/components/ui/Pagination";
 import { getDb } from "@/lib/db/client";
-import { profile } from "@/lib/db/schema";
+import { getProfile, getProfileStats } from "@/lib/services/account";
 import { listMyPastGames, parsePage } from "@/lib/services/games";
 import { getSession } from "@/lib/session";
 
@@ -21,10 +22,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   if (!session) redirect("/login");
   const sp = await searchParams;
   const db = getDb();
-  const [past, [p]] = await Promise.all([
+  const [past, p, stats, moderator] = await Promise.all([
     listMyPastGames(db, session.user.id, { page: parsePage(sp.pp) }),
-    db.select().from(profile).where(eq(profile.userId, session.user.id)),
+    getProfile(db, session.user.id),
+    getProfileStats(db, session.user.id),
+    isModerator(db, session.user.id),
   ]);
+  const openReports = moderator ? await countOpenReports(db) : 0;
   return (
     <main>
       <Banner title="Mon compte" />
@@ -35,14 +39,50 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           <p className="meta" style={{ marginTop: 0 }}>{session.user.email}</p>
           <NameForm initialName={session.user.name} />
         </Card>
+        <h3>Avatar</h3>
+        <Card>
+          <AvatarForm initial={p.avatar} />
+        </Card>
+        <h3>Statistiques</h3>
+        <Card>
+          <dl className="stats">
+            <div><dt>Parties jouées</dt><dd>{stats.gamesJoined}</dd></div>
+            <div><dt>Terminées</dt><dd>{stats.gamesCompleted}</dd></div>
+            <div><dt>En cours</dt><dd>{stats.gamesInProgress}</dd></div>
+            <div><dt>Créées</dt><dd>{stats.gamesCreated}</dd></div>
+            <div><dt>Tours joués</dt><dd>{stats.turnsPlayed}</dd></div>
+            <div><dt>Dessins</dt><dd>{stats.drawings}</dd></div>
+            <div><dt>Textes</dt><dd>{stats.texts}</dd></div>
+            <div><dt>Commentaires</dt><dd>{stats.commentsWritten}</dd></div>
+          </dl>
+        </Card>
       </section>
 
       <section aria-labelledby="preferences">
         <h2 id="preferences">Préférences</h2>
         <Card>
-          <EmailPreference initial={p?.emailEnabled ?? true} />
+          <EmailPreference initial={p.emailEnabled} />
+          <ReminderPreference initial={p.reminderStage} />
         </Card>
       </section>
+
+      <section aria-labelledby="amis">
+        <h2 id="amis">Amis</h2>
+        <Card>
+          <p style={{ marginTop: 0 }}>Ajoutez des amis avec leur code, puis invitez-les directement à vos parties.</p>
+          <ButtonLink href="/friends" variant="secondary">Mes amis</ButtonLink>
+        </Card>
+      </section>
+
+      {moderator && (
+        <section aria-labelledby="moderation">
+          <h2 id="moderation">Modération</h2>
+          <Card>
+            <p style={{ marginTop: 0 }}>{openReports > 0 ? `${openReports} signalement${openReports > 1 ? "s" : ""} à traiter.` : "Aucun signalement à traiter."}</p>
+            <ButtonLink href="/moderation" variant="secondary">Ouvrir la modération</ButtonLink>
+          </Card>
+        </section>
+      )}
 
       <section aria-labelledby="inviter">
         <h2 id="inviter">Inviter des amis</h2>

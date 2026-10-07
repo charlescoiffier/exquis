@@ -377,3 +377,36 @@ Docker) et Chromium (`npx playwright install chromium`) ; rien n'est écrit dans
 L'interface suit la direction visuelle « Manifeste » (affiche surréaliste des années 1920 : aplats, bordures noires de
 2 px, ombres dures, titres en Abril Fatface, accents moutarde et vert canard, thème clair). Jetons, composants partagés et
 règles d'usage : [`docs/design/manifeste.md`](docs/design/manifeste.md).
+
+## Profil, rappels et diagnostic
+
+- **Avatar** : une forme géométrique imposée (12 formes), une couleur de forme et une couleur de fond prises dans une
+  palette de 8 couleurs (la forme et le fond doivent différer) ; un avatar par défaut est attribué à chaque compte.
+  L'avatar apparaît à côté des commentaires. Le profil affiche aussi des **statistiques** (parties jouées, terminées,
+  en cours, créées, tours joués, dessins, textes, commentaires).
+- **Rappels** : un rappel avant la fin de chaque tour, dans l'application (et par email pour les tours de 5 minutes ou
+  plus). Chaque joueur choisit dans « Mon compte » le moment : quand il reste la moitié, un quart (par défaut) ou un
+  dixième du temps, ou aucun rappel. Le worker programme les trois étapes au début du tour ; seule celle qui correspond à
+  la préférence du joueur envoie une notification.
+- **Diagnostic de fluidité du dessin** : ouvrir une partie de dessin avec `?perf=1` à la fin de l'adresse affiche des
+  mesures à l'écran et les envoie automatiquement au serveur (moyennes sur les secondes où l'on dessine, toutes les 10 s et
+  en quittant la page). Les rapports sont écrits dans la sortie du serveur (`[perf] …`) et dans `.perf/reports.jsonl`.
+
+## Amis, invitations ciblées et modération
+
+- **Amis** : chaque compte a un **code ami** (page « Mes amis », accessible depuis « Mon compte »). On ajoute quelqu'un en
+  saisissant son code, ou en choisissant un joueur rencontré (avec qui l'on a partagé une partie). L'autre personne
+  accepte ou refuse ; deux demandes croisées valent acceptation. Aucun annuaire : on ne peut pas chercher un compte par son
+  nom ou son email.
+- **Invitations ciblées** : un participant d'une partie en attente de joueurs peut inviter ses amis. Chaque invité reçoit
+  une notification et une carte « Invitations reçues » sur l'accueil ; l'invitation lui donne accès à la partie même si elle
+  est sur invitation.
+- **Signalement** : tout participant peut signaler un commentaire (sauf le sien) ou une œuvre terminée, avec un motif et des
+  précisions facultatives.
+- **Modération** : un compte au rôle `moderator` voit la page « Modération » (depuis « Mon compte ») avec les signalements à
+  traiter. Il peut masquer le contenu (un commentaire disparaît ; une œuvre devient invisible de tous et son lien public est
+  retiré ; les personnes concernées sont prévenues) ou rejeter le signalement. Pour donner ou retirer le rôle :
+
+```bash
+npm run role -- adresse@exemple.fr moderator   # ou : player
+```

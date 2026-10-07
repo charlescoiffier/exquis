@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
 import { canActOnTurn } from "@/lib/access";
 import type { Db } from "@/lib/db/client";
-import { turn } from "@/lib/db/schema";
+import { profile, turn } from "@/lib/db/schema";
 import type { Effect } from "@/lib/effects";
+import { DEFAULT_REMINDER_STAGE } from "@/lib/jobs/queue";
 import type { Mailer } from "@/lib/notifications/mailer";
 import { flushNotifications } from "@/lib/services/email-outbox";
 import { purgeStaleGames } from "@/lib/services/games";
@@ -18,12 +19,18 @@ export async function handleExpire(deps: Deps, data: { turnId: string; deadline:
   return expireTurn(deps.db, { turnId: data.turnId, deadline: new Date(data.deadline), now: nowOf(deps) });
 }
 
-export async function handleRemind(deps: Deps, data: { turnId: string; deadline: string }): Promise<Effect[]> {
+/**
+ * Rappel avant la fin d'un tour. Chaque étape (50, 25, 10 % du temps restant) est programmée au début du tour ; seule celle
+ * qui correspond à la préférence du joueur envoie une notification (0 : aucun rappel). Sans étape (ancien job) : 25 %.
+ */
+export async function handleRemind(deps: Deps, data: { turnId: string; deadline: string; stage?: number }): Promise<Effect[]> {
   const now = nowOf(deps);
   const [t] = await deps.db.select().from(turn).where(eq(turn.id, data.turnId));
   if (!t || t.status !== "active" || !t.assignedUserId || t.deadline?.getTime() !== new Date(data.deadline).getTime()) return [];
   const userId = t.assignedUserId;
   if (!canActOnTurn(t, userId, now)) return [];
+  const [pref] = await deps.db.select({ stage: profile.reminderStage }).from(profile).where(eq(profile.userId, userId));
+  if ((pref?.stage ?? DEFAULT_REMINDER_STAGE) !== (data.stage ?? DEFAULT_REMINDER_STAGE)) return [];
   await deps.db.transaction((tx) =>
     queueNotification(tx, { userId, type: "turn_reminder", gameId: t.gameId, turnId: t.id, suffix: String(t.attempts) }),
   );

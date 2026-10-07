@@ -52,6 +52,7 @@ async function authorize(db: Db, userId: string, gameId: string) {
   if (!g) throw new DomainError("not_found", "Partie introuvable.", 404);
   const ps = await db.select({ userId: participant.userId }).from(participant).where(eq(participant.gameId, gameId));
   if (!canViewFinal(g, ps.map((p) => p.userId), userId)) throw new DomainError("forbidden", "Œuvre non accessible.", 403);
+  if (g.hiddenAt) throw new DomainError("work_hidden", "Cette œuvre a été masquée par la modération.", 403);
   return g;
 }
 
@@ -143,14 +144,21 @@ export async function getFinalImage(db: Db, storage: Storage, p: { userId: strin
 /** Œuvre d'une partie terminée à partir de son jeton public (sans connexion) ; introuvable si le lien n'est pas activé. */
 export async function getPublicFinal(db: Db, token: string): Promise<FinalView> {
   const [g] = await db.select().from(game).where(eq(game.publicToken, token));
-  if (!g || g.status !== "completed") throw new DomainError("not_found", "Lien introuvable.", 404);
+  if (!g || g.status !== "completed" || g.hiddenAt) throw new DomainError("not_found", "Lien introuvable.", 404);
   return buildFinalView(db, g);
 }
 
 export async function getPublicImage(db: Db, storage: Storage, token: string): Promise<Buffer> {
   const [g] = await db.select().from(game).where(eq(game.publicToken, token));
-  if (!g || g.status !== "completed") throw new DomainError("not_found", "Lien introuvable.", 404);
+  if (!g || g.status !== "completed" || g.hiddenAt) throw new DomainError("not_found", "Lien introuvable.", 404);
   const [fw] = await db.select().from(finalWork).where(eq(finalWork.gameId, g.id));
   if (!fw?.imageKey) throw new DomainError("not_ready", "L'œuvre est en cours d'assemblage.", 404);
+  return storage.get(fw.imageKey);
+}
+
+/** Image d'une œuvre pour la modération (même masquée) ; le contrôle du rôle est fait par l'appelant. */
+export async function getModerationImage(db: Db, storage: Storage, gameId: string): Promise<Buffer> {
+  const [fw] = await db.select().from(finalWork).where(eq(finalWork.gameId, gameId));
+  if (!fw?.imageKey) throw new DomainError("not_found", "Image introuvable.", 404);
   return storage.get(fw.imageKey);
 }

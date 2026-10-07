@@ -1,10 +1,13 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Avatar } from "@/components/ui/Avatar";
+import { ReportButton } from "@/components/ReportButton";
 import { Card } from "@/components/ui/Card";
+import type { AvatarSpec } from "@/lib/avatar";
 import { formatDateTime } from "@/lib/format";
 
-export type CommentItem = { id: string; authorId: string; author: string; body: string; createdAt: string };
+export type CommentItem = { id: string; authorId: string; author: string; avatar: AvatarSpec; body: string; createdAt: string };
 
 const MAX = 500;
 
@@ -62,8 +65,10 @@ export function CommentsSection({ gameId, comments, currentUserId }: { gameId: s
             <li key={c.id}>
               <Card className="comment">
                 <div className="comment-head">
+                  <Avatar avatar={c.avatar} size={28} />
                   <strong>{c.author}</strong>
                   <span className="muted">{formatDateTime(c.createdAt)}</span>
+                  {c.authorId !== currentUserId && <ReportButton targetType="comment" targetId={c.id} />}
                   {c.authorId === currentUserId && (
                     <button type="button" className="secondary comment-delete" onClick={() => remove(c.id)} aria-label={`Supprimer mon commentaire du ${formatDateTime(c.createdAt)}`}>Supprimer</button>
                   )}

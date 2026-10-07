@@ -11,6 +11,14 @@ export const profile = pgTable("profile", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
   role: text("role").notNull().default("player"),
   emailEnabled: boolean("email_enabled").notNull().default(true),
+  // Rappel avant la fin d'un tour : part du temps restant (50, 25 ou 10 %) ; 0 = aucun rappel.
+  reminderStage: integer("reminder_stage").notNull().default(25),
+  // Avatar géométrique : forme imposée, couleur de la forme et du fond (palette fixe) ; null = avatar par défaut dérivé du compte.
+  avatarShape: text("avatar_shape"),
+  avatarColor: text("avatar_color"),
+  avatarBg: text("avatar_bg"),
+  // Code à communiquer pour être ajouté en ami (créé à la demande).
+  friendCode: text("friend_code").unique(),
 });
 
 export const game = pgTable("game", {
@@ -35,6 +43,8 @@ export const game = pgTable("game", {
   theme: text("theme"),
   // Jeton du lien public en lecture seule (parties terminées) ; null = pas de lien. Activé et révoqué par le créateur.
   publicToken: text("public_token").unique(),
+  // Œuvre masquée par la modération : plus visible de personne, lien public retiré.
+  hiddenAt: timestamp("hidden_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
@@ -89,6 +99,7 @@ export const comment = pgTable(
     userId: text("user_id").notNull().references(() => user.id),
     body: text("body").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
+    hiddenAt: timestamp("hidden_at"),
   },
   (t) => [index("comment_game_idx").on(t.gameId, t.createdAt)],
 );
@@ -106,7 +117,10 @@ export const notification = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
-    gameId: uuid("game_id").notNull().references(() => game.id, { onDelete: "cascade" }),
+    // Absent pour les notifications qui ne concernent pas une partie (demandes d'ami).
+    gameId: uuid("game_id").references(() => game.id, { onDelete: "cascade" }),
+    // Personne à l'origine de la notification (demande d'ami, invitation).
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
     turnId: uuid("turn_id"),
     dedupeKey: text("dedupe_key").notNull().unique(),
     readAt: timestamp("read_at"),
@@ -126,15 +140,50 @@ export const invitation = pgTable("invitation", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const report = pgTable("report", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  targetType: text("target_type").notNull(),
-  targetId: uuid("target_id").notNull(),
-  reporterId: text("reporter_id").notNull().references(() => user.id),
-  reason: text("reason").notNull(),
-  status: text("status").notNull().default("open"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+/** Signalement d'un commentaire (`comment`) ou d'une œuvre (`work`, `targetId` = identifiant de la partie). */
+export const report = pgTable(
+  "report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    targetType: text("target_type").notNull(),
+    targetId: uuid("target_id").notNull(),
+    reporterId: text("reporter_id").notNull().references(() => user.id),
+    reason: text("reason").notNull(),
+    details: text("details"),
+    // open | resolved (contenu masqué) | dismissed (signalement rejeté)
+    status: text("status").notNull().default("open"),
+    resolvedBy: text("resolved_by").references(() => user.id),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [unique("report_once").on(t.reporterId, t.targetType, t.targetId), index("report_status_idx").on(t.status, t.createdAt)],
+);
+
+/** Demande d'ami (`pending`) puis amitié (`accepted`) ; une seule ligne par paire, dans un sens ou dans l'autre. */
+export const friendship = pgTable(
+  "friendship",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requesterId: text("requester_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    addresseeId: text("addressee_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [unique("friendship_pair").on(t.requesterId, t.addresseeId), index("friendship_addressee_idx").on(t.addresseeId, t.status)],
+);
+
+/** Invitation ciblée d'un ami à une partie : lui donne accès même si la partie est sur invitation. */
+export const gameInvitation = pgTable(
+  "game_invitation",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    gameId: uuid("game_id").notNull().references(() => game.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    invitedBy: text("invited_by").notNull().references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [unique("game_invitation_once").on(t.gameId, t.userId), index("game_invitation_user_idx").on(t.userId)],
+);
 
 export const finalWork = pgTable("final_work", {
   gameId: uuid("game_id").primaryKey().references(() => game.id, { onDelete: "cascade" }),

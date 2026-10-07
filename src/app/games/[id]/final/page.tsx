@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { CommentsSection } from "@/components/CommentsSection";
+import { ReportButton } from "@/components/ReportButton";
 import { ShareCard } from "@/components/ShareCard";
 import { FinalText } from "@/components/FinalText";
 import { Banner } from "@/components/ui/Banner";
@@ -53,6 +54,7 @@ export default async function FinalPage({ params }: { params: Promise<{ id: stri
       ) : (
         <FinalText contributions={view.contributions} />
       )}
+      {completed && <p className="report-work"><ReportButton targetType="work" targetId={id} label="Signaler cette œuvre" className="secondary" /></p>}
       {completed && share && <ShareCard gameId={id} token={share.token} isCreator={share.isCreator} />}
       {completed && <CommentsSection gameId={id} currentUserId={session.user.id} comments={comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))} />}
       <section aria-labelledby="infos" className="final-info">
