@@ -8,14 +8,14 @@ Affiche surréaliste des années 1920 : aplats, bordures noires de 2 px, ombres 
 |---|---|---|
 | `--bg` / `--surface` | `#FBFAF5` / `#FFFFFF` | fond de page / cartes, champs |
 | `--fg` / `--muted` | `#101010` / `#4C4C4C` | texte / texte secondaire (4,5:1 minimum) |
-| `--line` | `#101010` | toutes les bordures (2 px) |
+| `--line` | `#0B7A75` | toutes les bordures (2 px) : aucune ligne noire |
 | `--accent` / `--on-accent` | `#F2B705` / `#101010` | action primaire, onglet actif ; texte noir uniquement |
 | `--accent2` / `--on-accent2` | `#0B7A75` / `#FFFFFF` | liens, pastilles, carte d'appel à participation |
 | `--ok` / `--danger` | `#0B7A75` / `#B3261E` | succès / erreur |
 | `--hl` | `#FFE58A` | surlignage du texte transmis |
 | `--dim` | `#9B9B94` | décor seulement (contraste insuffisant pour du texte) |
 | `--radius` | `0` | aucun arrondi (sauf pastilles) |
-| `--shadow-btn` / `--shadow-card` | `3px 3px 0 #101010` / `4px 4px 0 #101010` | ombres dures |
+| `--shadow-btn` / `--shadow-card` | `3px 3px 0 #08504D` / `4px 4px 0 #08504D` | ombres dures |
 
 Polices : Abril Fatface (`--font-display`, titres, repli Georgia) et Work Sans 400/500/700 (`--font-body`, repli system-ui), chargées par `next/font/google` (auto-hébergées au build, aucune requête externe à l'exécution).
 

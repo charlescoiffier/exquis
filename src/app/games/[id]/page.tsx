@@ -4,6 +4,7 @@ import { JoinButton } from "@/components/JoinButton";
 import { ExpiredNotice } from "@/components/ExpiredNotice";
 import { TurnEditor } from "@/components/TurnEditor";
 import { Banner } from "@/components/ui/Banner";
+import { Icon } from "@/components/ui/Icon";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TurnTitle } from "@/components/TurnTitle";
@@ -13,7 +14,7 @@ import { game } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
 import { Countdown } from "@/components/Countdown";
 import { GameTag } from "@/components/GameTag";
-import { gameMetaText } from "@/components/GameMeta";
+import { GameMetaItems } from "@/components/GameMeta";
 import { turnLabelOf } from "@/lib/format";
 import { getGameView } from "@/lib/services/games";
 import { getActiveTurnInfo, getMyTurn } from "@/lib/services/turns";
@@ -53,7 +54,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
       {game.status !== "completed" && game.status !== "cancelled" && <AutoRefresh />}
       <Banner
         title={game.name}
-        meta={gameMetaText({ type: game.type, turns: game.turns, turnDurationSeconds: game.turnDurationSeconds, language: game.language, creatorName: view.creatorName })}
+        meta={<GameMetaItems type={game.type} turns={game.turns} turnDurationSeconds={game.turnDurationSeconds} language={game.language} creatorName={view.creatorName} />}
         action={<GameTag kind={game.status === "in_progress" ? (view.openCall ? "call" : "in_progress") : game.status === "open" ? "open" : game.status === "completed" ? "completed" : "cancelled"} />}
       />
       {labels.length > 0 && (
@@ -82,7 +83,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
         <Card call>
           <span className="pill call">Appel à participation</span>
           <p className="call-text">
-            <span role="img" aria-label="Appel à participation">📢</span> Un tour attend un volontaire.
+            <Icon name="speaker" label="Appel à participation" /> Un tour attend un volontaire.
           </p>
           {!view.isParticipant && <JoinButton gameId={game.id} token={token} claim />}
         </Card>

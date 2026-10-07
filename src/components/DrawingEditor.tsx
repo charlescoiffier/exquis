@@ -38,6 +38,8 @@ const PALETTE: { name: string; hex: string }[] = [
 ];
 type History = { ops: Op[]; redo: Op[] };
 /** Style du trait. Un `streamline` élevé lisse davantage mais fait traîner la pointe derrière le doigt : on le garde bas. */
+/** L'aperçu du trait en cours est dessiné à cette échelle : moins de pixels à rasteriser et à envoyer au GPU, surtout sur smartphone. */
+const LIVE_SCALE = 0.5;
 const STROKE_STYLE = { thinning: 0.5, smoothing: 0.5, streamline: 0.2 };
 
 function pathFromStroke(points: number[][]): Path2D {
@@ -209,7 +211,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
       }
       ctx.drawImage(layer, 0, 0);
       // Le tracé validé est désormais dans le calque : on efface l'aperçu en direct.
-      if (!live) liveRef.current?.getContext("2d")?.clearRect(0, 0, width, height);
+      if (!live) liveRef.current?.getContext("2d", { desynchronized: true })?.clearRect(0, 0, width, height);
     },
     [width, height, direction, applyOp, makeLayer],
   );
@@ -231,7 +233,8 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     }
     const live = liveRef.current;
     if (!live) return;
-    const lctx = live.getContext("2d")!;
+    const lctx = live.getContext("2d", { desynchronized: true })!;
+    lctx.setTransform(LIVE_SCALE, 0, 0, LIVE_SCALE, 0, 0);
     lctx.clearRect(0, 0, width, height);
     lctx.fillStyle = op.color;
     lctx.fill(pathFromStroke(getStroke(op.points, { size: op.size, ...STROKE_STYLE })));
@@ -262,7 +265,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     currentRef.current = op;
     if (liveRef.current) {
       liveRef.current.style.opacity = String(opacity);
-      liveRef.current.getContext("2d")?.clearRect(0, 0, width, height);
+      liveRef.current.getContext("2d", { desynchronized: true })?.clearRect(0, 0, width, height);
     }
     moveRing(e);
     scheduleLive();
@@ -417,7 +420,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           className="drawing-canvas"
         />
         {/* Aperçu du trait de pinceau en cours (au-dessus de la bande héritée), vidé quand le trait est validé */}
-        <canvas ref={liveRef} width={width} height={height} className="live-canvas" aria-hidden="true" />
+        <canvas ref={liveRef} width={width * LIVE_SCALE} height={height * LIVE_SCALE} className="live-canvas" aria-hidden="true" />
         <div ref={ringRef} className="brush-ring" aria-hidden="true" style={{ display: "none" }} />
         {/* Calque de guides : visuel uniquement, jamais exporté */}
         <div className="guides-layer" dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />

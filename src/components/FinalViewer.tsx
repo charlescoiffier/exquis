@@ -114,6 +114,8 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
       data-testid="names-rail"
       style={down ? { position: "relative", width: 34, flex: "none" } : { position: "relative", height: 30 }}
     >
+      {/* Aligné sur l'image : le cadre de l'œuvre (bordure de 2 px) est à côté, les noms restent en dehors. */}
+      <div style={{ position: "absolute", inset: down ? "2px 0" : "0 2px" }}>
       {segments.map((s, k) => {
         return (
           <div key={s.rank}>
@@ -139,11 +141,12 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
           </div>
         );
       })}
+      </div>
     </div>
   );
 
   const image = (
-    <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+    <div className="final-art" style={{ position: "relative", flex: 1, minWidth: 0 }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt="Œuvre finale" style={{ width: "100%", height: "auto", display: "block", background: "#fff" }} />
       {showGuides && (
@@ -183,12 +186,10 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
         <button type="button" onClick={download} disabled={busy}>Télécharger en PNG</button>
       </div>
       {message && <p role="alert" className="notice error">{message}</p>}
-      <div className="final-art" style={{ maxWidth: down ? 480 : undefined }}>
-        <div data-testid="final-scroll" style={{ maxWidth: down ? 480 : "100%", overflowX: "auto" }}>
-          <div data-testid="final-frame" style={{ minWidth: minPx, display: "flex", flexDirection: down ? "row" : "column", alignItems: "stretch" }}>
-            {rail}
-            {image}
-          </div>
+      <div data-testid="final-scroll" style={{ maxWidth: down ? 520 : "100%", overflowX: "auto", paddingBottom: 4 }}>
+        <div data-testid="final-frame" style={{ minWidth: minPx, display: "flex", flexDirection: down ? "row" : "column", alignItems: "stretch" }}>
+          {rail}
+          {image}
         </div>
       </div>
     </div>
