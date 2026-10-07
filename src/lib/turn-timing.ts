@@ -28,3 +28,11 @@ export function nextClock(prev: ClockState, serverNowIso: string | undefined, cl
   if (!Number.isFinite(server) || server < prev.serverNowMs) return prev;
   return { offset: server - clientNowMs, serverNowMs: server };
 }
+
+/**
+ * Le tour n'est déclaré perdu côté client qu'une fois expiré, hors envoi en cours, et si le sort de l'envoi n'est pas incertain
+ * (échec réseau : la contribution a pu être enregistrée, c'est le rendu serveur qui tranche).
+ */
+export function shouldLoseTurn(s: { phase: TurnPhase; busy: boolean; uncertain: boolean }): boolean {
+  return s.phase === "expired" && !s.busy && !s.uncertain;
+}

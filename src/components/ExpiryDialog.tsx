@@ -21,7 +21,10 @@ type Props = {
   question: string;
   expiresAtMs: number;
   getNow: () => number;
+  /** Envoi en cours : bloque l'envoi et l'abandon. */
   busy: boolean;
+  /** Autre raison de bloquer l'envoi seul (l'abandon reste possible). */
+  submitDisabled?: boolean;
   error: string | null;
   /** Absent : l'envoi est impossible (explication affichée à la place). */
   submitLabel?: string;
@@ -33,7 +36,7 @@ type Props = {
 };
 
 /** Fenêtre modale de confirmation affichée entre l'échéance et la fin du délai de validation. */
-export function ExpiryDialog({ question, expiresAtMs, getNow, busy, error, submitLabel, onSubmit, explanation, continueLabel, onContinue, onAbandon }: Props) {
+export function ExpiryDialog({ question, expiresAtMs, getNow, busy, submitDisabled, error, submitLabel, onSubmit, explanation, continueLabel, onContinue, onAbandon }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const left = useRemaining(expiresAtMs, getNow);
   const seconds = Math.ceil(left / 1000);
@@ -96,7 +99,7 @@ export function ExpiryDialog({ question, expiresAtMs, getNow, busy, error, submi
         </div>
         {error && <p className="error" role="alert">{error}</p>}
         <div className="dialog-actions">
-          {submitLabel && onSubmit && <button type="button" onClick={onSubmit} disabled={busy}>{submitLabel}</button>}
+          {submitLabel && onSubmit && <button type="button" onClick={onSubmit} disabled={busy || submitDisabled}>{submitLabel}</button>}
           {continueLabel && onContinue && <button type="button" onClick={onContinue}>{continueLabel}</button>}
           <button type="button" className="secondary" onClick={onAbandon} disabled={busy}>Abandonner ce tour</button>
         </div>

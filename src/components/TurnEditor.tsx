@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ABANDONED_MESSAGE, EXPIRED_MESSAGE, clearExpired, editorMarkerAction, markExpired, readMarker, turnKeyOf } from "@/lib/expired-notice";
-import { CLIENT_GRACE_MS, nextClock, turnPhase, type ClockState, type TurnPhase } from "@/lib/turn-timing";
+import { CLIENT_GRACE_MS, nextClock, shouldLoseTurn, turnPhase, type ClockState, type TurnPhase } from "@/lib/turn-timing";
 import { Countdown } from "./Countdown";
 import { DrawingEditor } from "./DrawingEditor";
 import { EDITOR_ROOT_ID } from "./ExpiryDialog";
@@ -22,7 +22,7 @@ export type SerializedTurn = {
 };
 
 /** État d'envoi partagé avec les éditeurs : le tour n'est jamais déclaré perdu pendant un envoi en cours. */
-export type SubmitState = { busy: boolean; done: boolean };
+export type SubmitState = { busy: boolean; done: boolean; uncertain: boolean };
 export type LostKind = "abandoned" | "expired";
 export type Expiry = { active: boolean; expiresAtMs: number; getNow: () => number };
 
@@ -32,7 +32,7 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
   const deadlineMs = Date.parse(turn.deadline);
   const clock = useRef<ClockState>({ offset: 0, serverNowMs: -Infinity });
   const getNow = useCallback(() => Date.now() + clock.current.offset, []);
-  const submitState = useRef<SubmitState>({ busy: false, done: false });
+  const submitState = useRef<SubmitState>({ busy: false, done: false, uncertain: false });
   const pendingMarked = useRef(false);
   // Rien n'est lu (horloge, stockage) avant le montage : le premier rendu est identique côté serveur et client.
   const [ready, setReady] = useState(false);
@@ -43,7 +43,15 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
   // Recalage de l'horloge à chaque rendu serveur (sondage de 5 s) ; une charge périmée est ignorée.
   useEffect(() => {
     clock.current = nextClock(clock.current, turn.serverNow, Date.now());
+    // Un rendu serveur postérieur à un échec réseau tranche : le tour est soit encore le nôtre, soit réglé.
+    submitState.current.uncertain = false;
   }, [turn.serverNow]);
+
+  // Échec réseau d'un envoi : la contribution a peut-être été enregistrée. Le serveur décide ; hors ligne, le sondage reprendra au retour du réseau.
+  const onNetworkFailure = useCallback(() => {
+    submitState.current.uncertain = true;
+    if (navigator.onLine !== false) router.refresh();
+  }, [router]);
 
   useEffect(() => {
     const action = editorMarkerAction(readMarker(gameId), turnKey);
@@ -76,7 +84,7 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
         markExpired(gameId, turnKey, "pending");
       }
       // Jamais pendant un envoi : c'est son résultat qui décide.
-      if (p === "expired" && !s.busy) lose("expired");
+      if (shouldLoseTurn({ phase: p, busy: s.busy, uncertain: s.uncertain })) lose("expired");
     }, 250);
     return () => clearInterval(id);
   }, [ready, lost, deadlineMs, gameId, turnKey, getNow, lose]);
@@ -110,9 +118,9 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
       <div className="turn-body">
         {rankLine}
         {turn.game.type === "text" ? (
-          <TextTurn gameId={gameId} excerpt={turn.excerpt} draft={turn.draft as { text?: string } | null} minWords={turn.game.minWords!} maxWords={turn.game.maxWords!} rule={turn.game.excerptMode === "words" ? { mode: "words", count: turn.game.excerptWords ?? 1 } : { mode: "paragraph" }} expiry={expiry} submitState={submitState} onLost={lose} />
+          <TextTurn gameId={gameId} excerpt={turn.excerpt} draft={turn.draft as { text?: string } | null} minWords={turn.game.minWords!} maxWords={turn.game.maxWords!} rule={turn.game.excerptMode === "words" ? { mode: "words", count: turn.game.excerptWords ?? 1 } : { mode: "paragraph" }} expiry={expiry} submitState={submitState} onLost={lose} onNetworkFailure={onNetworkFailure} />
         ) : (
-          <DrawingEditor gameId={gameId} direction={turn.game.direction!} rank={turn.rank} total={turn.total} stripUrl={turn.stripUrl} draft={turn.draft} expiry={expiry} submitState={submitState} onLost={lose} />
+          <DrawingEditor gameId={gameId} direction={turn.game.direction!} rank={turn.rank} total={turn.total} stripUrl={turn.stripUrl} draft={turn.draft} expiry={expiry} submitState={submitState} onLost={lose} onNetworkFailure={onNetworkFailure} />
         )}
       </div>
     </section>

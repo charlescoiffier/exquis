@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { countWords, sanitizeText, transmittedRange, type ExcerptRule } from "@/lib/domain/text";
 import { gaugeState, mirrorSegments } from "@/lib/domain/text-editor";
 import { clearExpired } from "@/lib/expired-notice";
@@ -8,9 +8,9 @@ import { ExpiryDialog, ValidationBanner } from "./ExpiryDialog";
 import type { Expiry, LostKind, SubmitState } from "./TurnEditor";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 
-type Props = { gameId: string; excerpt?: string; draft: { text?: string } | null; minWords: number; maxWords: number; rule: ExcerptRule; expiry: Expiry; submitState: RefObject<SubmitState>; onLost: (kind: LostKind) => void };
+type Props = { gameId: string; excerpt?: string; draft: { text?: string } | null; minWords: number; maxWords: number; rule: ExcerptRule; expiry: Expiry; submitState: RefObject<SubmitState>; onLost: (kind: LostKind) => void; onNetworkFailure: () => void };
 
-export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, expiry, submitState, onLost }: Props) {
+export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, expiry, submitState, onLost, onNetworkFailure }: Props) {
   const router = useRouter();
   const [text, setText] = useState(draft?.text ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +22,18 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, exp
   const words = countWords(clean);
   const gauge = gaugeState(words, minWords, maxWords);
   const [before, sent, after] = mirrorSegments(clean, transmittedRange(clean, rule));
+  // Annonce vocale : seulement les changements d'état (trop court / ok / trop long), jamais chaque variation du compte.
+  const [announcement, setAnnouncement] = useState("");
+  const gaugeMessage = useRef(gauge.message);
+  gaugeMessage.current = gauge.message;
+  const firstStatus = useRef(true);
+  useEffect(() => {
+    if (firstStatus.current) {
+      firstStatus.current = false;
+      return;
+    }
+    setAnnouncement(gaugeMessage.current);
+  }, [gauge.status]);
   useDraftAutosave(gameId, { text }, { text: draft?.text ?? "" });
 
   async function submit(e?: React.FormEvent) {
@@ -51,6 +63,7 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, exp
       router.refresh();
     } catch {
       fail("Envoi impossible.");
+      onNetworkFailure();
     }
   }
 
@@ -86,13 +99,14 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, exp
         <span className="legend-item"><span className="swatch swatch-dim" aria-hidden="true" />non transmis</span>
         <span className="legend-item"><span className="swatch swatch-sent" aria-hidden="true" />vu par le joueur suivant</span>
       </p>
-      <div id="text-gauge" className={`gauge gauge-${gauge.status}`} aria-live="polite">
+      <div id="text-gauge" className={`gauge gauge-${gauge.status}`}>
         <div className="gauge-bar" aria-hidden="true">
           <div className="gauge-fill" style={{ width: `${gauge.fillPercent}%` }} />
           <div className="gauge-min" style={{ left: `${gauge.minPercent}%` }} />
         </div>
         <p className="gauge-msg">{gauge.message}<span className="muted"> (entre {minWords} et {maxWords} mots)</span></p>
       </div>
+      <p className="sr-only" role="status" aria-live="polite" data-testid="gauge-status">{announcement}</p>
       {error && <p className="error">{error}</p>}
       <div className="turn-actions">
         <button type="submit" disabled={busy || !gauge.ok}>Envoyer</button>

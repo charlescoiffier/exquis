@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SUBMIT_GRACE_MS } from "@/lib/access";
-import { CLIENT_GRACE_MS, CLIENT_MARGIN_MS, clockOffset, nextClock, turnPhase, type ClockState } from "@/lib/turn-timing";
+import { CLIENT_GRACE_MS, CLIENT_MARGIN_MS, clockOffset, nextClock, shouldLoseTurn, turnPhase, type ClockState } from "@/lib/turn-timing";
 
 const deadline = 1_000_000;
 
@@ -61,5 +61,15 @@ describe("nextClock", () => {
   it("ignore une date absente ou invalide", () => {
     expect(nextClock(start, undefined, 5)).toBe(start);
     expect(nextClock(start, "nope", 5)).toBe(start);
+  });
+});
+
+describe("shouldLoseTurn", () => {
+  it("perdu seulement quand expiré, sans envoi en cours ni résultat d'envoi incertain", () => {
+    expect(shouldLoseTurn({ phase: "expired", busy: false, uncertain: false })).toBe(true);
+    expect(shouldLoseTurn({ phase: "expired", busy: true, uncertain: false })).toBe(false);
+    expect(shouldLoseTurn({ phase: "expired", busy: false, uncertain: true })).toBe(false);
+    expect(shouldLoseTurn({ phase: "validation", busy: false, uncertain: false })).toBe(false);
+    expect(shouldLoseTurn({ phase: "open", busy: false, uncertain: false })).toBe(false);
   });
 });

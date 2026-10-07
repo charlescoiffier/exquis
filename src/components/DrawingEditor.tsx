@@ -2,7 +2,7 @@
 import { getStroke } from "perfect-freehand";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { floodFill, hexToRgba, isInsideOwnZone, sanitizeOps, type Op } from "@/lib/drawing/ops";
+import { floodFill, hexToRgba, isInsideCanvas, sanitizeOps, type Op } from "@/lib/drawing/ops";
 import { clearExpired } from "@/lib/expired-notice";
 import { ExpiryDialog } from "./ExpiryDialog";
 import type { Expiry, LostKind, SubmitState } from "./TurnEditor";
@@ -19,6 +19,8 @@ type Props = {
   expiry: Expiry;
   submitState: RefObject<SubmitState>;
   onLost: (kind: LostKind) => void;
+  /** Échec réseau d'un envoi : la contribution a pu être enregistrée, le serveur doit trancher. */
+  onNetworkFailure: () => void;
 };
 const PALETTE: { name: string; hex: string }[] = [
   { name: "Noir", hex: "#1f1b16" },
@@ -45,7 +47,7 @@ function pathFromStroke(points: number[][]): Path2D {
   return p;
 }
 
-export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft, expiry, submitState, onLost }: Props) {
+export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft, expiry, submitState, onLost, onNetworkFailure }: Props) {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stripRef = useRef<HTMLImageElement | null>(null);
@@ -171,7 +173,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   function onDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!e.isPrimary || e.button !== 0 || !stripReady || currentRef.current) return;
     const [x, y, p] = toCanvas(e);
-    if (!isInsideOwnZone(x, y, rank, direction)) return;
+    if (!isInsideCanvas(x, y, direction)) return;
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
@@ -215,9 +217,11 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
       setError(message);
       setBusy(false);
     };
+    let requested = false;
     try {
       const blob: Blob | null = await new Promise((res) => canvasRef.current!.toBlob(res, "image/png"));
       if (!blob) return fail("Export impossible.");
+      requested = true;
       const res = await fetch(`/api/games/${gameId}/my-turn/submit`, { method: "POST", headers: { "content-type": "image/png" }, body: blob });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -233,6 +237,7 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
       router.refresh();
     } catch {
       fail("Envoi impossible.");
+      if (requested) onNetworkFailure();
     }
   }
 
@@ -309,7 +314,8 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           submitLabel="Envoyer mon dessin"
           expiresAtMs={expiry.expiresAtMs}
           getNow={expiry.getNow}
-          busy={busy || !stripReady || stripError}
+          busy={busy}
+          submitDisabled={!stripReady || stripError}
           error={error}
           onSubmit={submit}
           onAbandon={() => onLost("abandoned")}
