@@ -123,3 +123,7 @@ npx playwright test    # ou : npm run e2e
 ```
 
 Le test de bout en bout (`e2e/text-game.spec.ts`, partie de texte à deux joueurs) démarre `npm run dev` via Playwright, lit `.env.local` et force `REQUIRE_EMAIL_VERIFICATION=false`. Il utilise la **base de développement** (migrée au préalable) : les comptes et la partie créés restent en base, avec des noms et emails uniques par exécution.
+
+## Apparence
+
+L'interface suit la direction visuelle « Manifeste » (affiche surréaliste des années 1920 : aplats, bordures noires de 2 px, ombres dures, titres en Abril Fatface, accents moutarde et vert canard, thème clair). Jetons, composants partagés et règles d'usage : [`docs/design/manifeste.md`](docs/design/manifeste.md).

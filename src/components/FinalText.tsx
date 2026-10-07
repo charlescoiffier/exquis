@@ -14,12 +14,15 @@ export function FinalText({ contributions }: { contributions: FinalContribution[
   return (
     <div className={`final-text${showAuthors ? "" : " final-hidden"}`}>
       <div className="final-toggle">
-        <input id={id} type="checkbox" checked={showAuthors} onChange={(e) => setShowAuthors(e.target.checked)} />
-        <label htmlFor={id} style={{ margin: 0, fontWeight: 400 }}>Afficher les noms des auteurs</label>
+        <label className="switch" htmlFor={id}>
+          <input id={id} type="checkbox" role="switch" checked={showAuthors} onChange={(e) => setShowAuthors(e.target.checked)} />
+          <span className="switch-track" aria-hidden="true" />
+          <span>Afficher les noms des auteurs</span>
+        </label>
       </div>
       <ol>
         {contributions.map((c) => (
-          <li key={c.rank} className="contrib" style={{ ["--c" as string]: `var(--a${colorOf.get(c.author)})` }}>
+          <li key={c.rank} className="contrib" style={{ ["--c" as string]: `var(--a${colorOf.get(c.author)})`, ["--on-c" as string]: `var(--on-a${colorOf.get(c.author)})` }}>
             <div className="contrib-rail" aria-hidden={!showAuthors}>
               <span className="contrib-author">{c.author}</span>
             </div>

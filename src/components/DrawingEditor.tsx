@@ -252,6 +252,10 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           {toolButton("eraser", "Gomme", <path d="M3 17l9-11 8 7-5 6H8zM8 21h12" />)}
           {toolButton("fill", "Pot de peinture", <path d="M5 11l7-7 7 7-7 7zM20 15c1 2 2 3 2 4a2 2 0 0 1-4 0c0-1 1-2 2-4z" />)}
         </div>
+        <div className="toolbar-group">
+          <button type="button" className="secondary" onClick={undo} disabled={!ops.length}>Annuler</button>
+          <button type="button" className="secondary" onClick={redoOp} disabled={!redo.length}>Rétablir</button>
+        </div>
         <div role="group" aria-label="Couleur" className="toolbar-group">
           <label className="color-field">
             <span aria-hidden="true" data-testid="active-color" className="color-current" style={{ background: color }} />
@@ -279,10 +283,6 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         <div className="toolbar-group">
           <input aria-label="Taille" type="range" min={1} max={60} value={size} onChange={(e) => setSize(Number(e.target.value))} className="slider" />
           <input aria-label="Opacité" type="range" min={0.1} max={1} step={0.1} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} className="slider slider-opacity" />
-        </div>
-        <div className="toolbar-group">
-          <button type="button" className="secondary" onClick={undo} disabled={!ops.length}>Annuler</button>
-          <button type="button" className="secondary" onClick={redoOp} disabled={!redo.length}>Rétablir</button>
         </div>
       </div>
       {/* Le cadre est sur l'enveloppe : une bordure sur le canvas fausserait la conversion des coordonnées du pointeur. */}

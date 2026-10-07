@@ -49,14 +49,17 @@ export function InviteButton() {
 
   return (
     <div>
-      <button type="button" className="secondary" onClick={generate} disabled={busy}>Générer une invitation</button>
+      <p className="hint" style={{ margin: "0 0 10px" }}>Générez un code à usage unique pour inviter quelqu&apos;un à s&apos;inscrire.</p>
+      <button type="button" onClick={generate} disabled={busy}>Générer une invitation</button>
       {code && (
-        <div>
-          <p>Code d&apos;invitation : <code>{code}</code></p>
-          <p>Lien d&apos;inscription : <code>{link}</code></p>
-          <p id="invite-message" className="muted">{message}</p>
-          <button type="button" className="secondary" onClick={copy}>Copier</button>
-          {copied && <span role="status" className="muted"> Copié.</span>}
+        <div className="invite">
+          <p style={{ margin: "0 0 6px" }}>Code d&apos;invitation : <code className="invite-code">{code}</code></p>
+          <p style={{ margin: "0 0 6px" }}>Lien d&apos;inscription : <code className="invite-link">{link}</code></p>
+          <p id="invite-message" className="invite-link muted">{message}</p>
+          <div className="turn-actions">
+            <button type="button" className="secondary" onClick={copy}>Copier</button>
+            {copied && <span role="status" className="ok">Copié.</span>}
+          </div>
         </div>
       )}
       {error && <p role="alert" className="error">{error}</p>}

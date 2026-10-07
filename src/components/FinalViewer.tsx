@@ -107,7 +107,7 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
   // Largeur minimale (horizontal) pour que chaque zone fasse au moins ~72 px à l'écran, plafonnée.
   const minPx = down ? undefined : Math.min(2400, Math.ceil(Math.max(0, ...segments.map((s) => (72 * axisLen) / Math.max(1, s.end - s.start)))));
   const colorOf = (k: number) => RAIL_COLORS[k % RAIL_COLORS.length];
-  const labelBase: React.CSSProperties = { position: "absolute", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center", fontSize: 14, lineHeight: "20px", color: "#1f1b16" };
+  const labelBase: React.CSSProperties = { position: "absolute", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center", fontSize: 14, lineHeight: "20px", color: "var(--fg)", fontWeight: 700 };
 
   const rail = showGuides && (
     <div
@@ -145,7 +145,7 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
   const image = (
     <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="Œuvre finale" style={{ width: "100%", height: "auto", display: "block" }} />
+      <img src={src} alt="Œuvre finale" style={{ width: "100%", height: "auto", display: "block", background: "#fff" }} />
       {showGuides && (
         <svg
           aria-hidden="true"
@@ -173,18 +173,21 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
 
   return (
     <div>
-      <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 400 }}>
-        <input type="checkbox" style={{ width: "auto" }} checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} />
-        Afficher avec jointures et noms
-      </label>
-      <p>
+      <div className="final-toolbar">
+        <label className="switch">
+          <input type="checkbox" role="switch" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} />
+          <span className="switch-track" aria-hidden="true" />
+          <span>Afficher avec jointures et noms</span>
+        </label>
         <button type="button" onClick={download} disabled={busy}>Télécharger en PNG</button>
-      </p>
-      {message && <p role="alert" className="error">{message}</p>}
-      <div data-testid="final-scroll" style={{ maxWidth: down ? 480 : "100%", overflowX: "auto" }}>
-        <div data-testid="final-frame" style={{ minWidth: minPx, display: "flex", flexDirection: down ? "row" : "column", alignItems: "stretch" }}>
-          {rail}
-          {image}
+      </div>
+      {message && <p role="alert" className="notice error">{message}</p>}
+      <div className="final-art" style={{ maxWidth: down ? 480 : undefined }}>
+        <div data-testid="final-scroll" style={{ maxWidth: down ? 480 : "100%", overflowX: "auto" }}>
+          <div data-testid="final-frame" style={{ minWidth: minPx, display: "flex", flexDirection: down ? "row" : "column", alignItems: "stretch" }}>
+            {rail}
+            {image}
+          </div>
         </div>
       </div>
     </div>

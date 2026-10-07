@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { Banner } from "@/components/ui/Banner";
+import { Card } from "@/components/ui/Card";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { InboxActions } from "@/components/InboxActions";
 import { InviteButton } from "@/components/InviteButton";
@@ -23,20 +25,39 @@ export default async function InboxPage() {
   return (
     <main>
       <AutoRefresh />
-      <h1>Notifications</h1>
-      <InboxActions emailEnabled={p?.emailEnabled ?? true} />
-      <h2>Inviter des amis</h2>
-      <InviteButton />
-      {items.length === 0 ? <p className="muted">Rien pour l&apos;instant.</p> : (
-        <ul>
-          {items.map((n) => (
-            <li key={n.id} style={{ fontWeight: n.readAt ? 400 : 700 }}>
-              <Link href={`/games/${n.gameId}`}>{NOTIFICATION_LABELS[n.type as NotificationType]} — {n.gameName}</Link>
-              <span className="muted"> · {n.createdAt.toLocaleString("fr-FR")}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <Banner title="Notifications" />
+      <Card>
+        <InboxActions emailEnabled={p?.emailEnabled ?? true} />
+      </Card>
+      <section aria-labelledby="inviter">
+        <h2 id="inviter">Inviter des amis</h2>
+        <Card>
+          <InviteButton />
+        </Card>
+      </section>
+      <section aria-labelledby="avis">
+        <h2 id="avis">Avis récents</h2>
+        {items.length === 0 ? (
+          <Card>
+            <p style={{ margin: 0 }}>Rien pour l&apos;instant.</p>
+            <p className="hint">Vous serez prévenu(e) ici quand ce sera votre tour ou qu&apos;une œuvre sera prête.</p>
+          </Card>
+        ) : (
+          <ul className="cards">
+            {items.map((n) => (
+              <li key={n.id}>
+                <Card className={`notif${n.readAt ? "" : " notif-unread"}`}>
+                  <Link href={`/games/${n.gameId}`} className="notif-link">
+                    {!n.readAt && <span className="sr-only">Non lue : </span>}
+                    {NOTIFICATION_LABELS[n.type as NotificationType] ?? n.type} — {n.gameName}
+                  </Link>
+                  <div className="meta">{n.createdAt.toLocaleString("fr-FR")}</div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

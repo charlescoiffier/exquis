@@ -149,7 +149,7 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .legend { display:flex; flex-wrap:wrap; gap:4px 16px; margin:6px 0; font-size:14px; }
 .legend-item { display:inline-flex; align-items:center; gap:6px; }
 .swatch { width:14px; height:14px; border-radius:0; border:2px solid var(--line); display:inline-block; }
-.swatch-dim { background:var(--surface); }
+.swatch-dim { background:var(--dim-text); }
 .swatch-sent { background:var(--hl); }
 
 .gauge { margin:8px 0 12px; }
@@ -162,15 +162,31 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .gauge-ok .gauge-msg { color:var(--ok); }
 .gauge-over .gauge-msg { color:var(--danger); }
 
-/* Texte final : une barre verticale colorée et le nom de l'auteur écrit verticalement.
-   Teintes moyennes, lisibles (>= 3:1) sur fond clair comme sur fond sombre. */
-:root { --a0:#dc2626; --a1:#2563eb; --a2:#16a34a; --a3:#d97706; --a4:#9333ea; --a5:#0d9488; --a6:#db2777; --a7:#65a30d; }
+/* Œuvre finale : interrupteur, barre d'outils, cadre de l'image */
+.switch { display:inline-flex; align-items:center; gap:10px; min-height:44px; margin:0; font-weight:700; cursor:pointer; position:relative; }
+.switch input { position:absolute; z-index:1; left:0; opacity:0; width:44px; height:28px; min-height:0; margin:0; cursor:pointer; }
+.switch-track { position:relative; flex:none; width:44px; height:26px; border:2px solid var(--line); background:var(--surface); }
+.switch-track::after { content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; background:var(--fg); transition:transform .12s, background .12s; }
+.switch input:checked + .switch-track { background:var(--accent); }
+.switch input:checked + .switch-track::after { transform:translateX(18px); }
+.switch input:focus-visible + .switch-track { outline:3px solid var(--fg); box-shadow:0 0 0 6px var(--accent); }
+@media (prefers-reduced-motion: reduce) { .switch-track::after { transition:none; } }
+.final-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; padding:8px 12px; margin:0 4px 16px 0; border:2px solid var(--line); background:var(--surface); box-shadow:var(--shadow-btn); }
+.final-name { margin:0 0 16px; font-size:22px; }
+.final-art { margin:0 4px 16px 0; border:2px solid var(--line); background:var(--surface); box-shadow:var(--shadow-card); }
+.final-authors { margin-top:8px; }
+
+/* Texte final : une barre verticale pleine (noir / moutarde / canard, puis neutres) portant le nom de l'auteur.
+   Chaque couple fond / texte du nom respecte 4,5:1. */
+:root {
+  --a0:#101010; --on-a0:#FFFFFF; --a1:#F2B705; --on-a1:#101010; --a2:#0B7A75; --on-a2:#FFFFFF; --a3:#4C4C4C; --on-a3:#FFFFFF;
+  --a4:#FFE58A; --on-a4:#101010; --a5:#08504D; --on-a5:#FFFFFF; --a6:#6B6B64; --on-a6:#FFFFFF; --a7:#D9D6C8; --on-a7:#101010;
+}
 .final-text { margin:16px 0; }
-.final-toggle { display:flex; align-items:center; gap:8px; font-weight:400; margin:0 0 16px; }
-.final-toggle input { width:auto; }
-.contrib { display:flex; gap:12px; margin:0 0 20px; }
-.contrib-rail { flex:none; display:flex; justify-content:center; width:28px; border-left:4px solid var(--c); padding-left:6px; }
-.contrib-author { writing-mode:vertical-rl; transform:rotate(180deg); color:var(--c); font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-height:100%; }
+.final-text .switch { margin:0 0 16px; }
+.contrib { display:flex; gap:14px; margin:0 0 20px; }
+.contrib-rail { flex:none; display:flex; justify-content:center; width:32px; min-height:56px; padding:8px 0; background:var(--c); border:2px solid var(--line); }
+.contrib-author { writing-mode:vertical-rl; transform:rotate(180deg); color:var(--on-c); font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-height:100%; }
 .contrib-body { margin:0; flex:1; min-width:0; white-space:pre-wrap; overflow-wrap:anywhere; }
 .final-text ol { list-style:none; margin:0; padding:0; }
 .final-hidden .contrib-rail { display:none; }
@@ -219,7 +235,6 @@ fieldset.form-section legend { font-family:var(--font-display-stack); font-size:
 .invite .hint { margin:0 0 4px; }
 .invite-link { display:block; padding:8px 10px; border:2px solid var(--line); background:var(--bg); font-size:14px; overflow-wrap:anywhere; user-select:all; }
 .call-text { margin:8px 0 12px; font-weight:500; }
-.card .btn + .btn, .card .btn + button { margin-left:8px; }
 
 /* Tour : cadre, bandeau, compte à rebours */
 .turn-panel { border:2px solid var(--line); background:var(--surface); box-shadow:var(--shadow-card); margin:0 4px 24px 0; }
@@ -266,3 +281,20 @@ blockquote.quote { margin:0 0 4px; padding:10px 14px; border:2px solid var(--lin
   .toolbar-group + .toolbar-group { padding-left:0; border-left:0; }
   .palette { flex-wrap:wrap; max-width:260px; }
 }
+
+/* Boîte de réception */
+.inbox-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; }
+.inbox-error { flex-basis:100%; margin:0; }
+.notif { margin-bottom:16px; }
+.notif-link { color:var(--fg); font-weight:500; text-decoration:none; overflow-wrap:anywhere; }
+.notif-link:hover { text-decoration:underline; color:var(--fg); }
+.notif-unread { border-left:10px solid var(--accent); }
+.notif-unread .notif-link { font-weight:700; }
+.invite-code { font-family:var(--font-display-stack); font-size:20px; letter-spacing:.04em; overflow-wrap:anywhere; }
+.card .invite { margin-top:16px; }
+#invite-message { margin:0 0 10px; }
+
+/* États de page : 404, erreur */
+.state-page { max-width:560px; }
+.state-page .card-title { font-size:26px; }
+.state-actions { display:flex; flex-wrap:wrap; gap:10px 12px; margin-top:16px; }

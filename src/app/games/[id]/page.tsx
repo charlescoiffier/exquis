@@ -30,7 +30,12 @@ export default async function GamePage({ params, searchParams }: { params: Promi
     view = await getGameView(db, { gameId: id, userId: session.user.id, token });
   } catch (e) {
     if (e instanceof DomainError && e.status === 404) notFound();
-    if (e instanceof DomainError && e.status === 403) return <main><h1>Accès refusé</h1><p>Cette partie est sur invitation.</p></main>;
+    if (e instanceof DomainError && e.status === 403) return (
+        <main>
+          <Banner title="Accès refusé" />
+          <Card><p role="alert" style={{ margin: 0 }}>Cette partie est sur invitation.</p></Card>
+        </main>
+      );
     throw e;
   }
   const { game } = view;

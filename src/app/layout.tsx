@@ -13,8 +13,8 @@ const body = Work_Sans({ weight: ["400", "500", "700"], subsets: ["latin", "lati
 export const viewport: Viewport = { viewportFit: "cover" };
 
 export const metadata: Metadata = {
-  title: "Cadavre exquis",
-  description: "Jeu de cadavre exquis collaboratif : dessins et textes à tour de rôle.",
+  title: "Exquis",
+  description: "Cadavre exquis en ligne : écrivez ou dessinez à tour de rôle, sans voir ce qui précède, et découvrez l'œuvre commune à la fin.",
 };
 
 export default async function RootLayout({
