@@ -7,7 +7,7 @@ import { randomTheme } from "@/lib/themes";
 
 export function NewGameForm() {
   const router = useRouter();
-  const [type, setType] = useState<"drawing" | "text">("text");
+  const [type, setType] = useState<"drawing" | "text">("drawing");
   const [excerptMode, setExcerptMode] = useState<"paragraph" | "words">("paragraph");
   const [error, setError] = useState<string | null>(null);
   const [turns, setTurns] = useState(4);
@@ -63,8 +63,8 @@ export function NewGameForm() {
             if (themeIsRandom) setTheme(randomTheme(next));
           }}
         >
-          <option value="text">Texte</option>
           <option value="drawing">Dessin</option>
+          <option value="text">Texte</option>
         </select>
         <label htmlFor="theme">Thème (facultatif)</label>
         <div className="field-row">

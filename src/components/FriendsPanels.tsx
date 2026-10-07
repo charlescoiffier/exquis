@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { AvatarSpec } from "@/lib/avatar";
+import { copyText } from "@/lib/clipboard";
 
 type PersonProps = { userId: string; name: string; avatar: AvatarSpec };
 
@@ -39,14 +40,7 @@ export function FriendCode({ code }: { code: string }) {
         <button
           type="button"
           className="secondary"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(code);
-              setCopied(true);
-            } catch {
-              setCopied(false);
-            }
-          }}
+          onClick={async () => setCopied(await copyText(code))}
         >
           Copier mon code
         </button>
