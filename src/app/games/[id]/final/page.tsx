@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { FinalText } from "@/components/FinalText";
 import { Banner } from "@/components/ui/Banner";
 import { ButtonLink } from "@/components/ui/Button";
@@ -29,8 +30,10 @@ export default async function FinalPage({ params }: { params: Promise<{ id: stri
     }
     throw e;
   }
+  const assembling = view.type === "drawing" && !view.ready;
   return (
     <main>
+      {assembling && <AutoRefresh />}
       <Banner title={view.cancelled ? "Œuvre inachevée" : "Œuvre finale"} />
       <h2 className="final-name">{view.name}</h2>
       {view.cancelled && <p role="status" className="notice">Partie annulée : voici ce qui avait été {view.type === "drawing" ? "dessiné" : "écrit"}.</p>}

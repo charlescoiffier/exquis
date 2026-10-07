@@ -96,7 +96,20 @@ export default async function GamePage({ params, searchParams }: { params: Promi
 }
 
 async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: string) {
-  const turn = await getMyTurn(db, getStorage(), { userId, gameId });
+  let turn;
+  try {
+    turn = await getMyTurn(db, getStorage(), { userId, gameId });
+  } catch (e) {
+    // Lecture non critique : une panne passagère (base, stockage) lors d'un rafraîchissement ne doit pas faire tomber la page.
+    if (e instanceof DomainError) throw e;
+    console.error("getMyTurn a échoué", e);
+    return (
+      <Card>
+        <h2 className="card-title">En attente…</h2>
+        <p>Votre tour n&apos;a pas pu être chargé pour le moment ; la page se mettra à jour automatiquement.</p>
+      </Card>
+    );
+  }
   if (!turn) {
     return (
       <>
