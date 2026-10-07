@@ -3,7 +3,8 @@ import type { Direction, Joint } from "./geometry";
 /** Épaisseur (en pixels de l'image) de la marge des noms ajoutée à gauche (down) ou au-dessus (right). */
 export const RAIL_SIZE = 140;
 export const LABEL_FONT_SIZE = 40;
-export const RAIL_COLORS = ["#0B7A75", "#F2B705", "#B3261E", "#08504D", "#8A6A00", "#6B6B64", "#A0A096", "#4C4C4C"];
+/** Lignes de repérage des auteurs : toutes de la couleur d'accentuation (jaune), jamais noires. */
+export const RAIL_COLORS = ["#F2B705"];
 const LINE_INSET = 8;
 const LINE_OFFSET = 16; // distance de la ligne colorée au bord de l'image
 const LABEL_GAP = 14; // distance du texte à la ligne
