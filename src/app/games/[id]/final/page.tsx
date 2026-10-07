@@ -52,6 +52,7 @@ export default async function FinalPage({ params }: { params: Promise<{ id: stri
         <Card>
           <dl className="info-list">
             <div><dt>Créée par</dt><dd>{view.info.creatorName}</dd></div>
+            {view.info.theme && <div><dt>Thème</dt><dd>{view.info.theme}</dd></div>}
             <div><dt>Commencée le</dt><dd>{formatDate(view.info.createdAt)}</dd></div>
             {view.info.completedAt && <div><dt>Terminée le</dt><dd>{formatDate(view.info.completedAt)}</dd></div>}
             <div><dt>{view.type === "drawing" ? "Dessinateurs" : "Écrivains"}</dt><dd>{view.info.participants.join(", ")}</dd></div>

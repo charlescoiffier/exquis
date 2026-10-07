@@ -138,6 +138,18 @@ describe("intitulés de tours", () => {
   });
 });
 
+describe("thème", () => {
+  it("est enregistré, exposé dans les listes et la vue de la partie, et facultatif", async () => {
+    const u = await makeUser(db, "t");
+    const { gameId } = await createGame(db, u, textParams(2, { theme: "Un dragon timide" }));
+    const other = await makeUser(db, "t2");
+    await createGame(db, other, textParams(2, { name: "sans thème" }));
+    const open = await listOpenGames(db);
+    expect(open.items.map((g) => [g.name, g.theme]).sort()).toEqual([["Texte", "Un dragon timide"], ["sans thème", null]]);
+    expect((await getGameView(db, { gameId, userId: u })).game.theme).toBe("Un dragon timide");
+  });
+});
+
 describe("listes paginées", () => {
   it("parsePage tolère les valeurs invalides", () => {
     expect([parsePage(undefined), parsePage("0"), parsePage("abc"), parsePage("3"), parsePage(["2", "5"])]).toEqual([1, 1, 1, 3, 2]);

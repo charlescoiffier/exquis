@@ -54,6 +54,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
       {game.status !== "completed" && game.status !== "cancelled" && <AutoRefresh />}
       <Banner
         title={game.name}
+        theme={game.theme}
         meta={<GameMetaItems type={game.type} turns={game.turns} turnDurationSeconds={game.turnDurationSeconds} language={game.language} creatorName={view.creatorName} />}
         action={<GameTag kind={game.status === "in_progress" ? (view.openCall ? "call" : "in_progress") : game.status === "open" ? "open" : game.status === "completed" ? "completed" : "cancelled"} />}
       />
@@ -153,6 +154,7 @@ async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: 
       turn={{
         rank: turn.rank,
         total: turn.total,
+        theme: turn.game.theme,
         label: turnLabelOf(turn.game.turnLabels, turn.rank),
         deadline: turn.deadline.toISOString(),
         serverNow: new Date().toISOString(),

@@ -46,7 +46,7 @@ minutes à une semaine) pour jouer son tour, sans avoir à être connecté en m�
 ## Comment se déroule une partie
 
 1. Quelqu'un **crée une partie** : texte ou dessin, nombre de tours (2 à 8, un joueur par tour), durée d'un tour, et
-   éventuellement un titre et un intitulé pour chaque tour (par exemple « tête, corps, jambes, pieds »).
+   éventuellement un titre, un thème et un intitulé pour chaque tour (par exemple « tête, corps, jambes, pieds »).
 2. Les autres joueurs **la rejoignent** depuis l'accueil, ou par un lien d'invitation si elle est privée.
 3. Quand toutes les places sont prises, la partie **démarre** : l'ordre de jeu est tiré au sort.
 4. Chacun joue **à son tour**. Un joueur ne voit que la fin de la contribution précédente (la bande de 160 pixels du
@@ -107,6 +107,7 @@ le nom de chaque auteur.
 | Nombre de tours | De 2 à 8 (un joueur par tour) |
 | Durée d'un tour | 1 minute, 5 minutes, 15 minutes, 1 heure, 1 jour ou 1 semaine |
 | Intitulés des tours | Facultatifs, un par tour (« Tête », « Corps »…) |
+| Thème | Facultatif, visible de tous les joueurs ; le bouton « Au hasard » tire dans une banque d'environ 100 idées (50 pour le texte, 50 pour le dessin, `src/lib/themes.ts`) |
 | Visibilité | Publique (dans les listes) ou sur invitation (lien) |
 | Texte : langue | Français ou anglais |
 | Texte : longueur | Mots minimum et maximum de chaque contribution |

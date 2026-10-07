@@ -75,6 +75,7 @@ export type FinalView = {
     turns: number;
     turnDurationSeconds: number;
     language: string | null;
+    theme: string | null;
     participants: string[];
   };
 };
@@ -118,6 +119,7 @@ export async function getFinal(db: Db, p: { userId: string; gameId: string }): P
       turns: g.turns,
       turnDurationSeconds: g.turnDurationSeconds,
       language: g.language,
+      theme: g.theme,
       participants: people.map((x) => x.name),
     },
   };

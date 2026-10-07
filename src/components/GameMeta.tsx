@@ -39,7 +39,12 @@ export function GameMetaItems({ type, turns, turnDurationSeconds, language, crea
   );
 }
 
-/** Ligne d'informations d'une partie. */
-export function GameMeta(props: MetaProps) {
-  return <p className="meta"><GameMetaItems {...props} /></p>;
+/** Ligne d'informations d'une partie, suivie de son thème s'il y en a un. */
+export function GameMeta({ theme, ...props }: MetaProps & { theme?: string | null }) {
+  return (
+    <>
+      <p className="meta"><GameMetaItems {...props} /></p>
+      {theme && <p className="meta theme-line">Thème : <strong>{theme}</strong></p>}
+    </>
+  );
 }

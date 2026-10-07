@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { DURATION_OPTIONS } from "@/lib/format";
+import { randomTheme } from "@/lib/themes";
 
 export function NewGameForm() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export function NewGameForm() {
   const [excerptMode, setExcerptMode] = useState<"paragraph" | "words">("paragraph");
   const [error, setError] = useState<string | null>(null);
   const [turns, setTurns] = useState(4);
+  const [theme, setTheme] = useState("");
   const [labels, setLabels] = useState<string[]>(["", "", "", ""]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -18,6 +20,7 @@ export function NewGameForm() {
     const base = {
       type,
       name: String(f.get("name")),
+      ...(theme.trim() ? { theme: theme.trim() } : {}),
       turns,
       ...(labels.slice(0, turns).some((l) => l.trim() !== "") ? { turnLabels: Array.from({ length: turns }, (_, i) => (labels[i] ?? "").trim()) } : {}),
       turnDurationSeconds: Number(f.get("duration")),
@@ -58,6 +61,12 @@ export function NewGameForm() {
           <option value="drawing">Dessin</option>
         </select>
         <p id="type-hint" className="hint">{type === "text" ? "Chacun écrit une suite en ne voyant que la fin du passage précédent." : "Chacun dessine la suite en ne voyant qu'une bande du dessin précédent."}</p>
+        <label htmlFor="theme">Thème (facultatif)</label>
+        <div className="field-row">
+          <input id="theme" name="theme" value={theme} maxLength={120} onChange={(e) => setTheme(e.target.value)} placeholder={type === "text" ? "Un voyage en train qui ne s'arrête jamais" : "Un monstre sympathique"} aria-describedby="theme-hint" />
+          <button type="button" className="secondary" onClick={() => setTheme(randomTheme(type))}>Au hasard</button>
+        </div>
+        <p id="theme-hint" className="hint">Visible de tous les joueurs. « Au hasard » tire un thème dans une banque d&apos;une cinquantaine d&apos;idées pour {type === "text" ? "le texte" : "le dessin"}.</p>
       </fieldset>
 
       <fieldset className="form-section">
