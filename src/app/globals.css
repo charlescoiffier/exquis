@@ -86,12 +86,18 @@ main ul > li { padding:10px 2px; border-bottom:2px solid var(--line); }
 .notice.success { border-color:var(--ok); }
 .pill { display:inline-block; font-size:12px; font-weight:500; padding:1px 9px; border:2px solid var(--line); border-radius:999px; color:var(--muted); }
 .pill.call { background:var(--accent2); color:var(--on-accent2); border-color:var(--accent2); font-weight:700; }
+.field-row { display:flex; gap:10px; align-items:stretch; }
+.field-row input { flex:1; min-width:0; }
+.field-row button { flex:none; }
 .hint { color:var(--muted); font-size:14px; margin:4px 0 0; }
 
 /* Composants partagés : bandeau, carte, barre d'onglets */
 .banner { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--fg); color:var(--bg); padding:16px; margin:0 0 16px; }
 .banner-title { margin:0; color:var(--bg); font-size:clamp(26px, 7vw, 36px); line-height:1.05; min-width:0; overflow-wrap:anywhere; }
 .banner-action { flex:none; }
+.banner-theme { margin:6px 0 0; font-size:15px; line-height:1.35; color:var(--bg); }
+.theme-line { margin-top:2px; font-style:italic; }
+.turn-theme { margin:-6px 0 12px; }
 .banner-text { min-width:0; flex:1; }
 .banner-meta { margin:6px 0 0; font-size:14px; line-height:1.35; color:#D9D6C8; }
 .card { border:2px solid var(--line); background:var(--surface); box-shadow:var(--shadow-card); padding:14px 16px; margin:0 4px 20px 0; }
@@ -317,6 +323,7 @@ blockquote.quote { margin:0 0 4px; padding:10px 14px; border:2px solid var(--lin
 .canvas-frame { position:relative; max-width:720px; margin:0 4px 0 0; touch-action:none; border:2px solid var(--line); background:#fff; box-shadow:var(--shadow-card); }
 .drawing-canvas { display:block; width:100%; height:auto; background:#fff; touch-action:none; }
 .live-canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.perf-overlay { position:fixed; z-index:50; left:8px; right:8px; bottom:calc(var(--tabbar-h) + 8px); margin:0; padding:6px 8px; background:#101010; color:#fff; font:12px/1.3 monospace; pointer-events:none; }
 .guides-layer { position:absolute; inset:0; pointer-events:none; }
 .brush-ring { position:absolute; transform:translate(-50%,-50%); border-radius:50%; border:1px solid rgba(16,16,16,.28); background:rgba(16,16,16,.05); pointer-events:none; }
 

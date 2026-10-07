@@ -61,6 +61,7 @@ export async function createGame(db: Db, creatorId: string, input: unknown, now 
         excerptMode: p.type === "text" ? p.excerptMode : null,
         excerptWords: p.type === "text" && p.excerptMode === "words" ? p.excerptWords! : null,
         turnLabels: p.turnLabels?.some((l) => l !== "") ? p.turnLabels : null,
+        theme: p.theme ? p.theme : null,
         createdAt: now,
       })
       .returning({ id: game.id });
@@ -153,10 +154,11 @@ const listColumns = {
   completedAt: game.completedAt,
   creatorName: user.name,
   participantCount: participantCountSql,
+  theme: game.theme,
 };
 
 /** Parties ouvertes publiques, les plus récentes d'abord. */
-export async function listOpenGames(db: Db, p: { page?: number } = {}): Promise<Page<{ id: string; name: string; type: "drawing" | "text"; turns: number; turnDurationSeconds: number; language: string | null; creatorName: string; participantCount: number; createdAt: Date }>> {
+export async function listOpenGames(db: Db, p: { page?: number } = {}): Promise<Page<{ id: string; name: string; type: "drawing" | "text"; turns: number; turnDurationSeconds: number; language: string | null; creatorName: string; participantCount: number; theme: string | null; createdAt: Date }>> {
   const where = and(eq(game.status, "open"), eq(game.visibility, "public"));
   const [{ n: total }] = await db.select({ n: count() }).from(game).where(where);
   const w = pageWindow(total, p.page ?? 1);
@@ -170,6 +172,7 @@ export async function listOpenGames(db: Db, p: { page?: number } = {}): Promise<
       language: listColumns.language,
       creatorName: listColumns.creatorName,
       participantCount: listColumns.participantCount,
+      theme: listColumns.theme,
       createdAt: listColumns.createdAt,
     })
     .from(game)
@@ -239,6 +242,7 @@ export async function listOpenCalls(db: Db, p: { page?: number } = {}) {
       turnDurationSeconds: game.turnDurationSeconds,
       language: game.language,
       creatorName: user.name,
+      theme: game.theme,
       rank: turn.rank,
       createdAt: game.createdAt,
     })
@@ -278,6 +282,7 @@ export async function listJoinableGames(db: Db, p: { userId: string; page?: numb
       language: game.language,
       creatorName: user.name,
       participantCount: participantCountSql,
+      theme: game.theme,
       openCallRank: openCallRankSql,
       createdAt: game.createdAt,
     })

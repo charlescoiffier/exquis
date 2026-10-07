@@ -15,6 +15,8 @@ export type SerializedTurn = {
   total: number;
   /** Intitulé facultatif de ce tour (« Corps »), sinon chaîne vide. */
   label?: string;
+  /** Thème de la partie, rappelé pendant le tour. */
+  theme?: string | null;
   deadline: string;
   /** Heure du serveur au rendu : sert à corriger le décalage d'horloge du client. */
   serverNow?: string;
@@ -93,7 +95,12 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
   }, [ready, lost, deadlineMs, gameId, turnKey, getNow, lose]);
 
   const heading = turn.game.type === "text" ? "À vous d'écrire" : "À vous de dessiner";
-  const rankLine = <p className="turn-rank">{turnTitle(turn.rank, turn.total, turn.label)}</p>;
+  const rankLine = (
+    <>
+      <p className="turn-rank">{turnTitle(turn.rank, turn.total, turn.label)}</p>
+      {turn.theme && <p className="turn-theme">Thème : <strong>{turn.theme}</strong></p>}
+    </>
+  );
   if (!ready) {
     return (
       <section className="turn-panel">

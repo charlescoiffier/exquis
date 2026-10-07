@@ -12,6 +12,7 @@ export type PastGame = {
   turns: number;
   turnDurationSeconds: number;
   language: string | null;
+  theme: string | null;
   creatorName: string;
   createdAt: Date;
   completedAt: Date | null;
@@ -36,6 +37,7 @@ export function PastGameList({ games }: { games: PastGame[] }) {
                 turnDurationSeconds={g.turnDurationSeconds}
                 language={g.language}
                 creatorName={g.creatorName}
+                theme={g.theme}
                 extra={[g.status === "completed" && g.completedAt ? `terminée le ${formatDate(g.completedAt)}` : `commencée le ${formatDate(g.createdAt)}`]}
               />
             </div>

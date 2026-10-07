@@ -51,7 +51,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                         <div className="game-title">{g.name}</div>
                         <GameTag kind={g.status === "open" ? "open" : "in_progress"} />
                       </div>
-                      <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} />
+                      <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} theme={g.theme} />
                     </div>
                     <div className="game-side">
                       {g.isMyTurn ? (
@@ -96,7 +96,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                           <div className="game-title">{g.name}</div>
                           <GameTag kind={call ? "call" : "join"} />
                         </div>
-                        <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} extra={extra} />
+                        <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} theme={g.theme} extra={extra} />
                       </div>
                       <div className="game-side">
                         <JoinButton gameId={g.id} claim={call} />

@@ -30,6 +30,8 @@ export function AutoRefresh({ intervalMs = 5000 }: { intervalMs?: number }) {
       }
     };
     const refresh = async () => {
+      // Tracé en cours (éditeur de dessin) : on saute ce tour de sondage, le suivant rattrapera.
+      if (document.body.dataset.drawing) return;
       if (!(await reachable())) throw new Error("injoignable");
       return new Promise<void>((resolve) => {
         // Filet de sécurité : ne jamais rester bloqué si la transition ne se règle pas.
