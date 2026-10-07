@@ -124,14 +124,24 @@ export async function joinGame(
   });
 }
 
-/** Une partie jamais lancée (en attente de joueurs) est supprimée au bout d'une semaine. */
-export const STALE_OPEN_GAME_MS = 7 * 86400_000;
+/** Délai au-delà duquel une partie sans activité est supprimée : jamais lancée, ou lancée mais abandonnée de tous. */
+export const STALE_GAME_MS = 7 * 86400_000;
 
-/** Supprime les parties en attente de joueurs créées il y a plus d'une semaine (leurs inscriptions et notifications suivent). */
+/**
+ * Supprime les parties sans activité depuis une semaine : en attente de joueurs depuis leur création, ou en cours dont
+ * rien n'a bougé (démarrage, tour joué, brouillon enregistré). Les inscriptions, tours et notifications suivent.
+ * Renvoie le nombre de parties supprimées.
+ */
 export async function purgeStaleGames(db: Db, now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - STALE_GAME_MS);
+  const lastActivity = sql`greatest(
+    coalesce(${game.startedAt}, ${game.createdAt}),
+    coalesce((select max(c.created_at) from contribution c join turn t on t.id = c.turn_id where t.game_id = ${game.id}), '-infinity'::timestamp),
+    coalesce((select max(d.updated_at) from draft d join turn t on t.id = d.turn_id where t.game_id = ${game.id}), '-infinity'::timestamp)
+  )`;
   const rows = await db
     .delete(game)
-    .where(and(eq(game.status, "open"), lt(game.createdAt, new Date(now.getTime() - STALE_OPEN_GAME_MS))))
+    .where(or(and(eq(game.status, "open"), lt(game.createdAt, cutoff)), and(eq(game.status, "in_progress"), sql`${lastActivity} < ${cutoff.toISOString()}::timestamp`)))
     .returning({ id: game.id });
   return rows.length;
 }
