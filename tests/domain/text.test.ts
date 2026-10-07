@@ -26,6 +26,10 @@ describe("sanitizeText", () => {
   it("normalise les fins de ligne et retire les caractères de contrôle", () => {
     expect(sanitizeText("a\r\nb\u0000c")).toBe("a\nbc");
   });
+  it("traite U+0085, U+2028 et U+2029 comme des sauts de ligne", () => {
+    expect(sanitizeText("a\u0085b\u2028c\u2029d")).toBe("a\nb\nc\nd");
+    expect(extractExcerpt(sanitizeText("a\u2028b c"), { mode: "paragraph" })).toBe("b c");
+  });
 });
 
 describe("extractExcerpt", () => {
@@ -50,6 +54,8 @@ describe("extractExcerpt", () => {
   });
 });
 
+const lastLineLength = (t: string) => countWords(t.split(/[\r\n]+/).filter((l) => l.trim()).pop() ?? "");
+
 describe("transmittedRange", () => {
   const cases: [string, string, ExcerptRule][] = [
     ["trois lignes", "un\ndeux\ntrois", { mode: "paragraph" }],
@@ -68,8 +74,32 @@ describe("transmittedRange", () => {
     expect(slice).toBe(slice.trim());
     // Paragraphe non plafonné : l'extrait est exactement la tranche.
     // Mode mots ou paragraphe plafonné : la tranche, espaces internes réduits à un seul.
-    const collapsed = rule.mode === "words" || countWords(slice) >= PARAGRAPH_EXCERPT_CAP;
+    const collapsed = rule.mode === "words" || lastLineLength(text) > PARAGRAPH_EXCERPT_CAP;
     expect(extractExcerpt(text, rule)).toBe(collapsed ? slice.replace(/\s+/g, " ") : slice);
+  });
+  it("mots avec ponctuation : compte exactement count mots", () => {
+    expect(extractExcerpt("Salut , le monde !", { mode: "words", count: 3 })).toBe("Salut , le monde !");
+    expect(countWords(extractExcerpt("Salut , le monde !", { mode: "words", count: 2 }))).toBe(2);
+  });
+  it.each([
+    ["Fin du texte ! 🎄", 2, "texte ! 🎄"],
+    ["a , b ... c — d !!", 3, "b ... c — d !!"],
+    ["un deux", 5, "un deux"],
+    ["... 🎄 !!", 2, ""],
+    ["", 2, ""],
+  ])("mode mots %j count=%i : exactement min(count, mots) mots", (text, count, expected) => {
+    const ex = extractExcerpt(text, { mode: "words", count });
+    expect(ex).toBe(expected);
+    expect(countWords(ex)).toBe(Math.min(count, countWords(text)));
+    const { start, end } = transmittedRange(text, { mode: "words", count });
+    expect(text.slice(start, end).replace(/\s+/g, " ")).toBe(expected);
+  });
+  it("ligne plafonnée avec ponctuation intercalée : exactement 150 mots", () => {
+    const t = Array.from({ length: 200 }, (_, i) => `m${i} ,`).join(" ");
+    const ex = extractExcerpt(t, { mode: "paragraph" });
+    expect(countWords(ex)).toBe(PARAGRAPH_EXCERPT_CAP);
+    expect(ex.startsWith("m50 ")).toBe(true);
+    expect(ex.endsWith("m199 ,")).toBe(true);
   });
   it("texte vide ou blanc : plage vide", () => {
     expect(transmittedRange("", { mode: "paragraph" })).toEqual({ start: 0, end: 0 });
