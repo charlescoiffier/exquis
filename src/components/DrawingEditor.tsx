@@ -1,10 +1,11 @@
 "use client";
 import { getStroke } from "perfect-freehand";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { floodFill, hexToRgba, isInsideOwnZone, sanitizeOps, type Op } from "@/lib/drawing/ops";
 import { clearExpired } from "@/lib/expired-notice";
 import { ExpiryDialog } from "./ExpiryDialog";
+import type { Expiry, LostKind, SubmitState } from "./TurnEditor";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 import { canvasSize, guideLines, guidesSvg, inheritedRect, type Direction } from "@/lib/images/geometry";
 
@@ -15,8 +16,9 @@ type Props = {
   total: number;
   stripUrl?: string;
   draft: unknown;
-  validationMsLeft: number | null;
-  onLost: () => void;
+  expiry: Expiry;
+  submitState: RefObject<SubmitState>;
+  onLost: (kind: LostKind) => void;
 };
 type History = { ops: Op[]; redo: Op[] };
 
@@ -29,7 +31,7 @@ function pathFromStroke(points: number[][]): Path2D {
   return p;
 }
 
-export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft, validationMsLeft, onLost }: Props) {
+export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft, expiry, submitState, onLost }: Props) {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stripRef = useRef<HTMLImageElement | null>(null);
@@ -192,30 +194,31 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   async function submit() {
     if (busy) return;
     setBusy(true);
+    submitState.current.busy = true;
     setError(null);
+    const fail = (message: string) => {
+      submitState.current.busy = false;
+      setError(message);
+      setBusy(false);
+    };
     try {
       const blob: Blob | null = await new Promise((res) => canvasRef.current!.toBlob(res, "image/png"));
-      if (!blob) {
-        setError("Export impossible.");
-        setBusy(false);
-        return;
-      }
+      if (!blob) return fail("Export impossible.");
       const res = await fetch(`/api/games/${gameId}/my-turn/submit`, { method: "POST", headers: { "content-type": "image/png" }, body: blob });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (data.code === "not_your_turn") {
-          onLost();
+          submitState.current.busy = false;
+          onLost("expired");
           return;
         }
-        setError(data.error ?? "Envoi impossible.");
-        setBusy(false);
-        return;
+        return fail(data.error ?? "Envoi impossible.");
       }
+      submitState.current.done = true;
       clearExpired(gameId);
       router.refresh();
     } catch {
-      setError("Envoi impossible.");
-      setBusy(false);
+      fail("Envoi impossible.");
     }
   }
 
@@ -250,15 +253,16 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
       </div>
       {stripError && <p className="error">Impossible de charger la bande du dessin précédent. Rechargez la page.</p>}
       {error && <p className="error">{error}</p>}
-      {validationMsLeft !== null && (
+      {expiry.active && (
         <ExpiryDialog
           question="Temps écoulé. Valider votre dessin maintenant ?"
           submitLabel="Envoyer mon dessin"
-          msLeft={validationMsLeft}
+          expiresAtMs={expiry.expiresAtMs}
+          getNow={expiry.getNow}
           busy={busy || !stripReady || stripError}
           error={error}
           onSubmit={submit}
-          onAbandon={onLost}
+          onAbandon={() => onLost("abandoned")}
         />
       )}
       <p><button type="button" onClick={submit} disabled={busy || !stripReady || stripError}>Envoyer mon dessin</button></p>

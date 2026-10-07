@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { assembleDrawing, extractStrip, renderWithGuides, validateDrawingPng } from "@/lib/images/strip";
-import { jointsFor } from "@/lib/images/geometry";
+import { BAND_SIZE, LONG_SIDE, canvasSize, finalLength, jointsFor, ownRect, type Direction } from "@/lib/images/geometry";
 import { DomainError } from "@/lib/errors";
 import { paste, pixel, solidPng } from "../helpers/images";
 
@@ -35,6 +35,52 @@ describe("extractStrip", () => {
     const strip = await extractStrip(await solidPng("right", "#ff0000"), "right");
     const meta = await sharp(strip).metadata();
     expect([meta.width, meta.height]).toEqual([160, 1200]);
+  });
+});
+
+/** Référence « à l'ancienne » : empilement des seules zones propres, sans superposition de bande héritée. */
+async function oldWayAssemble(pngs: Buffer[], d: Direction): Promise<Buffer> {
+  const length = finalLength(pngs.length);
+  const size = canvasSize(d);
+  const parts = await Promise.all(
+    pngs.map(async (png, i) => {
+      const base = sharp(png).flatten({ background: "#fff" });
+      const input = i === 0 ? await base.png().toBuffer() : await base.extract(ownRect(d)).png().toBuffer();
+      const offset = i === 0 ? 0 : LONG_SIDE + (i - 1) * (LONG_SIDE - BAND_SIZE);
+      return d === "down" ? { input, left: 0, top: offset } : { input, left: offset, top: 0 };
+    }),
+  );
+  return sharp({ create: { width: d === "down" ? size.width : length, height: d === "down" ? length : size.height, channels: 3, background: "#fff" } })
+    .composite(parts)
+    .removeAlpha()
+    .raw()
+    .toBuffer();
+}
+
+describe("assembleDrawing : bandes non retouchées", () => {
+  for (const d of ["down", "right"] as const) {
+    it(`3 tours (${d}) : image identique pixel pour pixel à l'empilement des zones propres`, async () => {
+      const noise = async (color: string) => {
+        const base = await solidPng(d, color);
+        const dot = await sharp({ create: { width: 40, height: 40, channels: 3, background: "#123456" } }).png().toBuffer();
+        return paste(base, dot, 300, 700);
+      };
+      const a = await noise("#ff0000");
+      const b = await paste(await noise("#00ff00"), await extractStrip(a, d), 0, 0);
+      const c = await paste(await noise("#0000ff"), await extractStrip(b, d), 0, 0);
+      const out = await assembleDrawing([a, b, c], d);
+      const raw = await sharp(out.image).removeAlpha().raw().toBuffer();
+      expect(raw.equals(await oldWayAssemble([a, b, c], d))).toBe(true);
+    });
+  }
+  it("2 contributions seulement (partie annulée) avec une bande retouchée : la retouche apparaît", async () => {
+    const red = await solidPng("down", "#ff0000");
+    const black = await sharp({ create: { width: 50, height: 50, channels: 3, background: "#000" } }).png().toBuffer();
+    const green = await paste(await paste(await solidPng("down", "#00ff00"), await extractStrip(red, "down"), 0, 0), black, 10, 10);
+    const out = await assembleDrawing([red, green], "down");
+    expect(out.height).toBe(finalLength(2));
+    expect(await pixel(out.image, 20, 1440 + 20)).toEqual([0, 0, 0]);
+    expect(await pixel(out.image, 100, 1440 + 20)).toEqual([255, 0, 0]);
   });
 });
 

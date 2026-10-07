@@ -1,19 +1,21 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { countWords, sanitizeText, transmittedRange, type ExcerptRule } from "@/lib/domain/text";
 import { gaugeState, mirrorSegments } from "@/lib/domain/text-editor";
 import { clearExpired } from "@/lib/expired-notice";
-import { ExpiryDialog } from "./ExpiryDialog";
+import { ExpiryDialog, ValidationBanner } from "./ExpiryDialog";
+import type { Expiry, LostKind, SubmitState } from "./TurnEditor";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 
-type Props = { gameId: string; excerpt?: string; draft: { text?: string } | null; minWords: number; maxWords: number; rule: ExcerptRule; validationMsLeft: number | null; onLost: () => void };
+type Props = { gameId: string; excerpt?: string; draft: { text?: string } | null; minWords: number; maxWords: number; rule: ExcerptRule; expiry: Expiry; submitState: RefObject<SubmitState>; onLost: (kind: LostKind) => void };
 
-export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, validationMsLeft, onLost }: Props) {
+export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, expiry, submitState, onLost }: Props) {
   const router = useRouter();
   const [text, setText] = useState(draft?.text ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const mirrorRef = useRef<HTMLDivElement>(null);
   // Mêmes règles que le serveur : on normalise d'abord le texte brut pour que les indices correspondent.
   const clean = sanitizeText(text);
@@ -26,24 +28,29 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, val
     e?.preventDefault();
     if (busy || !gauge.ok) return;
     setBusy(true);
+    submitState.current.busy = true;
     setError(null);
+    const fail = (message: string) => {
+      submitState.current.busy = false;
+      setError(message);
+      setBusy(false);
+    };
     try {
       const res = await fetch(`/api/games/${gameId}/my-turn/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (data.code === "not_your_turn") {
-          onLost();
+          submitState.current.busy = false;
+          onLost("expired");
           return;
         }
-        setError(data.error ?? "Envoi impossible.");
-        setBusy(false);
-        return;
+        return fail(data.error ?? "Envoi impossible.");
       }
+      submitState.current.done = true;
       clearExpired(gameId);
       router.refresh();
     } catch {
-      setError("Envoi impossible.");
-      setBusy(false);
+      fail("Envoi impossible.");
     }
   }
 
@@ -88,17 +95,22 @@ export function TextTurn({ gameId, excerpt, draft, minWords, maxWords, rule, val
       </div>
       {error && <p className="error">{error}</p>}
       <button type="submit" disabled={busy || !gauge.ok}>Envoyer</button>
-      {validationMsLeft !== null && (
+      {expiry.active && !dismissed && (
         <ExpiryDialog
           question="Temps écoulé. Envoyer votre texte maintenant ?"
-          submitLabel="Envoyer mon texte"
-          msLeft={validationMsLeft}
-          busy={busy || !gauge.ok}
-          error={error ?? (gauge.ok ? null : gauge.message)}
-          onSubmit={() => void submit()}
-          onAbandon={onLost}
+          expiresAtMs={expiry.expiresAtMs}
+          getNow={expiry.getNow}
+          busy={busy}
+          error={error}
+          submitLabel={gauge.ok ? "Envoyer mon texte" : undefined}
+          onSubmit={gauge.ok ? () => void submit() : undefined}
+          explanation={gauge.ok ? undefined : `Votre texte compte ${words} mot${words > 1 ? "s" : ""} ; il en faut entre ${minWords} et ${maxWords}.`}
+          continueLabel={gauge.ok ? undefined : "Continuer à corriger"}
+          onContinue={gauge.ok ? undefined : () => setDismissed(true)}
+          onAbandon={() => onLost("abandoned")}
         />
       )}
+      {expiry.active && dismissed && <ValidationBanner expiresAtMs={expiry.expiresAtMs} getNow={expiry.getNow} />}
     </form>
   );
 }
