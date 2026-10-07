@@ -36,14 +36,14 @@ describe("assembleFinalWork / getFinal (dessin)", () => {
     await assembleFinalWork(db, storage, gameId);
     await assembleFinalWork(db, storage, gameId); // idempotent
     const [fw] = await db.select().from(finalWork).where(eq(finalWork.gameId, gameId));
-    expect(fw).toMatchObject({ width: 1200, height: 3040, joints: [{ start: 1440, end: 1600 }] });
+    expect(fw).toMatchObject({ width: 1600, height: 3040, joints: [{ start: 1440, end: 1600 }] });
     expect(await db.select().from(notification).where(eq(notification.type, "work_ready"))).toHaveLength(users.length);
     const view = await getFinal(db, { userId: users[0], gameId });
-    expect(view).toMatchObject({ type: "drawing", ready: true, direction: "down", width: 1200, height: 3040 });
+    expect(view).toMatchObject({ type: "drawing", ready: true, direction: "down", width: 1600, height: 3040 });
     expect(view.contributions.map((c) => c.rank)).toEqual([1, 2]);
     expect(view.segments).toEqual([
-      { rank: 1, author: view.contributions[0].author, start: 0, end: 1440 },
-      { rank: 2, author: view.contributions[1].author, start: 1600, end: 3040 },
+      { rank: 1, author: view.contributions[0].author, label: "", start: 0, end: 1440 },
+      { rank: 2, author: view.contributions[1].author, label: "", start: 1600, end: 3040 },
     ]);
     expect(view.contributions.every((c) => c.author.length > 0)).toBe(true);
   });
@@ -126,12 +126,12 @@ describe("partie annulée (spec §5.4 : les contributions restent visibles)", ()
     await assembleFinalWork(db, storage, gameId); // idempotent
     const rows = await db.select().from(finalWork).where(eq(finalWork.gameId, gameId));
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ width: 1200, height: finalLength(1), joints: [] });
+    expect(rows[0]).toMatchObject({ width: 1600, height: finalLength(1), joints: [] });
     expect(await db.select().from(notification).where(eq(notification.type, "work_ready"))).toHaveLength(0);
     const view = await getFinal(db, { userId: users[2], gameId });
     expect(view).toMatchObject({ cancelled: true, ready: true });
     expect(view.contributions.map((c) => c.rank)).toEqual([1]);
-    expect(view.segments).toEqual([{ rank: 1, author: view.contributions[0].author, start: 0, end: 1600 }]);
+    expect(view.segments).toEqual([{ rank: 1, author: view.contributions[0].author, label: "", start: 0, end: 1600 }]);
     const img = await getFinalImage(db, storage, { userId: users[2], gameId, guides: false });
     expect((await sharp(img).metadata()).height).toBe(finalLength(1));
   });
@@ -147,7 +147,7 @@ describe("partie annulée (spec §5.4 : les contributions restent visibles)", ()
     await cancelGame(gameId);
     await assembleFinalWork(db, storage, gameId);
     const [fw] = await db.select().from(finalWork).where(eq(finalWork.gameId, gameId));
-    expect(fw).toMatchObject({ width: 1200, height: finalLength(2), joints: jointsFor(2) });
+    expect(fw).toMatchObject({ width: 1600, height: finalLength(2), joints: jointsFor(2) });
     expect(jointsFor(2)).toHaveLength(1);
     const img = await getFinalImage(db, storage, { userId: users[0], gameId, guides: false });
     expect((await sharp(img).metadata()).height).toBe(finalLength(2));
@@ -173,5 +173,22 @@ describe("partie annulée (spec §5.4 : les contributions restent visibles)", ()
     const turns = await db.select().from(turn).where(eq(turn.gameId, gameId));
     expect(turns.find((t) => t.rank === 1)!.status).toBe("done");
     expect(turns.filter((t) => t.status === "expired")).toHaveLength(1);
+  });
+});
+
+describe("rappel des informations de la partie et intitulés", () => {
+  it("renvoie créateur, dates, participants, durée, langue et l'intitulé de chaque tour", async () => {
+    const g = await startedGame(db, textParams(2, { turnLabels: ["Début", "Fin"], language: "en", turnDurationSeconds: 900 }));
+    const t1 = await activeTurn(db, g.gameId);
+    await submitText(db, { userId: t1.assignedUserId, gameId: g.gameId, text: "un deux trois" });
+    const t2 = await activeTurn(db, g.gameId);
+    await submitText(db, { userId: t2.assignedUserId, gameId: g.gameId, text: "quatre cinq six" });
+    await assembleFinalWork(db, storage, g.gameId);
+    const view = await getFinal(db, { userId: g.users[0], gameId: g.gameId });
+    expect(view.contributions.map((c) => c.label)).toEqual(["Début", "Fin"]);
+    expect(view.info).toMatchObject({ creatorName: "p0", turns: 2, turnDurationSeconds: 900, language: "en" });
+    expect(view.info.participants.sort()).toEqual(["p0", "p1"]);
+    expect(view.info.completedAt).not.toBeNull();
+    expect(new Date(view.info.createdAt).getTime()).toBeLessThanOrEqual(Date.now());
   });
 });

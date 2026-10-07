@@ -40,8 +40,9 @@ test("deux joueurs terminent une partie de texte", async ({ browser }) => {
   await alice.waitForURL(/\/games\/(?!new)[^/]+$/);
   const gameUrl = alice.url();
 
-  await bob.goto("/");
-  await bob.getByRole("listitem").filter({ hasText: gameName }).getByRole("button", { name: "Rejoindre" }).click();
+  // Les listes sont paginées (plus anciennes d'abord) : on rejoint la partie directement par son lien.
+  await bob.goto(gameUrl);
+  await bob.getByRole("button", { name: "Rejoindre" }).click();
   await bob.waitForURL(gameUrl);
 
   const players = [alice, bob];

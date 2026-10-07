@@ -1,0 +1,1 @@
+ALTER TABLE "game" ADD COLUMN "turn_labels" jsonb;

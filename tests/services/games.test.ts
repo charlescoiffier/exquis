@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { game, notification, participant, turn } from "@/lib/db/schema";
-import { MAX_ACTIVE_GAMES, MAX_CREATED_PER_DAY, createGame, getGameView, joinGame, listMyGames, listOpenGames } from "@/lib/services/games";
+import { MAX_ACTIVE_GAMES, MAX_CREATED_PER_DAY, createGame, getGameView, joinGame, listMyCurrentGames, listMyPastGames, listOpenGames, PAGE_SIZE, parsePage } from "@/lib/services/games";
 import { makeUser, resetDb, testDb } from "../helpers/db";
 import { activeTurn, drawingParams, startedGame, textParams } from "../helpers/games";
 
@@ -15,7 +15,8 @@ describe("createGame", () => {
     const ps = await db.select().from(participant).where(eq(participant.gameId, gameId));
     expect(ps.map((p) => p.userId)).toEqual([u]);
     const list = await listOpenGames(db);
-    expect(list).toMatchObject([{ id: gameId, participantCount: 1, turns: 3, language: "fr" }]);
+    expect(list.items).toMatchObject([{ id: gameId, participantCount: 1, turns: 3, language: "fr", creatorName: expect.any(String) }]);
+    expect(list).toMatchObject({ total: 1, page: 1, pageCount: 1, pageSize: PAGE_SIZE });
   });
   it.each([
     ["texte", textParams, "Texte de Alice"],
@@ -105,12 +106,12 @@ describe("joinGame", () => {
   });
 });
 
-describe("listMyGames / getGameView", () => {
+describe("listMyCurrentGames / getGameView", () => {
   it("indique si c'est mon tour", async () => {
     const { gameId } = await startedGame(db, textParams(2));
     const active = await activeTurn(db, gameId);
-    const mine = await listMyGames(db, active.assignedUserId);
-    expect(mine).toMatchObject([{ id: gameId, status: "in_progress", isMyTurn: true }]);
+    const mine = await listMyCurrentGames(db, active.assignedUserId);
+    expect(mine.items).toMatchObject([{ id: gameId, status: "in_progress", isMyTurn: true }]);
   });
   it("masque le jeton d'invitation aux non-créateurs et protège les parties sur invitation", async () => {
     const a = await makeUser(db, "a");
@@ -120,5 +121,56 @@ describe("listMyGames / getGameView", () => {
     expect(viewA.inviteToken).toBeTruthy();
     await expect(getGameView(db, { gameId, userId: b })).rejects.toMatchObject({ code: "forbidden" });
     await expect(getGameView(db, { gameId, userId: b, token: viewA.inviteToken! })).resolves.toMatchObject({ inviteToken: null, isParticipant: false });
+  });
+});
+
+describe("intitulés de tours", () => {
+  it("stocke les intitulés s'il y en a au moins un, sinon rien", async () => {
+    const u = await makeUser(db, "a");
+    const { gameId } = await createGame(db, u, textParams(3, { turnLabels: ["Début", "", "Fin"] }));
+    expect((await db.select().from(game).where(eq(game.id, gameId)))[0].turnLabels).toEqual(["Début", "", "Fin"]);
+    const { gameId: g2 } = await createGame(db, u, textParams(2, { turnLabels: ["", ""] }));
+    expect((await db.select().from(game).where(eq(game.id, g2)))[0].turnLabels).toBeNull();
+  });
+  it("refuse un nombre d'intitulés différent du nombre de tours", async () => {
+    const u = await makeUser(db, "a");
+    await expect(createGame(db, u, textParams(3, { turnLabels: ["a", "b"] }))).rejects.toMatchObject({ code: "invalid_params" });
+  });
+});
+
+describe("listes paginées", () => {
+  it("parsePage tolère les valeurs invalides", () => {
+    expect([parsePage(undefined), parsePage("0"), parsePage("abc"), parsePage("3"), parsePage(["2", "5"])]).toEqual([1, 1, 1, 3, 2]);
+  });
+  it("parties ouvertes : 12 par page, les plus anciennes d'abord, créateur indiqué", async () => {
+    const t0 = Date.now() - 100_000;
+    for (let i = 0; i < PAGE_SIZE + 1; i++) {
+      const u = await makeUser(db, `c${i}`);
+      await createGame(db, u, textParams(2, { name: `g${String(i).padStart(2, "0")}` }), new Date(t0 + i * 1000));
+    }
+    const p1 = await listOpenGames(db, { page: 1 });
+    expect(p1.items).toHaveLength(PAGE_SIZE);
+    expect(p1.items[0].name).toBe("g00");
+    expect(p1.items[0].creatorName).toBe("c0");
+    expect(p1).toMatchObject({ total: PAGE_SIZE + 1, pageCount: 2 });
+    const p2 = await listOpenGames(db, { page: 2 });
+    expect(p2.items.map((g) => g.name)).toEqual([`g${PAGE_SIZE}`]);
+    expect((await listOpenGames(db, { page: 99 })).page).toBe(2);
+  });
+  it("mes parties en cours / anciennes : séparées, anciennes triées de la plus récente à la plus ancienne", async () => {
+    const u = await makeUser(db, "moi");
+    const t0 = Date.now() - 100_000;
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const { gameId } = await createGame(db, u, textParams(2, { name: `p${i}` }), new Date(t0 + i * 1000));
+      ids.push(gameId);
+    }
+    await db.update(game).set({ status: "completed", completedAt: new Date(t0 + 50_000) }).where(eq(game.id, ids[0]));
+    await db.update(game).set({ status: "cancelled" }).where(eq(game.id, ids[1]));
+    const current = await listMyCurrentGames(db, u);
+    expect(current.items.map((g) => g.name)).toEqual(["p2"]);
+    const past = await listMyPastGames(db, u);
+    expect(past.items.map((g) => g.name)).toEqual(["p0", "p1"]);
+    expect(past.items[0]).toMatchObject({ status: "completed", creatorName: "moi", participantCount: 1 });
   });
 });

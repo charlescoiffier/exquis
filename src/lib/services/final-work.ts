@@ -4,6 +4,7 @@ import type { Db } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
 import { contribution, finalWork, game, participant, turn } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
+import { turnLabelOf } from "@/lib/format";
 import { authorSegments } from "@/lib/images/geometry";
 import { assembleDrawing, renderWithGuides } from "@/lib/images/strip";
 import type { Storage } from "@/lib/storage";
@@ -64,20 +65,38 @@ export type FinalView = {
   height: number | null;
   joints: { start: number; end: number }[];
   /** Zone dessinée par chaque auteur le long de l'axe (dessin uniquement ; vide pour le texte). */
-  segments: { rank: number; author: string; start: number; end: number }[];
-  contributions: { rank: number; author: string; text: string | null }[];
+  segments: { rank: number; author: string; label: string; start: number; end: number }[];
+  contributions: { rank: number; author: string; label: string; text: string | null }[];
+  /** Rappel des informations de la partie (page de l'œuvre). */
+  info: {
+    creatorName: string;
+    createdAt: string;
+    completedAt: string | null;
+    turns: number;
+    turnDurationSeconds: number;
+    language: string | null;
+    participants: string[];
+  };
 };
 
 export async function getFinal(db: Db, p: { userId: string; gameId: string }): Promise<FinalView> {
   const g = await authorize(db, p.userId, p.gameId);
   const [fw] = await db.select().from(finalWork).where(eq(finalWork.gameId, g.id));
-  const rows = await db
+  const raw = await db
     .select({ rank: turn.rank, author: user.name, text: contribution.text })
     .from(contribution)
     .innerJoin(turn, eq(contribution.turnId, turn.id))
     .innerJoin(user, eq(user.id, contribution.userId))
     .where(eq(turn.gameId, g.id))
     .orderBy(asc(turn.rank));
+  const rows = raw.map((r) => ({ ...r, label: turnLabelOf(g.turnLabels, r.rank) }));
+  const [creator] = await db.select({ name: user.name }).from(user).where(eq(user.id, g.creatorId));
+  const people = await db
+    .select({ name: user.name })
+    .from(participant)
+    .innerJoin(user, eq(user.id, participant.userId))
+    .where(eq(participant.gameId, g.id))
+    .orderBy(asc(participant.joinedAt));
   return {
     type: g.type,
     name: g.name,
@@ -89,9 +108,18 @@ export async function getFinal(db: Db, p: { userId: string; gameId: string }): P
     joints: fw?.joints ?? [],
     segments:
       g.type === "drawing"
-        ? authorSegments(rows.length).map((s, i) => ({ ...s, author: rows[i].author }))
+        ? authorSegments(rows.length).map((s, i) => ({ ...s, author: rows[i].author, label: rows[i].label }))
         : [],
     contributions: rows,
+    info: {
+      creatorName: creator?.name ?? "",
+      createdAt: g.createdAt.toISOString(),
+      completedAt: g.completedAt ? g.completedAt.toISOString() : null,
+      turns: g.turns,
+      turnDurationSeconds: g.turnDurationSeconds,
+      language: g.language,
+      participants: people.map((x) => x.name),
+    },
   };
 }
 

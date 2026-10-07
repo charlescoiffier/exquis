@@ -13,28 +13,25 @@ describe("validateDrawingPng", () => {
     await expect(validateDrawingPng(Buffer.from("not an image"), "down")).rejects.toBeInstanceOf(DomainError);
   });
   it("refuse un JPEG", async () => {
-    const jpeg = await sharp({ create: { width: 1200, height: 1600, channels: 3, background: "#fff" } }).jpeg().toBuffer();
+    const jpeg = await sharp({ create: { width: 1600, height: 1600, channels: 3, background: "#fff" } }).jpeg().toBuffer();
     await expect(validateDrawingPng(jpeg, "down")).rejects.toMatchObject({ code: "invalid_image" });
   });
   it("refuse de mauvaises dimensions", async () => {
     const small = await sharp({ create: { width: 100, height: 100, channels: 3, background: "#fff" } }).png().toBuffer();
     await expect(validateDrawingPng(small, "down")).rejects.toMatchObject({ code: "invalid_image" });
   });
-  it("refuse les dimensions du mauvais sens", async () => {
-    await expect(validateDrawingPng(await solidPng("right", "#fff"), "down")).rejects.toMatchObject({ code: "invalid_image" });
-  });
 });
 
 describe("extractStrip", () => {
-  it("la bande extraite fait 1200×160 (down)", async () => {
+  it("la bande extraite fait 1600×160 (down)", async () => {
     const strip = await extractStrip(await solidPng("down", "#ff0000"), "down");
     const meta = await sharp(strip).metadata();
-    expect([meta.width, meta.height]).toEqual([1200, 160]);
+    expect([meta.width, meta.height]).toEqual([1600, 160]);
   });
-  it("la bande extraite fait 160×1200 (right)", async () => {
+  it("la bande extraite fait 160×1600 (right)", async () => {
     const strip = await extractStrip(await solidPng("right", "#ff0000"), "right");
     const meta = await sharp(strip).metadata();
-    expect([meta.width, meta.height]).toEqual([160, 1200]);
+    expect([meta.width, meta.height]).toEqual([160, 1600]);
   });
 });
 
@@ -93,7 +90,7 @@ describe("assembleDrawing", () => {
     const blue = await paste(await solidPng("down", "#0000ff"), stripGreen, 0, 0);
 
     const out = await assembleDrawing([red, green, blue], "down");
-    expect(out.width).toBe(1200);
+    expect(out.width).toBe(1600);
     expect(out.height).toBe(4480);
     expect(out.joints).toEqual(jointsFor(3));
     expect(await pixel(out.image, 10, 10)).toEqual([255, 0, 0]);
@@ -134,7 +131,7 @@ describe("assembleDrawing", () => {
     const a = await solidPng("right", "#ff0000");
     const b = await paste(await solidPng("right", "#00ff00"), await extractStrip(a, "right"), 0, 0);
     const out = await assembleDrawing([a, b], "right");
-    expect([out.width, out.height]).toEqual([3040, 1200]);
+    expect([out.width, out.height]).toEqual([3040, 1600]);
     expect(await pixel(out.image, 1700, 10)).toEqual([0, 255, 0]);
   });
 });

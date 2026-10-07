@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import type { Db, Executor, Tx } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
@@ -60,6 +60,7 @@ export async function createGame(db: Db, creatorId: string, input: unknown, now 
         maxWords: p.type === "text" ? p.maxWords : null,
         excerptMode: p.type === "text" ? p.excerptMode : null,
         excerptWords: p.type === "text" && p.excerptMode === "words" ? p.excerptWords! : null,
+        turnLabels: p.turnLabels?.some((l) => l !== "") ? p.turnLabels : null,
         createdAt: now,
       })
       .returning({ id: game.id });
@@ -122,37 +123,124 @@ export async function joinGame(
   });
 }
 
-export async function listOpenGames(db: Db) {
-  return db
+export const PAGE_SIZE = 12;
+
+export type Page<T> = { items: T[]; total: number; page: number; pageSize: number; pageCount: number };
+
+/** Numéro de page demandé (paramètre d'URL) : entier ≥ 1, 1 par défaut. */
+export function parsePage(v: string | string[] | undefined): number {
+  const n = Number(Array.isArray(v) ? v[0] : v);
+  return Number.isInteger(n) && n >= 1 ? n : 1;
+}
+
+function pageWindow(total: number, requested: number) {
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(Math.max(1, requested), pageCount);
+  return { page, pageCount, offset: (page - 1) * PAGE_SIZE };
+}
+
+const participantCountSql = sql<number>`(select count(*)::int from participant pp where pp.game_id = ${game.id})`;
+
+const listColumns = {
+  id: game.id,
+  name: game.name,
+  type: game.type,
+  status: game.status,
+  turns: game.turns,
+  turnDurationSeconds: game.turnDurationSeconds,
+  language: game.language,
+  createdAt: game.createdAt,
+  completedAt: game.completedAt,
+  creatorName: user.name,
+  participantCount: participantCountSql,
+};
+
+/** Parties ouvertes publiques, les plus anciennes d'abord. */
+export async function listOpenGames(db: Db, p: { page?: number } = {}): Promise<Page<{ id: string; name: string; type: "drawing" | "text"; turns: number; turnDurationSeconds: number; language: string | null; creatorName: string; participantCount: number; createdAt: Date }>> {
+  const where = and(eq(game.status, "open"), eq(game.visibility, "public"));
+  const [{ n: total }] = await db.select({ n: count() }).from(game).where(where);
+  const w = pageWindow(total, p.page ?? 1);
+  const items = await db
     .select({
-      id: game.id,
-      name: game.name,
-      type: game.type,
-      turns: game.turns,
-      turnDurationSeconds: game.turnDurationSeconds,
-      language: game.language,
-      participantCount: count(participant.id),
+      id: listColumns.id,
+      name: listColumns.name,
+      type: listColumns.type,
+      turns: listColumns.turns,
+      turnDurationSeconds: listColumns.turnDurationSeconds,
+      language: listColumns.language,
+      creatorName: listColumns.creatorName,
+      participantCount: listColumns.participantCount,
+      createdAt: listColumns.createdAt,
     })
     .from(game)
-    .leftJoin(participant, eq(participant.gameId, game.id))
-    .where(and(eq(game.status, "open"), eq(game.visibility, "public")))
-    .groupBy(game.id)
-    .orderBy(desc(game.createdAt));
+    .innerJoin(user, eq(user.id, game.creatorId))
+    .where(where)
+    .orderBy(asc(game.createdAt))
+    .limit(PAGE_SIZE)
+    .offset(w.offset);
+  return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount };
 }
 
-export async function listMyGames(db: Db, userId: string) {
-  const rows = await db
-    .select({ id: game.id, name: game.name, type: game.type, status: game.status, turns: game.turns, activeTurnId: turn.id })
+/** Parties de l'utilisateur en attente de joueurs ou en cours ; celles où c'est son tour d'abord, puis les plus anciennes. */
+export async function listMyCurrentGames(db: Db, userId: string, p: { page?: number } = {}) {
+  const where = and(eq(participant.userId, userId), inArray(game.status, ["open", "in_progress"]));
+  const [{ n: total }] = await db
+    .select({ n: count() })
     .from(participant)
     .innerJoin(game, eq(participant.gameId, game.id))
+    .where(where);
+  const w = pageWindow(total, p.page ?? 1);
+  const rows = await db
+    .select({ ...listColumns, activeTurnId: turn.id })
+    .from(participant)
+    .innerJoin(game, eq(participant.gameId, game.id))
+    .innerJoin(user, eq(user.id, game.creatorId))
     .leftJoin(turn, and(eq(turn.gameId, game.id), eq(turn.status, "active"), eq(turn.assignedUserId, userId)))
-    .where(eq(participant.userId, userId))
-    .orderBy(desc(game.createdAt));
-  return rows.map(({ activeTurnId, ...r }) => ({ ...r, isMyTurn: activeTurnId !== null }));
+    .where(where)
+    .orderBy(desc(sql`(${turn.id} is not null)`), asc(game.createdAt))
+    .limit(PAGE_SIZE)
+    .offset(w.offset);
+  const items = rows.map(({ activeTurnId, ...r }) => ({ ...r, isMyTurn: activeTurnId !== null }));
+  return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount } satisfies Page<(typeof items)[number]>;
 }
 
-export async function listOpenCalls(db: Db) {
-  return db
+/** Identifiants de toutes les parties en cours (ou en attente de joueurs) de l'utilisateur. */
+export async function listMyCurrentGameIds(db: Db, userId: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ id: game.id })
+    .from(participant)
+    .innerJoin(game, eq(participant.gameId, game.id))
+    .where(and(eq(participant.userId, userId), inArray(game.status, ["open", "in_progress"])));
+  return new Set(rows.map((r) => r.id));
+}
+
+/** Parties terminées ou annulées de l'utilisateur, les plus récentes d'abord. */
+export async function listMyPastGames(db: Db, userId: string, p: { page?: number } = {}) {
+  const where = and(eq(participant.userId, userId), inArray(game.status, ["completed", "cancelled"]));
+  const [{ n: total }] = await db
+    .select({ n: count() })
+    .from(participant)
+    .innerJoin(game, eq(participant.gameId, game.id))
+    .where(where);
+  const w = pageWindow(total, p.page ?? 1);
+  const items = await db
+    .select(listColumns)
+    .from(participant)
+    .innerJoin(game, eq(participant.gameId, game.id))
+    .innerJoin(user, eq(user.id, game.creatorId))
+    .where(where)
+    .orderBy(desc(sql`coalesce(${game.completedAt}, ${game.createdAt})`))
+    .limit(PAGE_SIZE)
+    .offset(w.offset);
+  return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount } satisfies Page<(typeof items)[number]>;
+}
+
+/** Parties publiques en cours dont le dernier tour attend un volontaire, les plus anciennes d'abord. */
+export async function listOpenCalls(db: Db, p: { page?: number } = {}) {
+  const where = and(eq(turn.status, "open_call"), eq(game.status, "in_progress"), eq(game.visibility, "public"));
+  const [{ n: total }] = await db.select({ n: count() }).from(turn).innerJoin(game, eq(turn.gameId, game.id)).where(where);
+  const w = pageWindow(total, p.page ?? 1);
+  const items = await db
     .select({
       id: game.id,
       name: game.name,
@@ -160,12 +248,18 @@ export async function listOpenCalls(db: Db) {
       turns: game.turns,
       turnDurationSeconds: game.turnDurationSeconds,
       language: game.language,
+      creatorName: user.name,
       rank: turn.rank,
+      createdAt: game.createdAt,
     })
     .from(turn)
     .innerJoin(game, eq(turn.gameId, game.id))
-    .where(and(eq(turn.status, "open_call"), eq(game.status, "in_progress"), eq(game.visibility, "public")))
-    .orderBy(desc(game.createdAt));
+    .innerJoin(user, eq(user.id, game.creatorId))
+    .where(where)
+    .orderBy(asc(game.createdAt))
+    .limit(PAGE_SIZE)
+    .offset(w.offset);
+  return { items, total, page: w.page, pageSize: PAGE_SIZE, pageCount: w.pageCount } satisfies Page<(typeof items)[number]>;
 }
 
 /** Un volontaire (non participant) reprend le tour laissé vacant. */
@@ -206,6 +300,7 @@ export async function claimOpenCall(
 
 export type GameView = {
   game: PublicGame;
+  creatorName: string;
   participantCount: number;
   isParticipant: boolean;
   isCreator: boolean;
@@ -226,8 +321,10 @@ export async function getGameView(db: Db, p: { gameId: string; userId: string; t
     .select({ id: turn.id })
     .from(turn)
     .where(and(eq(turn.gameId, g.id), eq(turn.status, "open_call")));
+  const [creator] = await db.select({ name: user.name }).from(user).where(eq(user.id, g.creatorId));
   return {
     game: publicGame(g),
+    creatorName: creator?.name ?? "",
     participantCount: ps.length,
     isParticipant,
     isCreator,

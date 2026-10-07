@@ -9,7 +9,8 @@ import { Card } from "@/components/ui/Card";
 import { TurnTitle } from "@/components/TurnTitle";
 import { getDb } from "@/lib/db/client";
 import { DomainError } from "@/lib/errors";
-import { formatDuration, statusLabel } from "@/lib/format";
+import { GameMeta } from "@/components/GameMeta";
+import { statusLabel, turnLabelOf } from "@/lib/format";
 import { getGameView } from "@/lib/services/games";
 import { getMyTurn } from "@/lib/services/turns";
 import { getSession } from "@/lib/session";
@@ -40,15 +41,20 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   }
   const { game } = view;
 
-  const typeText = game.type === "drawing" ? "Dessin" : `Texte (${game.language})`;
+  // Une partie terminée mène directement à son œuvre.
+  if (game.status === "completed" && view.isParticipant) redirect(`/games/${game.id}/final`);
+  const labels = (game.turnLabels ?? []).filter((l) => l.trim() !== "");
   return (
     <main>
       {game.status !== "completed" && game.status !== "cancelled" && <AutoRefresh />}
       <Banner title={game.name} />
       <p className="game-meta">
         <span className={`pill status status-${game.status}`}>{statusLabel(game.status)}</span>
-        <span className="meta">{typeText} · {game.turns} tours de {formatDuration(game.turnDurationSeconds)}</span>
       </p>
+      <GameMeta type={game.type} turns={game.turns} turnDurationSeconds={game.turnDurationSeconds} language={game.language} creatorName={view.creatorName} />
+      {labels.length > 0 && (
+        <p className="meta game-labels">Intitulés des tours : {(game.turnLabels ?? []).map((l, i) => l.trim() || `Tour ${i + 1}`).join(" → ")}</p>
+      )}
 
       {game.status === "open" && (
         <Card>
@@ -131,6 +137,7 @@ async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: 
       turn={{
         rank: turn.rank,
         total: turn.total,
+        label: turnLabelOf(turn.game.turnLabels, turn.rank),
         deadline: turn.deadline.toISOString(),
         serverNow: new Date().toISOString(),
         stripUrl: turn.stripUrl,

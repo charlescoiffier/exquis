@@ -8,10 +8,13 @@ import { DrawingEditor } from "./DrawingEditor";
 import { EDITOR_ROOT_ID } from "./ExpiryDialog";
 import { TextTurn } from "./TextTurn";
 import { Banner } from "./ui/Banner";
+import { turnTitle } from "@/lib/format";
 
 export type SerializedTurn = {
   rank: number;
   total: number;
+  /** Intitulé facultatif de ce tour (« Corps »), sinon chaîne vide. */
+  label?: string;
   deadline: string;
   /** Heure du serveur au rendu : sert à corriger le décalage d'horloge du client. */
   serverNow?: string;
@@ -90,7 +93,7 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
   }, [ready, lost, deadlineMs, gameId, turnKey, getNow, lose]);
 
   const heading = turn.game.type === "text" ? "À vous d'écrire" : "À vous de dessiner";
-  const rankLine = <p className="turn-rank">Tour {turn.rank} sur {turn.total}</p>;
+  const rankLine = <p className="turn-rank">{turnTitle(turn.rank, turn.total, turn.label)}</p>;
   if (!ready) {
     return (
       <section className="turn-panel">

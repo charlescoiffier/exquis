@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Direction, Joint } from "@/lib/images/geometry";
 import { RAIL_COLORS, exportLayout, exportScale } from "@/lib/images/export-layout";
 
-type Segment = { rank: number; author: string; start: number; end: number };
+type Segment = { rank: number; author: string; label?: string; start: number; end: number };
 type Props = { gameId: string; direction: Direction; width: number; height: number; joints: Joint[]; segments: Segment[] };
 
 const EXPORT_FONT = 40;
@@ -50,9 +50,9 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
         ctx.fillRect(0, 0, l.canvasWidth, l.canvasHeight);
       }
       ctx.drawImage(img, l.imageX, l.imageY);
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "#e11d48";
-      ctx.setLineDash([14, 10]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(76, 76, 76, 0.5)";
+      ctx.setLineDash([8, 8]);
       for (const j of l.joints) {
         ctx.beginPath();
         ctx.moveTo(j.x1, j.y1);
@@ -126,7 +126,7 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
               }
             />
             <div
-              title={s.author}
+              title={s.label ? `${s.author} · ${s.label}` : s.author}
               data-testid="author-label"
               style={
                 down
@@ -134,7 +134,7 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
                   : { ...labelBase, top: 2, left: pc(s.start), width: pc(s.end - s.start) }
               }
             >
-              {s.author}
+              {s.label ? `${s.author} · ${s.label}` : s.author}
             </div>
           </div>
         );
@@ -160,9 +160,10 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
               x2={down ? width : p}
               y1={down ? p : 0}
               y2={down ? p : height}
-              stroke="#e11d48"
-              strokeWidth={3}
-              strokeDasharray="14 10"
+              stroke="#4C4C4C"
+              strokeOpacity={0.45}
+              strokeWidth={1}
+              strokeDasharray="6 6"
               vectorEffect="non-scaling-stroke"
             />
           ))}

@@ -2,14 +2,15 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-
-const DURATIONS: [string, number][] = [["30 secondes", 30], ["5 minutes", 300], ["1 heure", 3600], ["1 jour", 86400], ["1 semaine", 604800]];
+import { DURATION_OPTIONS } from "@/lib/format";
 
 export function NewGameForm() {
   const router = useRouter();
   const [type, setType] = useState<"drawing" | "text">("text");
   const [excerptMode, setExcerptMode] = useState<"paragraph" | "words">("paragraph");
   const [error, setError] = useState<string | null>(null);
+  const [turns, setTurns] = useState(4);
+  const [labels, setLabels] = useState<string[]>(["", "", "", ""]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -17,7 +18,8 @@ export function NewGameForm() {
     const base = {
       type,
       name: String(f.get("name")),
-      turns: Number(f.get("turns")),
+      turns,
+      ...(labels.slice(0, turns).some((l) => l.trim() !== "") ? { turnLabels: Array.from({ length: turns }, (_, i) => (labels[i] ?? "").trim()) } : {}),
       turnDurationSeconds: Number(f.get("duration")),
       visibility: String(f.get("visibility")),
     };
@@ -61,11 +63,25 @@ export function NewGameForm() {
       <fieldset className="form-section">
         <legend>Tours et durée</legend>
         <label htmlFor="turns">Nombre de tours</label>
-        <input id="turns" name="turns" type="number" min={2} max={8} defaultValue={4} required aria-describedby="turns-hint" />
-        <p id="turns-hint" className="hint">Entre 2 et 8. Un joueur par tour.</p>
+        <input
+          id="turns"
+          name="turns"
+          type="number"
+          min={2}
+          max={8}
+          value={turns}
+          onChange={(e) => {
+            const n = Math.min(8, Math.max(2, Math.floor(Number(e.target.value)) || 2));
+            setTurns(n);
+            setLabels((prev) => Array.from({ length: n }, (_, i) => prev[i] ?? ""));
+          }}
+          required
+          aria-describedby="turns-hint"
+        />
+        <p id="turns-hint" className="hint">Entre 2 et 8. {type === "text" ? `${turns} écrivains, un par tour.` : `${turns} dessinateurs, un par tour.`}</p>
         <label htmlFor="duration">Durée d&apos;un tour</label>
         <select id="duration" name="duration" defaultValue={86400} aria-describedby="duration-hint">
-          {DURATIONS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
+          {DURATION_OPTIONS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
         </select>
         <p id="duration-hint" className="hint">Temps accordé à chaque joueur pour jouer son tour.</p>
         <label htmlFor="visibility">Visibilité</label>
@@ -74,6 +90,23 @@ export function NewGameForm() {
           <option value="invite">Sur invitation (lien)</option>
         </select>
         <p id="visibility-hint" className="hint">Une partie sur invitation n&apos;apparaît pas dans la liste : partagez son lien.</p>
+      </fieldset>
+
+      <fieldset className="form-section">
+        <legend>Intitulés des tours (facultatif)</legend>
+        <p className="hint">Par exemple pour un dessin : tête, corps, jambes, pieds. Chaque joueur voit l&apos;intitulé de son tour.</p>
+        {Array.from({ length: turns }, (_, i) => (
+          <div key={i}>
+            <label htmlFor={`turn-label-${i}`}>Tour {i + 1}</label>
+            <input
+              id={`turn-label-${i}`}
+              value={labels[i] ?? ""}
+              maxLength={40}
+              placeholder="Sans intitulé"
+              onChange={(e) => setLabels((prev) => prev.map((l, j) => (j === i ? e.target.value : l)))}
+            />
+          </div>
+        ))}
       </fieldset>
 
       {type === "drawing" ? (
@@ -90,8 +123,11 @@ export function NewGameForm() {
         <fieldset className="form-section">
           <legend>Options du texte</legend>
           <label htmlFor="language">Langue</label>
-          <input id="language" name="language" defaultValue="fr" required aria-describedby="language-hint" />
-          <p id="language-hint" className="hint">Code de langue du texte, par exemple fr ou en.</p>
+          <select id="language" name="language" defaultValue="fr" aria-describedby="language-hint">
+            <option value="fr">Français</option>
+            <option value="en">Anglais</option>
+          </select>
+          <p id="language-hint" className="hint">Langue dans laquelle les joueurs écrivent.</p>
           <label htmlFor="minWords">Mots minimum</label>
           <input id="minWords" name="minWords" type="number" min={1} defaultValue={20} required aria-describedby="words-hint" />
           <label htmlFor="maxWords">Mots maximum</label>

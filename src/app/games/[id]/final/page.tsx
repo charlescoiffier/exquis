@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { FinalViewer } from "@/components/FinalViewer";
 import { getDb } from "@/lib/db/client";
 import { DomainError } from "@/lib/errors";
+import { formatDate, formatDuration, languageLabel, participantsLabel } from "@/lib/format";
 import { getFinal } from "@/lib/services/final-work";
 import { getSession } from "@/lib/session";
 
@@ -46,9 +47,19 @@ export default async function FinalPage({ params }: { params: Promise<{ id: stri
       ) : (
         <FinalText contributions={view.contributions} />
       )}
-      {view.type === "drawing" && (
-        <p className="muted final-authors">Auteurs : {view.contributions.map((c) => `${c.rank}. ${c.author}`).join(" · ")}</p>
-      )}
+      <section aria-labelledby="infos" className="final-info">
+        <h2 id="infos">À propos de cette partie</h2>
+        <Card>
+          <dl className="info-list">
+            <div><dt>Créée par</dt><dd>{view.info.creatorName}</dd></div>
+            <div><dt>Commencée le</dt><dd>{formatDate(view.info.createdAt)}</dd></div>
+            {view.info.completedAt && <div><dt>Terminée le</dt><dd>{formatDate(view.info.completedAt)}</dd></div>}
+            <div><dt>{view.type === "drawing" ? "Dessinateurs" : "Écrivains"}</dt><dd>{view.info.participants.join(", ")}</dd></div>
+            <div><dt>Tours</dt><dd>{participantsLabel(view.type, view.info.turns)} · {formatDuration(view.info.turnDurationSeconds)} par tour</dd></div>
+            {view.type === "text" && view.info.language && <div><dt>Langue</dt><dd>{languageLabel(view.info.language)}</dd></div>}
+          </dl>
+        </Card>
+      </section>
     </main>
   );
 }

@@ -24,7 +24,7 @@ export type ExportInput = {
   width: number;
   height: number;
   joints: Joint[];
-  segments: { rank: number; author: string; start: number; end: number }[];
+  segments: { rank: number; author: string; label?: string; start: number; end: number }[];
   showGuides: boolean;
 };
 
@@ -61,7 +61,7 @@ export function exportLayout(i: ExportInput): ExportLayout {
     const b = s.end - LINE_INSET;
     return {
       rank: s.rank,
-      text: truncateLabel(s.author, s.end - s.start),
+      text: truncateLabel(s.label ? `${s.author} · ${s.label}` : s.author, s.end - s.start),
       color: RAIL_COLORS[k % RAIL_COLORS.length],
       line: down ? { x1: lineAt, x2: lineAt, y1: a, y2: b } : { x1: a, x2: b, y1: lineAt, y2: lineAt },
       label: down ? { x: lineAt - LABEL_GAP, y: mid } : { x: mid, y: lineAt - LABEL_GAP },

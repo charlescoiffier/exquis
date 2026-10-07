@@ -159,3 +159,16 @@ Ces révisions remplacent les règles correspondantes ci-dessus.
 | Nom de partie obligatoire | Le titre est facultatif : un nom est généré lorsqu'il est laissé vide. |
 | Mise à jour de la page de partie à la demande | Rafraîchissement automatique toutes les 5 s (en pause onglet masqué, reprise au focus et au retour du réseau). |
 | Habillage visuel | Design « Manifeste », thème clair uniquement (voir docs/design/manifeste.md). |
+
+### Compléments du 2026-10-07 (ajustements d'interface)
+
+| Règle d'origine | Règle révisée |
+|---|---|
+| Canvas de 1200×1600 (vertical) ou 1600×1200 (horizontal) | Zone carrée de 1600×1600 pour les deux sens ; la bande de transition reste de 160 px. |
+| Bande héritée repeinte librement | Le joueur peut dessiner par-dessus la bande du prédécesseur mais ne peut pas l'effacer : la gomme n'agit que sur ses propres traits et le pot de peinture ne remplit jamais la bande. |
+| Tours sans nom | Intitulés de tours facultatifs à la création (tête, corps, jambes…), affichés sur l'éditeur, la page de partie et l'œuvre. |
+| Durées proposées : 30 s, 5 min, 1 h, 1 jour, 1 semaine | 1 min, 5 min, 15 min, 1 h, 1 jour, 1 semaine (le serveur accepte toujours de 30 s à 7 jours). |
+| Langue saisie en code (fr, en) | Langue choisie dans une liste : Français ou Anglais. |
+| Listes de parties sur l'accueil et boîte « Avis » | L'accueil montre « Mes parties en cours », les appels à participation et les parties à rejoindre (12 par page, les plus anciennes d'abord) ; les parties terminées ou annulées sont dans « Mon compte » (12 par page, les plus récentes d'abord) et un clic mène directement à l'œuvre. Chaque liste indique le créateur, le nombre de joueurs (dessinateurs ou écrivains) et la langue. |
+| Boîte de réception « Avis » | Renommée « Notifications » ; la déconnexion, le nom affiché, la préférence d'email et la génération d'invitations sont dans la page « Mon compte ». |
+| Œuvre finale | Rappel de la partie (créateur, dates, participants, nombre de tours, durée, langue) ; présentation des auteurs unifiée entre dessin et texte (trait de couleur fin et nom) ; jointures du dessin plus discrètes ; plus de liste « Auteurs » sous l'œuvre. |

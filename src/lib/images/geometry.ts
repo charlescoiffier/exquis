@@ -3,7 +3,7 @@ export type Rect = { left: number; top: number; width: number; height: number };
 export type Joint = { start: number; end: number };
 
 export const LONG_SIDE = 1600;
-export const SHORT_SIDE = 1200;
+export const SHORT_SIDE = 1600;
 export const BAND_SIZE = 160;
 
 export function canvasSize(d: Direction): { width: number; height: number } {

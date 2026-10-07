@@ -22,7 +22,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Session et pastille « Avis » : aucun échec de lecture (même synchrone) ne doit empêcher d'afficher la page.
+  // Session et pastille des notifications : aucun échec de lecture (même synchrone) ne doit empêcher d'afficher la page.
   let session: Awaited<ReturnType<typeof getSession>> = null;
   let unread = 0;
   try {
@@ -36,7 +36,7 @@ export default async function RootLayout({
       <body className={session ? "has-tabbar" : undefined}>
         <header className="site-header">
           <Link href="/" className="brand">Cadavre exquis</Link>
-          {session && <TabBar unread={unread} userName={session.user.name} />}
+          {session && <TabBar unread={unread} />}
         </header>
         {children}
       </body>

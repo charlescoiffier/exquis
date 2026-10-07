@@ -7,7 +7,7 @@ import { clearExpired } from "@/lib/expired-notice";
 import { ExpiryDialog } from "./ExpiryDialog";
 import type { Expiry, LostKind, SubmitState } from "./TurnEditor";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
-import { canvasSize, guideLines, guidesSvg, inheritedRect, type Direction } from "@/lib/images/geometry";
+import { canvasSize, guideLines, guidesSvg, inheritedRect, ownRect, type Direction } from "@/lib/images/geometry";
 
 type Props = {
   gameId: string;
@@ -61,6 +61,9 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   const [color, setColor] = useState("#1f1b16");
   const [size, setSize] = useState(8);
   const [opacity, setOpacity] = useState(1);
+  // Anneau de taille du pinceau sous le curseur (coordonnées en px CSS dans le cadre du canvas).
+  const [ring, setRing] = useState<{ x: number; y: number } | null>(null);
+  const [scale, setScale] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // URL figée pour ce tour : le serveur la re-signe à chaque rendu, un rafraîchissement ne doit pas relancer le téléchargement.
@@ -90,75 +93,116 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     };
   }, [rank, frozenStripUrl]);
 
-  // Cache bitmap des opérations validées (hors canvas visible) : reconstruit seulement quand `ops` change.
-  const cacheRef = useRef<HTMLCanvasElement | null>(null);
+  // Calque des traits (transparent) : la bande héritée reste en dessous, on ne peut donc pas l'effacer.
+  // Le calque est reconstruit seulement quand `ops` change (annuler, rétablir, brouillon) ; un nouveau tracé est ajouté sans tout rejouer.
+  const userRef = useRef<HTMLCanvasElement | null>(null);
+  const scratchRef = useRef<HTMLCanvasElement | null>(null);
+  const flatRef = useRef<HTMLCanvasElement | null>(null);
   const cachedOps = useRef<Op[]>([]);
-  const cacheStrip = useRef(false);
+  const cacheReady = useRef(false);
+  // Le remplissage ne touche jamais la bande héritée (tours 2 et suivants).
+  const fillBounds = useMemo(() => (rank === 1 ? { left: 0, top: 0, width, height } : ownRect(direction)), [rank, direction, width, height]);
+
+  const makeLayer = useCallback(() => {
+    const c = document.createElement("canvas");
+    c.width = width;
+    c.height = height;
+    return c;
+  }, [width, height]);
 
   const applyOp = useCallback(
     (ctx: CanvasRenderingContext2D, op: Op) => {
       if (op.kind === "stroke") {
-        const outline = getStroke(op.points, { size: op.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
+        // La gomme est un peu plus large que le pinceau de même taille : elle emporte aussi la frange adoucie des traits.
+        const outline = getStroke(op.points, { size: op.tool === "eraser" ? op.size + 3 : op.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
         ctx.save();
         ctx.globalAlpha = op.opacity;
-        ctx.fillStyle = op.tool === "eraser" ? "#ffffff" : op.color;
+        if (op.tool === "eraser") {
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.fillStyle = "#000000";
+        } else {
+          ctx.fillStyle = op.color;
+        }
         ctx.fill(pathFromStroke(outline));
         ctx.restore();
-      } else {
-        // Le remplissage s'étend sur toute la surface, bande héritée comprise.
-        const img = ctx.getImageData(0, 0, width, height);
-        floodFill(img, op.x, op.y, hexToRgba(op.color), 16);
-        ctx.putImageData(img, 0, 0);
+        return;
       }
+      // Remplissage : la zone est déterminée sur « fond blanc + calque des traits », limitée à la zone propre,
+      // puis seuls les pixels remplis sont ajoutés au calque des traits.
+      if (!flatRef.current) flatRef.current = makeLayer();
+      const fctx = flatRef.current.getContext("2d", { willReadFrequently: true })!;
+      fctx.globalCompositeOperation = "source-over";
+      fctx.globalAlpha = 1;
+      fctx.fillStyle = "#ffffff";
+      fctx.fillRect(0, 0, width, height);
+      fctx.drawImage(ctx.canvas, 0, 0);
+      const before = fctx.getImageData(0, 0, width, height);
+      const after = new ImageData(new Uint8ClampedArray(before.data), width, height);
+      const rgba = hexToRgba(op.color);
+      floodFill(after, op.x, op.y, rgba, 16, fillBounds);
+      const overlay = new ImageData(width, height);
+      for (let i = 0; i < after.data.length; i += 4) {
+        if (after.data[i] !== before.data[i] || after.data[i + 1] !== before.data[i + 1] || after.data[i + 2] !== before.data[i + 2]) {
+          overlay.data[i] = rgba[0];
+          overlay.data[i + 1] = rgba[1];
+          overlay.data[i + 2] = rgba[2];
+          overlay.data[i + 3] = 255;
+        }
+      }
+      fctx.clearRect(0, 0, width, height);
+      fctx.putImageData(overlay, 0, 0);
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.drawImage(flatRef.current, 0, 0);
+      ctx.restore();
     },
-    [width, height],
+    [width, height, fillBounds, makeLayer],
   );
 
   const paint = useCallback(
     (committed: Op[], live: Op | null) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      if (!cacheRef.current) {
-        cacheRef.current = document.createElement("canvas");
-        cacheRef.current.width = width;
-        cacheRef.current.height = height;
+      if (!userRef.current) {
+        userRef.current = makeLayer();
+        scratchRef.current = makeLayer();
       }
-      const cache = cacheRef.current;
-      const cctx = cache.getContext("2d", { willReadFrequently: true })!;
+      const user = userRef.current;
+      const uctx = user.getContext("2d", { willReadFrequently: true })!;
       const prev = cachedOps.current;
       const incremental =
-        cacheStrip.current &&
+        cacheReady.current &&
         committed.length === prev.length + 1 &&
         (prev.length === 0 || committed[prev.length - 1] === prev[prev.length - 1]);
       if (incremental) {
-        applyOp(cctx, committed[committed.length - 1]);
-      } else if (!(cacheStrip.current && committed === prev)) {
-        cctx.save();
-        cctx.globalAlpha = 1;
-        cctx.fillStyle = "#ffffff";
-        cctx.fillRect(0, 0, width, height);
-        if (stripRef.current) {
-          const r = inheritedRect(direction);
-          cctx.drawImage(stripRef.current, r.left, r.top);
-        }
-        cctx.restore();
-        for (const op of committed) applyOp(cctx, op);
+        applyOp(uctx, committed[committed.length - 1]);
+      } else if (!(cacheReady.current && committed === prev)) {
+        uctx.clearRect(0, 0, width, height);
+        for (const op of committed) applyOp(uctx, op);
       }
       cachedOps.current = committed;
-      cacheStrip.current = true;
+      cacheReady.current = true;
+      let layer = user;
+      if (live && live.kind === "stroke") {
+        const scratch = scratchRef.current!;
+        const sctx = scratch.getContext("2d")!;
+        sctx.clearRect(0, 0, width, height);
+        sctx.drawImage(user, 0, 0);
+        applyOp(sctx, live);
+        layer = scratch;
+      }
       const ctx = canvas.getContext("2d")!;
       ctx.globalAlpha = 1;
-      ctx.drawImage(cache, 0, 0);
-      if (live && live.kind === "stroke") {
-        const outline = getStroke(live.points, { size: live.size, thinning: 0.5, smoothing: 0.5, streamline: 0.5 });
-        ctx.save();
-        ctx.globalAlpha = live.opacity;
-        ctx.fillStyle = live.tool === "eraser" ? "#ffffff" : live.color;
-        ctx.fill(pathFromStroke(outline));
-        ctx.restore();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      if (stripRef.current) {
+        const r = inheritedRect(direction);
+        ctx.drawImage(stripRef.current, r.left, r.top);
       }
+      ctx.drawImage(layer, 0, 0);
     },
-    [width, height, direction, applyOp],
+    [width, height, direction, applyOp, makeLayer],
   );
 
   useEffect(() => {
@@ -187,7 +231,17 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     currentRef.current = op;
     setCurrent(op);
   }
+  function updateRing(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (e.pointerType === "touch" || tool === "fill") {
+      setRing(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setScale(rect.width / width);
+    setRing({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }
   function onMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    updateRing(e);
     const cur = currentRef.current;
     if (!cur || cur.kind !== "stroke" || !e.isPrimary) return;
     const [x, y, p] = toCanvas(e);
@@ -263,7 +317,6 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         </div>
         <div role="group" aria-label="Couleur" className="toolbar-group">
           <label className="color-field">
-            <span aria-hidden="true" data-testid="active-color" className="color-current" style={{ background: color }} />
             Couleur
             <input aria-label="Couleur libre" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="color-input" />
           </label>
@@ -285,9 +338,21 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
             })}
           </div>
         </div>
-        <div className="toolbar-group">
-          <input aria-label="Taille" type="range" min={1} max={60} value={size} onChange={(e) => setSize(Number(e.target.value))} className="slider" />
-          <input aria-label="Opacité" type="range" min={0.1} max={1} step={0.1} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} className="slider slider-opacity" />
+        <div className="toolbar-group toolbar-sliders">
+          <div className="slider-field">
+            <div className="slider-head">
+              <label htmlFor="brush-size" className="slider-label">Taille du pinceau</label>
+              <output htmlFor="brush-size">{size} px</output>
+            </div>
+            <input id="brush-size" type="range" min={1} max={60} value={size} onChange={(e) => setSize(Number(e.target.value))} className="slider" />
+          </div>
+          <div className="slider-field">
+            <div className="slider-head">
+              <label htmlFor="brush-opacity" className="slider-label">Opacité du trait</label>
+              <output htmlFor="brush-opacity">{Math.round(opacity * 100)} %</output>
+            </div>
+            <input id="brush-opacity" type="range" min={0.1} max={1} step={0.1} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} className="slider" />
+          </div>
         </div>
       </div>
       {/* Le cadre est sur l'enveloppe : une bordure sur le canvas fausserait la conversion des coordonnées du pointeur. */}
@@ -300,9 +365,13 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
           onPointerMove={onMove}
           onPointerUp={endStroke}
           onPointerCancel={endStroke}
-          onPointerLeave={endStroke}
+          onPointerLeave={() => {
+            setRing(null);
+            endStroke();
+          }}
           className="drawing-canvas"
         />
+        {ring && <div className="brush-ring" aria-hidden="true" style={{ left: ring.x, top: ring.y, width: Math.max(4, size * scale), height: Math.max(4, size * scale) }} />}
         {/* Calque de guides : visuel uniquement, jamais exporté */}
         <div className="guides-layer" dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
       </div>

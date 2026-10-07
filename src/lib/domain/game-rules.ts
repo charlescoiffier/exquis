@@ -11,6 +11,7 @@ const base = z.object({
   turns: z.number().int().min(MIN_TURNS).max(MAX_TURNS),
   turnDurationSeconds: z.number().int().min(MIN_DURATION).max(MAX_DURATION),
   visibility: z.enum(["public", "invite"]),
+  turnLabels: z.array(z.string().trim().max(40)).max(MAX_TURNS).optional(),
 });
 
 const drawing = base.extend({
@@ -30,6 +31,9 @@ const text = base.extend({
 export const gameParamsSchema = z
   .discriminatedUnion("type", [drawing, text])
   .superRefine((p, ctx) => {
+    if (p.turnLabels && p.turnLabels.length !== p.turns) {
+      ctx.addIssue({ code: "custom", message: "un intitulé (éventuellement vide) par tour", path: ["turnLabels"] });
+    }
     if (p.type !== "text") return;
     if (p.minWords > p.maxWords) {
       ctx.addIssue({ code: "custom", message: "minWords doit être ≤ maxWords", path: ["minWords"] });
