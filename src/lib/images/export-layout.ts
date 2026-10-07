@@ -77,3 +77,15 @@ export function exportLayout(i: ExportInput): ExportLayout {
     rails,
   };
 }
+
+/** Surface maximale d'un canvas pour l'export (limite iOS Safari ≈ 16,77 M px). */
+export const MAX_EXPORT_AREA = 16_000_000;
+
+/**
+ * Facteur d'échelle uniforme (≤ 1) à appliquer à l'export pour que largeur × hauteur reste sous `maxArea`.
+ * Les proportions, les traits et les textes sont réduits ensemble ; 1 si la surface tient déjà.
+ */
+export function exportScale(canvasWidth: number, canvasHeight: number, maxArea = MAX_EXPORT_AREA): number {
+  const area = canvasWidth * canvasHeight;
+  return area <= maxArea ? 1 : Math.sqrt(maxArea / area);
+}

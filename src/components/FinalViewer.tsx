@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Direction, Joint } from "@/lib/images/geometry";
-import { LABEL_FONT_SIZE, exportLayout } from "@/lib/images/export-layout";
+import { RAIL_COLORS, exportLayout, exportScale } from "@/lib/images/export-layout";
 
 type Segment = { rank: number; author: string; start: number; end: number };
 type Props = { gameId: string; direction: Direction; width: number; height: number; joints: Joint[]; segments: Segment[] };
 
-const FONT = `${LABEL_FONT_SIZE}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+const EXPORT_FONT = 40;
+const FONT = `${EXPORT_FONT}px system-ui, -apple-system, "Segoe UI", sans-serif`;
 
 export function FinalViewer({ gameId, direction, width, height, joints, segments }: Props) {
   const [showGuides, setShowGuides] = useState(false);
@@ -37,13 +38,16 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
       });
       const l = layout;
       const canvas = document.createElement("canvas");
-      canvas.width = l.canvasWidth;
-      canvas.height = l.canvasHeight;
+      // Surface plafonnée (limite des canvas sur iOS) : réduction uniforme, traits et textes compris.
+      const scale = exportScale(l.canvasWidth, l.canvasHeight);
+      canvas.width = Math.floor(l.canvasWidth * scale);
+      canvas.height = Math.floor(l.canvasHeight * scale);
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("ctx");
+      ctx.scale(scale, scale);
       if (showGuides) {
         ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, l.canvasWidth, l.canvasHeight);
       }
       ctx.drawImage(img, l.imageX, l.imageY);
       ctx.lineWidth = 3;
@@ -97,7 +101,76 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
     }
   }
 
-  const pct = (v: number, total: number) => `${(v / total) * 100}%`;
+  const down = direction === "down";
+  const axisLen = down ? height : width;
+  const pc = (v: number) => `${(v / axisLen) * 100}%`;
+  // Largeur minimale (horizontal) pour que chaque zone fasse au moins ~72 px à l'écran, plafonnée.
+  const minPx = down ? undefined : Math.min(2400, Math.ceil(Math.max(0, ...segments.map((s) => (72 * axisLen) / Math.max(1, s.end - s.start)))));
+  const colorOf = (k: number) => RAIL_COLORS[k % RAIL_COLORS.length];
+  const labelBase: React.CSSProperties = { position: "absolute", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center", fontSize: 14, lineHeight: "20px", color: "#1f1b16" };
+
+  const rail = showGuides && (
+    <div
+      data-testid="names-rail"
+      style={down ? { position: "relative", width: 34, flex: "none" } : { position: "relative", height: 30 }}
+    >
+      {segments.map((s, k) => {
+        return (
+          <div key={s.rank}>
+            <div
+              aria-hidden="true"
+              style={
+                down
+                  ? { position: "absolute", right: 3, width: 3, top: pc(s.start), height: pc(s.end - s.start), background: colorOf(k) }
+                  : { position: "absolute", bottom: 2, height: 3, left: pc(s.start), width: pc(s.end - s.start), background: colorOf(k) }
+              }
+            />
+            <div
+              title={s.author}
+              data-testid="author-label"
+              style={
+                down
+                  ? { ...labelBase, left: 2, width: 22, top: pc(s.start), height: pc(s.end - s.start), writingMode: "vertical-rl", transform: "rotate(180deg)" }
+                  : { ...labelBase, top: 2, left: pc(s.start), width: pc(s.end - s.start) }
+              }
+            >
+              {s.author}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const image = (
+    <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="Œuvre finale" style={{ width: "100%", height: "auto", display: "block" }} />
+      {showGuides && (
+        <svg
+          aria-hidden="true"
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="none"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+        >
+          {joints.flatMap((j) => [j.start, j.end]).map((p, k) => (
+            <line
+              key={k}
+              x1={down ? 0 : p}
+              x2={down ? width : p}
+              y1={down ? p : 0}
+              y2={down ? p : height}
+              stroke="#e11d48"
+              strokeWidth={3}
+              strokeDasharray="14 10"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </svg>
+      )}
+    </div>
+  );
+
   return (
     <div>
       <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 400 }}>
@@ -108,50 +181,11 @@ export function FinalViewer({ gameId, direction, width, height, joints, segments
         <button type="button" onClick={download} disabled={busy}>Télécharger en PNG</button>
       </p>
       {message && <p role="alert" className="error">{message}</p>}
-      <div
-        data-testid="final-frame"
-        style={{ position: "relative", maxWidth: direction === "down" ? 480 : "100%", aspectRatio: `${layout.canvasWidth} / ${layout.canvasHeight}`, background: "#fff" }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt="Œuvre finale"
-          style={{
-            position: "absolute",
-            left: pct(layout.imageX, layout.canvasWidth),
-            top: pct(layout.imageY, layout.canvasHeight),
-            width: pct(width, layout.canvasWidth),
-            height: pct(height, layout.canvasHeight),
-            display: "block",
-          }}
-        />
-        {showGuides && (
-          <svg
-            aria-hidden="true"
-            viewBox={`0 0 ${layout.canvasWidth} ${layout.canvasHeight}`}
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
-          >
-            {layout.joints.map((j, k) => (
-              <line key={k} x1={j.x1} y1={j.y1} x2={j.x2} y2={j.y2} stroke="#e11d48" strokeWidth={3} strokeDasharray="14 10" />
-            ))}
-            {layout.rails.map((r) => (
-              <g key={r.rank}>
-                <line x1={r.line.x1} y1={r.line.y1} x2={r.line.x2} y2={r.line.y2} stroke={r.color} strokeWidth={6} />
-                <text
-                  x={r.label.x}
-                  y={r.label.y}
-                  textAnchor="middle"
-                  fontSize={LABEL_FONT_SIZE}
-                  fill="#1f1b16"
-                  style={{ fontFamily: "system-ui, sans-serif" }}
-                  transform={r.rotation ? `rotate(${r.rotation} ${r.label.x} ${r.label.y})` : undefined}
-                >
-                  {r.text}
-                </text>
-              </g>
-            ))}
-          </svg>
-        )}
+      <div data-testid="final-scroll" style={{ maxWidth: down ? 480 : "100%", overflowX: "auto" }}>
+        <div data-testid="final-frame" style={{ minWidth: minPx, display: "flex", flexDirection: down ? "row" : "column", alignItems: "stretch" }}>
+          {rail}
+          {image}
+        </div>
       </div>
     </div>
   );
