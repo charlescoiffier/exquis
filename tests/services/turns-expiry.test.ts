@@ -69,7 +69,7 @@ describe("expireTurn", () => {
     expect(g.status).toBe("in_progress");
     const [t] = await db.select().from(turn).where(eq(turn.id, t2.id));
     expect(t).toMatchObject({ status: "open_call", assignedUserId: null, deadline: null });
-    expect(await listOpenCalls(db)).toMatchObject([{ id: gameId, rank: 2, turns: 2 }]);
+    expect((await listOpenCalls(db)).items).toMatchObject([{ id: gameId, rank: 2, turns: 2 }]);
     expect(await getMyTurn(db, new MemoryStorage(), { userId: t2.assignedUserId, gameId })).toBeNull();
     expect(await db.select().from(notification).where(eq(notification.type, "turn_reassigned"))).toHaveLength(1);
     const view = await getGameView(db, { gameId, userId: t2.assignedUserId });
@@ -81,7 +81,7 @@ describe("expireTurn", () => {
     const volunteer = await makeUser(db, "volontaire");
     const { effects } = await claimOpenCall(db, { userId: volunteer, gameId });
     expect(effects.map((e) => e.kind)).toEqual(["schedule-turn", "flush-notifications"]);
-    expect(await listOpenCalls(db)).toEqual([]);
+    expect((await listOpenCalls(db)).items).toEqual([]);
     expect(await db.select().from(participant).where(eq(participant.gameId, gameId))).toHaveLength(3);
     const t = await activeTurn(db, gameId);
     expect(t.assignedUserId).toBe(volunteer);
@@ -120,7 +120,7 @@ describe("expireTurn", () => {
     const [again] = await db.select().from(turn).where(eq(turn.id, t.id));
     expect(again.status).toBe("open_call");
     expect(again.attempts).toBeGreaterThanOrEqual(2);
-    expect(await listOpenCalls(db)).toHaveLength(1);
+    expect((await listOpenCalls(db)).items).toHaveLength(1);
   });
 
   it("est sans effet sur un tour déjà soumis ou avec une échéance périmée", async () => {

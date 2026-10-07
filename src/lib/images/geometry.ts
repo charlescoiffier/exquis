@@ -3,7 +3,7 @@ export type Rect = { left: number; top: number; width: number; height: number };
 export type Joint = { start: number; end: number };
 
 export const LONG_SIDE = 1600;
-export const SHORT_SIDE = 1200;
+export const SHORT_SIDE = 1600;
 export const BAND_SIZE = 160;
 
 export function canvasSize(d: Direction): { width: number; height: number } {
@@ -50,6 +50,21 @@ export function jointsFor(total: number): Joint[] {
     end += LONG_SIDE - BAND_SIZE;
   }
   return joints;
+}
+
+/**
+ * Zone réellement dessinée par chaque tour le long de l'axe de l'image finale (hors bandes de jointure) :
+ * tour 1 de 0 au début de la 1re jointure, tour k de la fin de la jointure k-1 au début de la jointure k,
+ * dernier tour jusqu'à la fin. Pour une partie annulée, `total` est le nombre de contributions.
+ */
+export function authorSegments(total: number): { rank: number; start: number; end: number }[] {
+  const joints = jointsFor(total);
+  const length = finalLength(total);
+  return Array.from({ length: total }, (_, i) => ({
+    rank: i + 1,
+    start: i === 0 ? 0 : joints[i - 1].end,
+    end: i === total - 1 ? length : joints[i].start,
+  }));
 }
 
 export function guidesSvg(d: Direction, width: number, height: number, positions: number[]): string {

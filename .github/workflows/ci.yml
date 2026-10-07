@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Valeurs de test uniquement : aucune donnée réelle, aucun secret.
+  DATABASE_URL: postgres://exquis:exquis@localhost:5432/exquis
+  BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+  STORAGE_SECRET: ci-only-storage-secret-ci-only-secret
+  APP_URL: http://localhost:3000
+  REGISTRATION_MODE: invite
+  STORAGE_DRIVER: local
+
+jobs:
+  verify:
+    name: Typage, lint, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: exquis
+          POSTGRES_PASSWORD: exquis
+          POSTGRES_DB: exquis
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U exquis -d exquis"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Créer la base de tests
+        run: PGPASSWORD=exquis psql -h localhost -U exquis -d exquis -c "CREATE DATABASE exquis_test"
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Tests (vraie base PostgreSQL)
+        run: npm test
+      - name: Build (télécharge les polices Google)
+        run: npm run build
+
+  e2e:
+    name: Test de bout en bout
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: exquis
+          POSTGRES_PASSWORD: exquis
+          POSTGRES_DB: exquis
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U exquis -d exquis"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Appliquer les migrations
+        run: npm run db:migrate
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test de bout en bout (partie de texte à deux joueurs)
+        run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Fusion automatique, sur demande : une pull request portant l'étiquette « automerge » est fusionnée dans sa branche de
+  # base dès que les deux contrôles ci-dessus ont réussi. (La fusion automatique native de GitHub et la protection de
+  # branche ne sont pas disponibles sur un dépôt privé gratuit.)
+  automerge:
+    name: Fusion automatique
+    needs: [verify, e2e]
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'automerge')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fusionner la pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --merge

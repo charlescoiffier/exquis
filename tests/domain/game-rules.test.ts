@@ -20,9 +20,17 @@ describe("parseGameParams", () => {
     ["min > max", { ...text, minWords: 50, maxWords: 10 }],
     ["mode words sans nombre", { ...text, excerptMode: "words" }],
     ["sens inconnu", { ...drawing, direction: "up" }],
-    ["nom vide", { ...drawing, name: "  " }],
+    ["nom trop long", { ...drawing, name: "x".repeat(81) }],
   ])("refuse : %s", (_label, input) => {
     expect(() => parseGameParams(input)).toThrow(DomainError);
+  });
+});
+
+describe("titre facultatif", () => {
+  it.each([["absent", undefined], ["vide", ""], ["espaces", "  "]])("accepte un nom %s", (_l, name) => {
+    const rest: Record<string, unknown> = { ...drawing };
+    delete rest.name;
+    expect(parseGameParams(name === undefined ? rest : { ...rest, name }).name).toBe(name === undefined ? undefined : "");
   });
 });
 

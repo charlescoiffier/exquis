@@ -44,8 +44,8 @@ describe("tour de texte", () => {
     await expect(submitText(db, { userId: t1.assignedUserId, gameId, text })).rejects.toMatchObject({ code: "invalid_text" });
   });
 
-  it("compte correctement accents et emoji", async () => {
-    const { gameId } = await startedGame(db, textParams(2, { minWords: 4, maxWords: 4 }));
+  it("compte correctement les accents ; un emoji seul n'est pas un mot", async () => {
+    const { gameId } = await startedGame(db, textParams(2, { minWords: 3, maxWords: 3 }));
     const t1 = await activeTurn(db, gameId);
     await expect(submitText(db, { userId: t1.assignedUserId, gameId, text: "été à Noël 🎄" })).resolves.toBeDefined();
   });

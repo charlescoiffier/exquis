@@ -29,6 +29,8 @@ export const game = pgTable("game", {
   maxWords: integer("max_words"),
   excerptMode: text("excerpt_mode"),
   excerptWords: integer("excerpt_words"),
+  // Intitulés facultatifs des tours (tête, corps, jambes…), un par tour ; chaîne vide = pas d'intitulé.
+  turnLabels: jsonb("turn_labels").$type<string[]>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),

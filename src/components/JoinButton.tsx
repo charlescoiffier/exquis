@@ -30,7 +30,7 @@ export function JoinButton({ gameId, token, claim = false }: { gameId: string; t
   return (
     <>
       <button onClick={join} disabled={busy}>{claim ? "Reprendre le tour" : "Rejoindre"}</button>
-      {error && <span className="error"> {error}</span>}
+      {error && <p role="alert" className="error" style={{ margin: "8px 0 0" }}>{error}</p>}
     </>
   );
 }

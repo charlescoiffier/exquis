@@ -12,7 +12,6 @@ import {
   ownRect,
   type Direction,
   type Joint,
-  type Rect,
 } from "./geometry";
 
 export const MAX_PNG_BYTES = 8_000_000;
@@ -36,20 +35,6 @@ export async function extractStrip(png: Buffer, d: Direction): Promise<Buffer> {
   return sharp(png).flatten({ background: WHITE }).extract(outgoingRect(d)).png().toBuffer();
 }
 
-async function rawRegion(img: Buffer, rect: Rect): Promise<Buffer> {
-  return sharp(img).flatten({ background: WHITE }).extract(rect).removeAlpha().raw().toBuffer();
-}
-
-export async function inheritedZoneIntact(png: Buffer, strip: Buffer, d: Direction, tolerance = 2): Promise<boolean> {
-  const a = await rawRegion(png, inheritedRect(d));
-  const b = await sharp(strip).flatten({ background: WHITE }).removeAlpha().raw().toBuffer();
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (Math.abs(a[i] - b[i]) > tolerance) return false;
-  }
-  return true;
-}
-
 export async function assembleDrawing(
   pngs: Buffer[],
   d: Direction,
@@ -60,14 +45,23 @@ export async function assembleDrawing(
   const width = d === "down" ? size.width : length;
   const height = d === "down" ? length : size.height;
 
-  const parts = await Promise.all(
+  const place = (input: Buffer, offset: number) => (d === "down" ? { input, left: 0, top: offset } : { input, left: offset, top: 0 });
+  const ownParts = await Promise.all(
     pngs.map(async (png, i) => {
       const base = sharp(png).flatten({ background: WHITE });
       const input = i === 0 ? await base.png().toBuffer() : await base.extract(ownRect(d)).png().toBuffer();
-      const offset = i === 0 ? 0 : LONG_SIDE + (i - 1) * (LONG_SIDE - BAND_SIZE);
-      return d === "down" ? { input, left: 0, top: offset } : { input, left: offset, top: 0 };
+      return place(input, i === 0 ? 0 : LONG_SIDE + (i - 1) * (LONG_SIDE - BAND_SIZE));
     }),
   );
+  // Le joueur peut repeindre la bande héritée : sa version retouchée remplace, après la pose des zones propres,
+  // la bande sortante du tour précédent (qui précède immédiatement la zone propre du tour i).
+  const overlays = await Promise.all(
+    pngs.slice(1).map(async (png, k) => {
+      const input = await sharp(png).flatten({ background: WHITE }).extract(inheritedRect(d)).png().toBuffer();
+      return place(input, LONG_SIDE + k * (LONG_SIDE - BAND_SIZE) - BAND_SIZE);
+    }),
+  );
+  const parts = [...ownParts, ...overlays];
 
   const image = await sharp({ create: { width, height, channels: 3, background: WHITE } })
     .composite(parts)

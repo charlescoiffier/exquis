@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import type { Db, Executor } from "@/lib/db/client";
 import { game, notification, profile } from "@/lib/db/schema";
 
@@ -30,6 +30,15 @@ export async function listNotifications(db: Db, userId: string) {
     .where(eq(notification.userId, userId))
     .orderBy(desc(notification.createdAt))
     .limit(50);
+}
+
+/** Nombre de notifications non lues (pour la pastille de la barre d'onglets). */
+export async function countUnread(db: Db, userId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(notification)
+    .where(and(eq(notification.userId, userId), isNull(notification.readAt)));
+  return row?.n ?? 0;
 }
 
 export async function markAllRead(db: Db, userId: string, now = new Date()) {

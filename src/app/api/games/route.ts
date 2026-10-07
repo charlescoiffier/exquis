@@ -1,14 +1,15 @@
 import { readJson, route } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
-import { createGame, listMyGames, listOpenCalls, listOpenGames } from "@/lib/services/games";
+import { createGame, listMyCurrentGames, listOpenCalls, listOpenGames, parsePage } from "@/lib/services/games";
 import { requireUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 
-export const GET = route(async () => {
+export const GET = route(async (req) => {
   const user = await requireUser();
   const db = getDb();
-  return { open: await listOpenGames(db), openCalls: await listOpenCalls(db), mine: await listMyGames(db, user.id) };
+  const page = parsePage(new URL(req.url).searchParams.get("page") ?? undefined);
+  return { open: await listOpenGames(db, { page }), openCalls: await listOpenCalls(db, { page }), mine: await listMyCurrentGames(db, user.id, { page }) };
 });
 
 export const POST = route(

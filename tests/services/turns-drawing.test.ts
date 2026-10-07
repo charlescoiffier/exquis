@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
+import sharp from "sharp";
 import { beforeEach, describe, expect, it } from "vitest";
 import { contribution } from "@/lib/db/schema";
 import { MemoryStorage } from "@/lib/storage/memory";
 import { getMyTurn, submitDrawing } from "@/lib/services/turns";
-import { extractStrip } from "@/lib/images/strip";
 import { resetDb, testDb } from "../helpers/db";
 import { activeTurn, drawingParams, startedGame } from "../helpers/games";
-import { paste, solidPng } from "../helpers/images";
+import { solidPng } from "../helpers/images";
 
 const db = testDb();
 let storage: MemoryStorage;
@@ -37,18 +37,18 @@ describe("tour de dessin", () => {
     expect(await db.select().from(contribution)).toHaveLength(0);
   });
 
-  it("refuse une zone héritée modifiée, accepte une zone intacte", async () => {
+  it("accepte une bande héritée repeinte, refuse toujours un mauvais format ou de mauvaises dimensions", async () => {
     const { gameId } = await startedGame(db, drawingParams(2));
     const t1 = await activeTurn(db, gameId);
     const red = await solidPng("down", "#ff0000");
     await submitDrawing(db, storage, { userId: t1.assignedUserId, gameId, png: red });
     const t2 = await activeTurn(db, gameId);
 
-    const tampered = await solidPng("down", "#00ff00"); // bande héritée absente
-    await expect(submitDrawing(db, storage, { userId: t2.assignedUserId, gameId, png: tampered })).rejects.toMatchObject({ code: "invalid_image" });
+    const small = await sharp({ create: { width: 100, height: 100, channels: 3, background: "#fff" } }).png().toBuffer();
+    await expect(submitDrawing(db, storage, { userId: t2.assignedUserId, gameId, png: small })).rejects.toMatchObject({ code: "invalid_image" });
 
-    const ok = await paste(await solidPng("down", "#00ff00"), await extractStrip(red, "down"), 0, 0);
-    const effects = await submitDrawing(db, storage, { userId: t2.assignedUserId, gameId, png: ok });
+    const repainted = await solidPng("down", "#00ff00"); // bande héritée entièrement repeinte
+    const effects = await submitDrawing(db, storage, { userId: t2.assignedUserId, gameId, png: repainted });
     expect(effects).toContainEqual({ kind: "finalize-game", gameId });
     const [c] = await db.select().from(contribution).where(eq(contribution.turnId, t2.id));
     expect(c.imageKey).toBe(`games/${gameId}/turns/2/full.png`);

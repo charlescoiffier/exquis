@@ -13,6 +13,9 @@ export default defineConfig({
       BETTER_AUTH_SECRET: "test-secret-test-secret-test",
       STORAGE_SECRET: "test-storage-secret-test-secret",
       DATABASE_URL: "postgres://exquis:exquis@localhost:5432/exquis_test",
+      // Fixées pour que les tests ne dépendent pas de l'environnement du shell ou de la CI.
+      REQUIRE_EMAIL_VERIFICATION: "true",
+      REGISTRATION_MODE: "invite",
     },
   },
 });

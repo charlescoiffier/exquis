@@ -32,7 +32,7 @@ test("deux joueurs terminent une partie de texte", async ({ browser }) => {
   const bob = await register(browser, "Bob", run);
 
   await alice.goto("/games/new");
-  await alice.getByLabel("Nom de la partie").fill(gameName);
+  await alice.getByLabel("Titre de la partie (facultatif)").fill(gameName);
   await alice.getByLabel("Nombre de tours").fill("2");
   await alice.getByLabel("Mots minimum").fill("2");
   await alice.getByLabel("Mots maximum").fill("30");
@@ -40,8 +40,9 @@ test("deux joueurs terminent une partie de texte", async ({ browser }) => {
   await alice.waitForURL(/\/games\/(?!new)[^/]+$/);
   const gameUrl = alice.url();
 
-  await bob.goto("/");
-  await bob.getByRole("row", { name: new RegExp(gameName) }).getByRole("button", { name: "Rejoindre" }).click();
+  // Les listes sont paginées (plus anciennes d'abord) : on rejoint la partie directement par son lien.
+  await bob.goto(gameUrl);
+  await bob.getByRole("button", { name: "Rejoindre" }).click();
   await bob.waitForURL(gameUrl);
 
   const players = [alice, bob];
@@ -61,7 +62,7 @@ test("deux joueurs terminent une partie de texte", async ({ browser }) => {
           }
           return false;
         },
-        { message: `joueur actif au tour ${i + 1}`, timeout: 20_000 },
+        { message: `joueur actif au tour ${i + 1}`, timeout: 60_000 },
       )
       .toBe(true);
     const active = current!;

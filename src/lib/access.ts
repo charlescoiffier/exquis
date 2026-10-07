@@ -1,4 +1,4 @@
-export const SUBMIT_GRACE_MS = 5000;
+export const SUBMIT_GRACE_MS = 60_000;
 
 export function canActOnTurn(
   t: { assignedUserId: string | null; status: string; deadline: Date | null },

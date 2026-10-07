@@ -1,4 +1,4 @@
-import { canvasSize, ownRect, type Direction } from "@/lib/images/geometry";
+import { canvasSize, type Direction } from "@/lib/images/geometry";
 
 export type StrokePoint = [number, number, number];
 export type Op =
@@ -54,12 +54,10 @@ export function floodFill(
   }
 }
 
-export function isInsideOwnZone(x: number, y: number, rank: number, direction: Direction): boolean {
+/** Le joueur peut peindre sur toute la surface, y compris la bande héritée. */
+export function isInsideCanvas(x: number, y: number, direction: Direction): boolean {
   const { width, height } = canvasSize(direction);
-  if (x < 0 || y < 0 || x >= width || y >= height) return false;
-  if (rank === 1) return true;
-  const r = ownRect(direction);
-  return x >= r.left && y >= r.top && x < r.left + r.width && y < r.top + r.height;
+  return x >= 0 && y >= 0 && x < width && y < height;
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
