@@ -224,13 +224,13 @@ a.game-title:hover { text-decoration:underline; }
 .card-call .btn, .card-call button { border-color:var(--fg); }
 .card-call .error { color:#fff; background:var(--danger); padding:2px 6px; }
 .game-action { margin-top:10px; }
-/* Smartphone : les actions passent en bas de la carte, centrées et côte à côte (le temps restant dessous). */
+/* Smartphone : les actions passent en bas de la carte, alignées à droite et côte à côte (le temps restant dessous). */
 @media (max-width: 600px) {
   .game-card { flex-direction:column; align-items:stretch; }
   .game-main { flex:none; }
-  .game-side { flex-direction:row; flex-wrap:wrap; justify-content:center; align-items:center; margin:0; padding-top:4px; gap:10px 12px; }
-  .game-side .countdown.countdown-inline { order:3; flex-basis:100%; align-items:center; text-align:center; }
-  .game-side > .error { order:4; flex-basis:100%; text-align:center; }
+  .game-side { flex-direction:row; flex-wrap:wrap; justify-content:flex-end; align-items:center; margin:0; padding-top:4px; gap:10px 12px; }
+  .game-side .countdown.countdown-inline { order:3; flex-basis:100%; align-items:flex-end; text-align:right; }
+  .game-side > .error { order:4; flex-basis:100%; text-align:right; }
 }
 .game-count { flex:none; text-align:right; }
 .count-num { display:block; padding-right:4px; font-family:var(--font-display-stack); font-size:34px; line-height:1; }
