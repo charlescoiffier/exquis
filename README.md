@@ -1,3 +1,6 @@
+> [!WARNING]
+> Ce projet a été vibecodé avec l’aide de l’intelligence artificielle.
+
 # Cadavre exquis
 
 [![CI](https://github.com/charlescoiffier/exquis/actions/workflows/ci.yml/badge.svg)](https://github.com/charlescoiffier/exquis/actions/workflows/ci.yml)
