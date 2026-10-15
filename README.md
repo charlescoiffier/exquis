@@ -422,7 +422,7 @@ lancés en local avant de fusionner dans `main` et de pousser.
 Les captures de `docs/images/` sont générées par `npm run capture:readme` : le script crée une base jetable
 (`exquis_shots`), lance l'application sur le port 3100, joue quelques parties de texte et de dessin par l'API, prend les
 captures avec Playwright, puis arrête son serveur et supprime la base. Les dessins des parties jouées par le script sont
-générés « à la main » (contours tremblants, remplissages décalés et hachurés, extrémités alignées sur les jointures) ; les
+peints au « crayon de couleur » en SVG (dégradés de volume, ombre portée, grain, reflets, contour tremblant, extrémités et rayures alignées sur les jointures) ; les
 traits de l'éditeur sont rejoués avec un geste légèrement irrégulier. `npm run capture:readme -- --preview <dossier>` n'écrit
 que ces dessins, pour les relire. Il demande PostgreSQL (`npm run db:dev` ou
 Docker) et Chromium (`npx playwright install chromium`) ; rien n'est écrit dans la base de développement.
