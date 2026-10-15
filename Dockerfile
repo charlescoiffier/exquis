@@ -23,6 +23,8 @@ COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
 COPY --from=build --chown=node:node /app/src ./src
+# Scripts d'administration (première invitation, rôle de modérateur) : npx tsx scripts/create-invite.ts
+COPY --from=build --chown=node:node /app/scripts ./scripts
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json /app/tsconfig.json ./
 # Dossier de stockage local, appartenant à l'utilisateur non-root : un volume nommé monté dessus en hérite.

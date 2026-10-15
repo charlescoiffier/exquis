@@ -1,0 +1,83 @@
+# Déploiement de exquis.charlescoiffier.fr (modèle vps-infra, adapté : migration, web, worker et base PostgreSQL).
+# Copié sur le VPS dans ~/srv/exquis/ à chaque déploiement.
+# Les secrets sont dans ~/srv/exquis/.env sur le VPS (DB_PASSWORD, DATABASE_URL, BETTER_AUTH_SECRET, STORAGE_SECRET…), jamais dans git.
+x-app: &app
+  image: ghcr.io/charlescoiffier/exquis:latest
+  env_file: .env
+  restart: unless-stopped
+  environment:
+    STORAGE_DIR: /app/.storage
+  volumes:
+    - storage:/app/.storage
+  networks: [internal]
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  # Migrations : exécutées à chaque nouvelle image, avant le web et le worker
+  migrate:
+    <<: *app
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: node_modules/.bin/tsx src/lib/db/migrate.ts
+    mem_limit: 256m
+    cpus: 0.5
+
+  web:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: node server.js
+    networks: [web, internal]
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 200
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.exquis.rule=Host(`exquis.charlescoiffier.fr`)
+      - traefik.http.routers.exquis.tls.certresolver=le
+      - traefik.http.services.exquis.loadbalancer.server.port=3000
+
+  # Tâches de fond : expirations, rappels, emails, assemblage des œuvres
+  worker:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: node_modules/.bin/tsx src/worker.ts
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 200
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: exquis
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: exquis
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exquis -d exquis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks: [internal]
+    mem_limit: 256m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  dbdata:
+  storage:
+
+networks:
+  web:
+    external: true
+  internal:
