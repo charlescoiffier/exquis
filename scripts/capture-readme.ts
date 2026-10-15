@@ -43,10 +43,10 @@ const log = (m: string) => console.log(`[capture] ${m}`);
 // Les extrémités des lignes qui traversent la bande de raccord (cou, jambes, tronc) tombent exactement au même endroit d'un tour
 // à l'autre, pour que le dessin se prolonge sans rupture.
 type Palette = { main: string; accent: string; dark: string };
-const MONSTRE: Palette = { main: "#1B9C95", accent: "#F2B705", dark: "#1F1B16" };
+const MONSTRE: Palette = { main: "#1B9C95", accent: "#F2B705", dark: "#2A211B" };
 const ARBRE: Palette = { main: "#3E8B4A", accent: "#9A6A3A", dark: "#3A2A1A" };
 
-const svgOf = (inner: string) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1600" viewBox="0 0 1600 1600">${inner}</svg>`);
+const svgOf = (inner: string) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1600" viewBox="0 0 1600 1600">${DEFS}${inner}</svg>`);
 
 /** Générateur pseudo-aléatoire déterministe (mulberry32) : les captures sont identiques d'une exécution à l'autre. */
 function rng(seed: number): () => number {
@@ -101,68 +101,184 @@ function line(x0: number, y0: number, x1: number, y1: number, amp: number, r: ()
 
 const stroke = (d: string, color: string, w: number, extra = "") => `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${extra}/>`;
 
-/** Forme fermée « au feutre » : remplissage décalé et hachuré, puis double contour. */
-function filled(pts: Pt[], fill: string, ink: string, w: number, id: string, r: () => number, dx = 14, dy = 10): string {
-  const d = smooth(pts, true);
-  const hatch = Array.from({ length: 16 }, (_, i) => {
-    const y = -400 + i * 70 + r() * 20;
-    return `<path d="M-200 ${y} L2000 ${y + 520 + r() * 30}" stroke="${ink}" stroke-opacity=".18" stroke-width="7" stroke-linecap="round"/>`;
-  }).join("");
-  return `<defs><clipPath id="${id}"><path d="${d}" transform="translate(${dx} ${dy})"/></clipPath></defs>
-    <path d="${d}" transform="translate(${dx} ${dy})" fill="${fill}" fill-opacity=".92"/>
-    <g clip-path="url(#${id})">${hatch}</g>
-    ${stroke(d, ink, w)}
-    ${stroke(d, ink, w * 0.45, `transform="translate(${(r() * 8 - 4).toFixed(1)} ${(r() * 8 - 4).toFixed(1)})" stroke-opacity=".6"`)}`;
+// ----- Rendu « crayons de couleur » : dégradés de volume, ombre portée, grain, reflets, contour au crayon -----
+let uid = 0;
+const nid = (p: string) => `${p}${uid++}`;
+
+/** Filtres communs : grain de papier / de crayon et flous d'ombre. */
+const DEFS = `<defs>
+  <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="4" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.4 -.55" result="a"/><feComposite in="a" in2="SourceGraphic" operator="in"/></filter>
+  <filter id="b8" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+  <filter id="b20" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="20"/></filter>
+  <filter id="b34" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="34"/></filter>
+</defs>`;
+
+function radial(light: string, base: string, shade: string): { id: string; def: string } {
+  const id = nid("rg");
+  return { id, def: `<radialGradient id="${id}" cx=".36" cy=".3" r=".85"><stop offset="0" stop-color="${light}"/><stop offset=".5" stop-color="${base}"/><stop offset="1" stop-color="${shade}"/></radialGradient>` };
 }
+/** Dégradé horizontal (ne dépend que de x) : une forme qui traverse la bande de raccord garde la même teinte des deux côtés. */
+function linearX(a: string, b: string, c: string): { id: string; def: string } {
+  const id = nid("lg");
+  return { id, def: `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${a}"/><stop offset=".45" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></linearGradient>` };
+}
+const bounds = (pts: Pt[]) => {
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
+};
+
+type Tint = { light: string; base: string; shade: string };
+/** Forme peinte : volume (dégradé radial), ombre intérieure, hachures, grain, reflet, double contour au crayon. */
+function painted(pts: Pt[], t: Tint, ink: string, w: number, r: () => number, opts: { shine?: boolean; hatch?: boolean } = {}): string {
+  const id = nid("p");
+  const d = smooth(pts, true);
+  const g = radial(t.light, t.base, t.shade);
+  const b = bounds(pts);
+  const hatch = opts.hatch === false ? "" : Array.from({ length: 7 }, (_, i) => {
+    const x = b.x0 + b.w * (0.35 + i * 0.1);
+    return `<path d="M${x.toFixed(0)} ${(b.y0 + b.h * 0.45).toFixed(0)} l${(b.w * 0.22).toFixed(0)} ${(b.h * 0.5).toFixed(0)}" stroke="${t.shade}" stroke-opacity=".22" stroke-width="6" stroke-linecap="round"/>`;
+  }).join("");
+  const shine = opts.shine === false ? "" : `<ellipse cx="${(b.x0 + b.w * 0.3).toFixed(0)}" cy="${(b.y0 + b.h * 0.24).toFixed(0)}" rx="${(b.w * 0.14).toFixed(0)}" ry="${(b.h * 0.08).toFixed(0)}" fill="#fff" opacity=".55" filter="url(#b8)" transform="rotate(-25 ${(b.x0 + b.w * 0.3).toFixed(0)} ${(b.y0 + b.h * 0.24).toFixed(0)})"/>`;
+  return `<defs>${g.def}<clipPath id="c${id}"><path d="${d}"/></clipPath></defs>
+    <path d="${d}" fill="url(#${g.id})"/>
+    <g clip-path="url(#c${id})">
+      <path d="${d}" fill="none" stroke="${t.shade}" stroke-width="70" opacity=".5" filter="url(#b20)"/>
+      ${hatch}
+      <path d="${d}" fill="#000" filter="url(#grain)" opacity=".2"/>
+      ${shine}
+    </g>
+    ${stroke(d, ink, w)}
+    ${stroke(d, ink, w * 0.4, `transform="translate(${(r() * 6 - 3).toFixed(1)} ${(r() * 6 - 3).toFixed(1)})" stroke-opacity=".55"`)}`;
+}
+
+/** Tube entre deux lignes verticales (extrémités exactes en x) : remplissage dégradé + deux contours tremblants. */
+function tube(xl: number, xr: number, y0: number, y1: number, t: [string, string, string], ink: string, w: number, r: () => number, bands?: { period: number; color: string; height: number }): string {
+  const g = linearX(...t);
+  const left = line(xl, y0, xl, y1, 5, r), right = line(xr, y0, xr, y1, 5, r);
+  const body = `M${xl} ${y0} L${xr} ${y0} L${xr} ${y1} L${xl} ${y1} Z`;
+  const stripes = bands
+    ? Array.from({ length: Math.ceil((y1 - y0) / bands.period) + 1 }, (_, i) => {
+        const y = Math.ceil(y0 / bands.period) * bands.period + i * bands.period;
+        return y + bands.height <= y1 + bands.period ? `<rect x="${xl}" y="${y}" width="${xr - xl}" height="${bands.height}" fill="${bands.color}" fill-opacity=".9"/>` : "";
+      }).join("")
+    : "";
+  return `<defs>${g.def}<clipPath id="ct${xl}_${y0}"><path d="${body}"/></clipPath></defs>
+    <path d="${body}" fill="url(#${g.id})"/>
+    <g clip-path="url(#ct${xl}_${y0})">${stripes}<path d="${body}" fill="#000" filter="url(#grain)" opacity=".18"/></g>
+    ${stroke(smooth(left), ink, w)}${stroke(smooth(right), ink, w)}
+    ${stroke(smooth(line(xl + 14, y0, xl + 14, y1, 4, r)), "#ffffff", 6, 'stroke-opacity=".35"')}`;
+}
+
+const TEAL: Tint = { light: "#7FE0D6", base: "#1B9C95", shade: "#0B5F5B" };
+const GOLD: Tint = { light: "#FFE58A", base: "#F2B705", shade: "#B07A00" };
+const CREAM: Tint = { light: "#FFFFFF", base: "#FBF1D3", shade: "#D9C79A" };
+const RED: Tint = { light: "#FF8F86", base: "#D6403A", shade: "#8E1E1E" };
+const WHITE: Tint = { light: "#FFFFFF", base: "#F4F4F0", shade: "#C9C9C0" };
 
 function shapes(k: number, p: Palette): string {
   const r = rng(100 + k);
   const ink = p.dark;
+  const eye = (cx: number, look: number) => {
+    const ix = cx + look, iy = 592;
+    const g = radial("#FFE9A8", "#E2A21B", "#8A5A00");
+    return `${painted(blob(cx, 580, 112, 108, 6, r), WHITE, ink, 14, r, { hatch: false, shine: false })}
+      <defs>${g.def}</defs><circle cx="${ix}" cy="${iy}" r="62" fill="url(#${g.id})" stroke="${ink}" stroke-width="7"/>
+      <circle cx="${ix + 6}" cy="${iy + 4}" r="30" fill="${ink}"/>
+      <circle cx="${ix - 20}" cy="${iy - 22}" r="16" fill="#fff"/><circle cx="${ix + 22}" cy="${iy + 22}" r="8" fill="#fff" fill-opacity=".8"/>
+      ${stroke(smooth([[cx - 118, 540], [cx - 40, 478], [cx + 60, 482], [cx + 120, 540]]), ink, 16)}`;
+  };
   if (k === 1) {
-    // Cou (extrémités fixes en x = 735 et 865 sur la bande de raccord), puis tête, cornes, yeux, sourire.
-    const neck = [line(735, 1000, 735, 1600, 5, r), line(865, 1000, 865, 1600, 5, r)].map((l) => stroke(smooth(l), ink, 20)).join("");
-    const eye = (cx: number, dx: number, id: string) =>
-      filled(blob(cx, 580, 108, 104, 6, r), "#ffffff", ink, 14, id, r, 6, 5) + `<circle cx="${cx + dx}" cy="${598}" r="${40 + r() * 8}" fill="${ink}"/><circle cx="${cx + dx - 14}" cy="${582}" r="12" fill="#fff"/>`;
-    const horn = (pts: Pt[], id: string) => filled(pts, p.accent, ink, 16, id, r, 8, 6);
-    return `${neck}
-      ${horn([[480, 380], [540, 130], [610, 190], [700, 300], [600, 360]], "h1")}
-      ${horn([[1120, 380], [1070, 120], [990, 200], [900, 300], [1000, 360]], "h2")}
-      ${filled(blob(800, 650, 430, 410, 20, r), p.main, ink, 20, "head", r, 18, 12)}
-      ${eye(650, 14, "e1")}${eye(955, -10, "e2")}
-      ${stroke(smooth(line(560, 470, 700, 440, 10, r)), ink, 14)}${stroke(smooth(line(900, 440, 1040, 470, 10, r)), ink, 14)}
-      ${stroke(smooth([[560, 800], [640, 900], [800, 960], [960, 905], [1050, 790]]), ink, 26)}
-      ${[690, 760, 850, 930].map((x, i) => stroke(`M${x} ${[905, 940, 950, 925][i]} l${i % 2 ? 6 : -6} 44`, ink, 12)).join("")}
-      <circle cx="540" cy="760" r="38" fill="#F26B6B" fill-opacity=".45"/><circle cx="1060" cy="760" r="38" fill="#F26B6B" fill-opacity=".45"/>`;
+    const neck = tube(735, 865, 1000, 1600, ["#0B5F5B", "#1B9C95", "#7FE0D6"], ink, 20, r);
+    const horn = (pts: Pt[]) => painted(pts, GOLD, ink, 16, r);
+    const earL = painted(blob(430, 560, 90, 110, 8, r), TEAL, ink, 16, r);
+    const earR = painted(blob(1170, 560, 90, 110, 8, r), TEAL, ink, 16, r);
+    const mouthPts: Pt[] = [[590, 810], [700, 860], [800, 870], [900, 860], [1010, 810], [980, 900], [900, 970], [800, 990], [700, 970], [620, 900]];
+    const mouthD = smooth(mouthPts, true);
+    const teeth = [660, 735, 810, 885, 950].map((x, i) => `<rect x="${x - 26}" y="${[836, 852, 858, 852, 836][i]}" width="52" height="46" rx="14" fill="#fff" stroke="${ink}" stroke-width="6"/>`).join("");
+    const mouth = `<defs><clipPath id="cm"><path d="${mouthD}"/></clipPath></defs>
+      <path d="${mouthD}" fill="#6B1F2E"/>
+      <g clip-path="url(#cm)"><ellipse cx="800" cy="975" rx="120" ry="62" fill="#F27F8E" stroke="#B0485A" stroke-width="8"/>${stroke("M800 925 l0 40", "#B0485A", 7)}</g>
+      ${teeth}${stroke(mouthD, ink, 18)}`;
+    return `${neck}${earL}${earR}
+      ${horn([[470, 400], [520, 150], [560, 90], [640, 210], [700, 330], [600, 380]])}
+      ${horn([[1130, 400], [1080, 150], [1040, 90], [960, 210], [900, 330], [1000, 380]])}
+      ${painted(blob(800, 650, 430, 410, 20, r), TEAL, ink, 20, r)}
+      ${[[690, 250], [800, 225], [910, 250]].map(([x, y]) => stroke(`M${x} ${y + 70} q${(x - 800) / 6} -60 ${(x - 800) / 3 + 10} -75`, TEAL.shade, 16)).join("")}
+      ${eye(650, 14)}${eye(955, -8)}
+      <circle cx="800" cy="700" r="12" fill="${ink}" fill-opacity=".7"/>
+      <ellipse cx="540" cy="760" rx="52" ry="34" fill="#F26B8A" opacity=".5" filter="url(#b8)"/><ellipse cx="1060" cy="760" rx="52" ry="34" fill="#F26B8A" opacity=".5" filter="url(#b8)"/>
+      ${[[600, 690], [625, 720], [575, 725], [1000, 690], [975, 720], [1025, 725]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="7" fill="#0B5F5B" fill-opacity=".6"/>`).join("")}
+      ${mouth}`;
   }
   if (k === 2) {
-    // Cou en haut (mêmes x qu'au tour 1), corps, bras, ventre, jambes (extrémités fixes en x = 565/680 et 920/1035 en bas).
-    const neck = [line(735, 0, 735, 520, 5, r), line(865, 0, 865, 520, 5, r)].map((l) => stroke(smooth(l), ink, 20)).join("");
-    const legs = [line(565, 1250, 565, 1600, 5, r), line(680, 1250, 680, 1600, 5, r), line(920, 1250, 920, 1600, 5, r), line(1035, 1250, 1035, 1600, 5, r)]
-      .map((l) => stroke(smooth(l), ink, 20)).join("");
+    const neck = tube(735, 865, 0, 520, ["#0B5F5B", "#1B9C95", "#7FE0D6"], ink, 20, r);
+    const legs = [565, 920].map((x) => tube(x, x + 115, 1250, 1600, ["#0B5F5B", "#1B9C95", "#7FE0D6"], ink, 20, r, { period: 80, color: "#FBF1D3", height: 36 })).join("");
+    const arm = (pts: Pt[]) => {
+      const d = smooth(pts);
+      return `${stroke(d, ink, 84)}${stroke(d, "#1B9C95", 62)}${stroke(d, "#7FE0D6", 18, 'transform="translate(-10 -10)" stroke-opacity=".7"')}`;
+    };
+    const hand = (cx: number, cy: number) =>
+      painted(blob(cx, cy, 60, 56, 6, r), TEAL, ink, 14, r, { hatch: false }) +
+      [-34, 0, 34].map((dx) => `<circle cx="${cx + dx}" cy="${cy + 56}" r="22" fill="#1B9C95" stroke="${ink}" stroke-width="10"/>`).join("");
     return `${neck}${legs}
-      ${filled(blob(800, 840, 520, 560, 24, r), p.accent, ink, 20, "body", r, 16, 12)}
-      ${stroke(smooth([[330, 700], [220, 760], [165, 860], [170, 1010]]), ink, 54)}${stroke(smooth([[1270, 700], [1380, 770], [1440, 880], [1432, 1020]]), ink, 54)}
-      ${filled(blob(800, 850, 150, 140, 10, r), p.main, ink, 16, "belly", r, 8, 6)}
-      ${[[560, 650], [1040, 640], [800, 560], [650, 1070], [960, 1060]].map(([x, y]) => `<circle cx="${Math.round(x + (r() * 14 - 7))}" cy="${y}" r="${38 + r() * 12}" fill="${ink}" fill-opacity=".85"/>`).join("")}`;
+      ${arm([[330, 700], [230, 760], [170, 880], [172, 990]])}${arm([[1270, 700], [1370, 770], [1432, 890], [1430, 1000]])}
+      ${hand(172, 1010)}${hand(1430, 1020)}
+      ${painted(blob(800, 840, 520, 560, 24, r), GOLD, ink, 20, r)}
+      ${painted(blob(800, 930, 290, 330, 14, r), CREAM, ink, 14, r, { hatch: false })}
+      ${stroke(smooth([[560, 840], [700, 790], [900, 790], [1040, 840]]), "#B07A00", 9, 'stroke-dasharray="14 16" stroke-opacity=".8"')}
+      ${[[560, 650], [1040, 640], [800, 560], [620, 1090], [980, 1080], [470, 880], [1130, 900]].map(([x, y]) => `<circle cx="${Math.round(x + (r() * 14 - 7))}" cy="${y}" r="${30 + Math.round(r() * 14)}" fill="#B07A00" fill-opacity=".75"/>`).join("")}
+      <circle cx="800" cy="960" r="46" fill="#1B9C95" stroke="${ink}" stroke-width="10"/><circle cx="800" cy="960" r="12" fill="${ink}" fill-opacity=".7"/>`;
   }
-  // k === 3 : jambes (extrémités fixes en haut), pieds, sol pointillé.
-  const legs = [line(565, 0, 565, 1250, 5, r), line(680, 0, 680, 1250, 5, r), line(920, 0, 920, 1250, 5, r), line(1035, 0, 1035, 1250, 5, r)]
-    .map((l) => stroke(smooth(l), ink, 20)).join("");
-  return `${legs}
-    ${filled(blob(560, 1330, 230, 92, 10, r), p.main, ink, 18, "f1", r, 8, 8)}
-    ${filled(blob(1040, 1330, 230, 92, 10, r), p.main, ink, 18, "f2", r, 8, 8)}
-    ${stroke(smooth(line(110, 1470, 1490, 1480, 10, r)), ink, 12, 'stroke-dasharray="3 34"')}`;
+  // k === 3 : jambes rayées, chaussures, ombre portée, herbe et fleurs.
+  const legs = [565, 920].map((x) => tube(x, x + 115, 0, 1250, ["#0B5F5B", "#1B9C95", "#7FE0D6"], ink, 20, r, { period: 80, color: "#FBF1D3", height: 36 })).join("");
+  const shoe = (cx: number) =>
+    painted(blob(cx, 1330, 235, 98, 10, r), RED, ink, 18, r, { hatch: false }) +
+    `<path d="M${cx - 215} 1385 Q${cx} 1425 ${cx + 215} 1385" fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-opacity=".9"/>` +
+    [-40, 10, 60].map((dx) => stroke(`M${cx + dx} 1260 l22 28`, "#fff", 10)).join("");
+  const grass = Array.from({ length: 70 }, () => {
+    const x = 60 + r() * 1480, y = 1470 + r() * 40, h = 40 + r() * 60, lean = r() * 40 - 20;
+    return stroke(`M${x.toFixed(0)} ${y.toFixed(0)} q${(lean / 2).toFixed(0)} ${(-h / 2).toFixed(0)} ${lean.toFixed(0)} ${(-h).toFixed(0)}`, ["#3E8B4A", "#5DAE5A", "#2F6B3A"][Math.floor(r() * 3)], 9);
+  }).join("");
+  const flower = (x: number, y: number, c: string) =>
+    `${stroke(`M${x} ${y} l0 70`, "#2F6B3A", 8)}${Array.from({ length: 5 }, (_, i) => `<circle cx="${(x + Math.cos((i / 5) * 6.283) * 20).toFixed(0)}" cy="${(y + Math.sin((i / 5) * 6.283) * 20).toFixed(0)}" r="16" fill="${c}" stroke="${ink}" stroke-width="5"/>`).join("")}<circle cx="${x}" cy="${y}" r="11" fill="#F2B705" stroke="${ink}" stroke-width="5"/>`;
+  return `<ellipse cx="560" cy="1450" rx="270" ry="40" fill="#000" opacity=".22" filter="url(#b20)"/><ellipse cx="1040" cy="1450" rx="270" ry="40" fill="#000" opacity=".22" filter="url(#b20)"/>
+    ${legs}${grass}${shoe(560)}${shoe(1040)}${flower(210, 1420, "#F26B8A")}${flower(1380, 1430, "#FFFFFF")}${flower(800, 1465, "#F2B705")}`;
 }
 
-/** Arbre (tour 1) : feuillage en nuage, pommes, haut du tronc qui traverse la bande de raccord (x = 720 et 880). */
+/** Arbre (tour 1) : tronc à écorce, feuillage en nuage ombré, pommes brillantes. Le tronc traverse la bande de raccord (x = 720 et 880). */
 function treeShapes(p: Palette): string {
   const r = rng(300);
-  const trunk = [line(720, 620, 720, 1600, 5, r), line(880, 620, 880, 1600, 5, r)].map((l) => stroke(smooth(l), p.dark, 22)).join("");
-  const puffs = [[800, 420, 330, 280], [500, 520, 250, 220], [1100, 520, 250, 220], [650, 280, 220, 190], [960, 280, 220, 190]]
-    .map(([cx, cy, rx, ry], i) => filled(blob(cx, cy, rx, ry, 18, r), i % 2 ? "#4FA05A" : p.main, p.dark, 18, `leaf${i}`, r, 10, 10)).join("");
-  const apples = [[560, 560], [840, 330], [1060, 600], [700, 700]]
-    .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="34" fill="#D6403A" stroke="${p.dark}" stroke-width="9"/><path d="M${x} ${y - 34} l8 -26" stroke="${p.dark}" stroke-width="8" stroke-linecap="round"/>`).join("");
-  return `${trunk}${puffs}${apples}`;
+  const ink = p.dark;
+  const BARK: [string, string, string] = ["#5A3A1E", "#9A6A3A", "#C99A5E"];
+  const bark = Array.from({ length: 26 }, () => {
+    const x = 735 + r() * 130, y = 700 + r() * 880, h = 50 + r() * 120;
+    return stroke(`M${x.toFixed(0)} ${y.toFixed(0)} q${(r() * 12 - 6).toFixed(0)} ${(h / 2).toFixed(0)} ${(r() * 10 - 5).toFixed(0)} ${h.toFixed(0)}`, "#3A2A1A", 6, 'stroke-opacity=".55"');
+  }).join("");
+  const trunk = tube(720, 880, 620, 1600, BARK, ink, 22, r) + bark;
+  // Feuillage : une cinquantaine de touffes légères (dégradé, fin contour), du fond sombre vers le dessus clair.
+  const leaf = (cx: number, cy: number, rad: number, light: number) => {
+    const g = radial(light > 0.66 ? "#D7F2B0" : light > 0.33 ? "#B6E39B" : "#8FCB84", light > 0.66 ? "#6DBB5E" : light > 0.33 ? "#4FA05A" : "#3E8B4A", light > 0.66 ? "#3E8B4A" : "#1F5A32");
+    const pts = blob(cx, cy, rad, rad * 0.88, rad * 0.1, r);
+    return `<defs>${g.def}</defs><path d="${smooth(pts, true)}" fill="url(#${g.id})" stroke="#1F5A32" stroke-width="7" stroke-opacity=".85"/>
+      <path d="M${cx - rad * 0.4} ${cy - rad * 0.2} q${rad * 0.3} ${-rad * 0.35} ${rad * 0.7} ${-rad * 0.2}" stroke="#fff" stroke-opacity=".35" stroke-width="9" fill="none" stroke-linecap="round"/>`;
+  };
+  const spots: [number, number, number][] = [];
+  while (spots.length < 52) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r());
+    const x = 800 + Math.cos(a) * d * 470, y = 440 + Math.sin(a) * d * 290;
+    spots.push([x, y, 72 + r() * 46]);
+  }
+  spots.sort((a, b) => b[1] - a[1]);
+  const maxY = 730, minY = 150;
+  const branches = [stroke("M800 640 q-70 -70 -170 -110", ink, 34), stroke("M800 640 q70 -70 170 -110", ink, 34), stroke("M800 650 q-70 -70 -170 -110", "#9A6A3A", 22), stroke("M800 650 q70 -70 170 -110", "#9A6A3A", 22)].join("");
+  const puffs = `<ellipse cx="800" cy="430" rx="440" ry="230" fill="#1F5A32" opacity=".4" filter="url(#b34)"/>` + spots.map(([x, y, rad]) => leaf(x, y, rad, 1 - (y - minY) / (maxY - minY))).join("");
+  const veins = "";
+  const apple = (x: number, y: number) => {
+    const g = radial("#FF9A90", "#D6403A", "#8E1E1E");
+    return `<defs>${g.def}</defs><circle cx="${x}" cy="${y}" r="40" fill="url(#${g.id})" stroke="${ink}" stroke-width="8"/><ellipse cx="${x - 14}" cy="${y - 16}" rx="10" ry="6" fill="#fff" opacity=".7" transform="rotate(-30 ${x - 14} ${y - 16})"/>${stroke(`M${x} ${y - 40} q6 -22 18 -30`, ink, 7)}<path d="M${x + 6} ${y - 52} q22 -18 38 -4 q-22 14 -38 4z" fill="#4FA05A" stroke="${ink}" stroke-width="5"/>`;
+  };
+  return `${trunk}${branches}${puffs}${veins}${[[560, 560], [870, 330], [1040, 600], [700, 690], [440, 440], [1170, 470], [900, 560]].map(([x, y]) => apple(x, y)).join("")}`;
 }
 
 /** Dessin du tour `k` : la bande héritée du tour précédent est reposée en haut, comme dans l'éditeur. */
@@ -350,25 +466,35 @@ async function main() {
         }
         await page.mouse.up();
       };
-      // Le tronc prolonge celui de la bande reçue (x ≈ 0,45 et 0,55) : deux traits épais bruns, puis l'écorce au crayon fin.
+      // Le tronc prolonge celui de la bande reçue (x ≈ 0,45 et 0,55) : d'abord le remplissage au surligneur brun (trois passes),
+      // puis les deux contours au crayon épais, l'écorce au crayon fin, un nœud (ovale), un reflet et de la mousse.
+      const size = async (v: string) => page.getByLabel("Taille du trait").fill(v);
       await page.getByRole("button", { name: "Marron", exact: true }).click();
+      await page.getByRole("button", { name: "Crayon", exact: true }).click();
+      await size("60");
+      for (const x of [0.466, 0.5, 0.534]) await hand([[x, 0.09], [x + 0.002, 0.45], [x - 0.002, 0.91]], 0.003);
+      await page.getByRole("button", { name: "Noir", exact: true }).click();
       await page.getByRole("button", { name: "Épais", exact: true }).click();
       await hand([[0.45, 0.1], [0.452, 0.3], [0.447, 0.55], [0.455, 0.9]]);
       await hand([[0.55, 0.1], [0.548, 0.32], [0.553, 0.6], [0.545, 0.9]]);
       await page.getByRole("button", { name: "Fin", exact: true }).click();
-      for (const [x, y] of [[0.48, 0.25], [0.51, 0.4], [0.485, 0.55], [0.515, 0.7], [0.49, 0.82]] as [number, number][]) {
-        await hand([[x, y], [x + 0.012, y + 0.035], [x + 0.004, y + 0.07]], 0.003);
+      await page.getByRole("button", { name: "Noir", exact: true }).click();
+      for (const [x, y] of [[0.47, 0.22], [0.51, 0.3], [0.485, 0.42], [0.52, 0.5], [0.475, 0.62], [0.515, 0.72], [0.49, 0.82]] as [number, number][]) {
+        await hand([[x, y], [x + 0.008, y + 0.04], [x + 0.002, y + 0.08]], 0.003);
       }
-      // Reflet de lumière au surligneur, mousse à l'aérographe.
+      await page.getByRole("button", { name: "Moyen", exact: true }).click();
+      await page.getByRole("button", { name: "Ovale", exact: true }).click();
+      await page.getByRole("button", { name: "Rempli", exact: true }).click();
+      await hand([[0.5, 0.52], [0.52, 0.58]], 0);
       await page.getByRole("button", { name: "Jaune", exact: true }).click();
       await page.getByRole("button", { name: "Surligneur", exact: true }).click();
-      await page.getByLabel("Taille du trait").fill("34");
-      await hand([[0.47, 0.16], [0.468, 0.45], [0.472, 0.76]], 0.004);
+      await size("26");
+      await hand([[0.475, 0.16], [0.473, 0.45], [0.477, 0.74]], 0.003);
       await page.getByRole("button", { name: "Vert", exact: true }).click();
       await page.getByRole("button", { name: "Aérographe", exact: true }).click();
-      await page.getByLabel("Taille du trait").fill("46");
-      await hand([[0.452, 0.8], [0.5, 0.76], [0.548, 0.82]], 0.004);
-      await hand([[0.452, 0.28], [0.472, 0.36], [0.455, 0.44]], 0.004);
+      await size("40");
+      await hand([[0.452, 0.8], [0.5, 0.76], [0.548, 0.83]], 0.004);
+      await hand([[0.452, 0.28], [0.468, 0.36], [0.455, 0.46]], 0.004);
       if (hover) await page.mouse.move(...at(0.78, 0.62), { steps: 4 });
     };
 
