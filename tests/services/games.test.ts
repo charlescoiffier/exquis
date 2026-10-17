@@ -159,7 +159,7 @@ describe("purge des parties sans activité", () => {
 });
 
 describe("joueurs inscrits", () => {
-  it("les listes et la vue d'une partie en attente donnent les inscrits par ordre d'inscription ; rien une fois la partie lancée", async () => {
+  it("les listes et la vue d'une partie donnent les inscrits par ordre d'inscription ; une fois lancée, seuls ses participants les voient", async () => {
     const [a, b, c] = [await makeUser(db, "alice"), await makeUser(db, "bastien"), await makeUser(db, "chloe")];
     const { gameId } = await createGame(db, a, textParams(3, { name: "En attente" }));
     await joinGame(db, { userId: b, gameId });
@@ -167,9 +167,12 @@ describe("joueurs inscrits", () => {
     expect((await listJoinableGames(db, { userId: c })).items[0].players).toEqual(["alice", "bastien"]);
     expect((await listMyCurrentGames(db, a)).items[0].players).toEqual(["alice", "bastien"]);
     expect((await getGameView(db, { gameId, userId: b })).players).toEqual(["alice", "bastien"]);
+    // Partie lancée : ses participants voient leurs co-joueurs, pas les autres.
     await joinGame(db, { userId: c, gameId });
-    expect((await listMyCurrentGames(db, a)).items[0].players).toEqual([]);
-    expect((await getGameView(db, { gameId, userId: a })).players).toEqual([]);
+    const outsider = await makeUser(db, "etranger");
+    expect((await listMyCurrentGames(db, a)).items[0].players.sort()).toEqual(["alice", "bastien", "chloe"]);
+    expect((await getGameView(db, { gameId, userId: a })).players.sort()).toEqual(["alice", "bastien", "chloe"]);
+    expect((await getGameView(db, { gameId, userId: outsider })).players).toEqual([]);
   });
 });
 
