@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { AdminDelete, RoleSelect } from "@/components/AdminActions";
+import { AdminDelete, RoleSelect, VerifyAllButton, VerifyEmailButton } from "@/components/AdminActions";
 import { Banner } from "@/components/ui/Banner";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -36,6 +36,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <section aria-labelledby="inscrits">
         <h2 id="inscrits">Inscrits ({users.total})</h2>
+        {users.unverified > 0 && (
+          <p className="turn-actions" style={{ marginTop: 0 }}>
+            <VerifyAllButton count={users.unverified} />
+            <span className="muted">{users.unverified} {users.unverified > 1 ? "adresses ne sont pas vérifiées" : "adresse n'est pas vérifiée"}.</span>
+          </p>
+        )}
         <form method="get" className="field-row" role="search" style={{ marginBottom: 12 }}>
           <input name="q" defaultValue={q} placeholder="Rechercher par nom ou adresse" aria-label="Rechercher un inscrit" />
           <button type="submit" className="secondary">Rechercher</button>
@@ -51,13 +57,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <Card className="game-card">
                     <div className="game-main">
                       <div className="game-title">{u.name}</div>
-                      <p className="meta">{u.email} · inscrit le {formatDate(u.createdAt)} · {u.gamesJoined} {plural(u.gamesJoined, "partie", "parties")}</p>
+                      <p className="meta">{u.email} · inscrit le {formatDate(u.createdAt)} · {u.gamesJoined} {plural(u.gamesJoined, "partie", "parties")}{u.emailVerified ? "" : " · adresse non vérifiée"}</p>
                     </div>
                     <div className="game-side">
                       {u.role === "admin" || self ? (
                         <span className="pill tag">{u.role === "admin" ? "Administrateur" : "Vous"}</span>
                       ) : (
                         <>
+                          {!u.emailVerified && <VerifyEmailButton userId={u.id} />}
                           <RoleSelect userId={u.id} role={u.role} />
                           <AdminDelete url={`/api/admin/users/${u.id}`} title="Supprimer ce compte ?">
                             <p><strong>{u.name}</strong> ({u.email})</p>

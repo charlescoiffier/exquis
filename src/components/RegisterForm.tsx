@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export function RegisterForm({ inviteOnly }: { inviteOnly: boolean }) {
   const router = useRouter();
@@ -41,7 +42,7 @@ export function RegisterForm({ inviteOnly }: { inviteOnly: boolean }) {
           <label htmlFor="email">Email</label>
           <input id="email" name="email" type="email" autoComplete="email" required />
           <label htmlFor="password">Mot de passe</label>
-          <input id="password" name="password" type="password" autoComplete="new-password" minLength={10} required aria-describedby="password-hint" />
+          <PasswordInput id="password" name="password" autoComplete="new-password" minLength={10} required describedBy="password-hint" />
           <p id="password-hint" className="hint">10 caractères au minimum.</p>
           {inviteOnly && (
             <>
