@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { AvatarForm, EmailPreference, NameForm, ReminderPreference } from "@/components/AccountForms";
 import { PastGameList } from "@/components/GameList";
-import { InviteButton } from "@/components/InviteButton";
 import { SignOutButton } from "@/components/SignOutButton";
 import { Banner } from "@/components/ui/Banner";
 import { Card } from "@/components/ui/Card";
@@ -84,13 +83,6 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </Card>
         </section>
       )}
-
-      <section aria-labelledby="inviter">
-        <h2 id="inviter">Inviter des amis</h2>
-        <Card>
-          <InviteButton />
-        </Card>
-      </section>
 
       <section aria-labelledby="anciennes">
         <h2 id="anciennes">Mes anciennes parties</h2>

@@ -3,7 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { getDb, fullSchema } from "@/lib/db/client";
-import { env } from "@/lib/env";
+import { env, requireEmailVerification } from "@/lib/env";
 import { inviteContext } from "@/lib/invite-context";
 import { getMailer } from "@/lib/notifications/mailer";
 import { profile } from "@/lib/db/schema";
@@ -17,7 +17,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 10,
-    requireEmailVerification: e.REQUIRE_EMAIL_VERIFICATION === "true",
+    requireEmailVerification: requireEmailVerification(e),
   },
   emailVerification: {
     sendOnSignUp: true,

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
+import { mailerKind } from "@/lib/notifications/mailer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,5 +28,6 @@ export async function GET() {
     last = null;
   }
   const workerOk = last !== null && Date.now() - new Date(last).getTime() < WORKER_FRESHNESS_MS;
-  return Response.json({ db: true, worker: workerOk, lastSweep: last }, { status: workerOk ? 200 : 503 });
+  // `mailer` : service d'email utilisé (smtp, resend ou console = aucun envoi réel).
+  return Response.json({ db: true, worker: workerOk, lastSweep: last, mailer: mailerKind() }, { status: workerOk ? 200 : 503 });
 }

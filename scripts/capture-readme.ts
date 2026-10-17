@@ -32,7 +32,7 @@ const env = {
   STORAGE_DIR,
   STORAGE_DRIVER: "local",
   REQUIRE_EMAIL_VERIFICATION: "false",
-  REGISTRATION_MODE: "invite",
+  REGISTRATION_MODE: "open",
 } as NodeJS.ProcessEnv;
 Object.assign(process.env, env);
 
@@ -337,16 +337,14 @@ async function main() {
     }
 
     // Invitations et comptes
-    const { createInvitation } = await import("../src/lib/services/invitations");
     const { createDb } = await import("../src/lib/db/client");
     const drizzleDb = createDb(SHOTS_URL);
     const names = ["Alice", "Bastien", "Chloé", "Dylan"];
     const users: Record<string, User> = {};
     for (const name of names) {
-      const code = await createInvitation(drizzleDb.db, null);
       const email = `${name.toLowerCase().replace("é", "e")}@exemple.fr`;
       const ctx = await request.newContext({ baseURL: BASE });
-      await api(await ctx.post("/api/register", { data: { name, email, password: PASSWORD, invitationCode: code } }));
+      await api(await ctx.post("/api/register", { data: { name, email, password: PASSWORD } }));
       const [row] = await db`select id from "user" where email = ${email}`;
       users[name] = { name, email, id: row.id as string, api: ctx };
     }
