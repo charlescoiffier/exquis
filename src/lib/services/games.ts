@@ -404,22 +404,53 @@ export async function getGameView(db: Db, p: { gameId: string; userId: string; t
  * - En cours : ses tours à venir sont libérés ; s'il jouait, son tour devient un appel à participation. Ses contributions
  *   déjà envoyées restent dans l'œuvre. Sans joueur restant, la partie est annulée.
  */
+/**
+ * Libère la place d'un joueur : en attente, il est désinscrit (partie annulée s'il était le dernier) ; en cours, ses tours à venir
+ * sont libérés, son tour actif devient un appel à participation et sa participation est marquée comme quittée (ses contributions
+ * restent). Sans joueur restant, la partie est annulée. Sans effet pour une partie terminée ou annulée.
+ */
+export async function releaseSeat(tx: Tx, g: GameRow, userId: string, now: Date): Promise<Effect[]> {
+  const ps = await tx.select().from(participant).where(eq(participant.gameId, g.id));
+  const me = ps.find((x) => x.userId === userId && !x.leftAt);
+  if (!me) return [];
+  const others = ps.filter((x) => x.id !== me.id && !x.leftAt);
+  if (g.status === "open") {
+    await tx.delete(participant).where(eq(participant.id, me.id));
+    if (others.length === 0) await tx.update(game).set({ status: "cancelled" }).where(eq(game.id, g.id));
+    return [];
+  }
+  if (g.status !== "in_progress") return [];
+  const mine = await tx
+    .select()
+    .from(turn)
+    .where(and(eq(turn.gameId, g.id), eq(turn.assignedUserId, userId), inArray(turn.status, ["active", "pending"])))
+    .for("update");
+  for (const t of mine) {
+    if (t.status === "active") {
+      await tx.update(turn).set({ status: "open_call", assignedUserId: null, deadline: null, startedAt: null }).where(eq(turn.id, t.id));
+      await tx.delete(draft).where(eq(draft.turnId, t.id));
+    } else {
+      await tx.update(turn).set({ assignedUserId: null }).where(eq(turn.id, t.id));
+    }
+  }
+  await tx.update(participant).set({ leftAt: now }).where(eq(participant.id, me.id));
+  if (others.length === 0) {
+    await tx.update(game).set({ status: "cancelled" }).where(eq(game.id, g.id));
+    await tx.update(turn).set({ status: "expired" }).where(and(eq(turn.gameId, g.id), eq(turn.status, "open_call")));
+    return [{ kind: "finalize-game", gameId: g.id }];
+  }
+  return [];
+}
+
+/** Un joueur quitte une partie (voir `releaseSeat`) ; impossible s'il y a déjà joué. */
 export async function leaveGame(db: Db, p: { userId: string; gameId: string; now?: Date }): Promise<{ effects: Effect[] }> {
   const now = p.now ?? new Date();
   return db.transaction(async (tx) => {
     const [g] = await tx.select().from(game).where(eq(game.id, p.gameId)).for("update");
     if (!g) throw new DomainError("not_found", "Partie introuvable.", 404);
-    const ps = await tx.select().from(participant).where(eq(participant.gameId, g.id));
-    const me = ps.find((x) => x.userId === p.userId && !x.leftAt);
+    const [me] = await tx.select({ id: participant.id }).from(participant).where(and(eq(participant.gameId, g.id), eq(participant.userId, p.userId), isNull(participant.leftAt)));
     if (!me) throw new DomainError("not_participant", "Vous ne participez pas à cette partie.", 409);
-    const others = ps.filter((x) => x.id !== me.id && !x.leftAt);
-
-    if (g.status === "open") {
-      await tx.delete(participant).where(eq(participant.id, me.id));
-      if (others.length === 0) await tx.update(game).set({ status: "cancelled" }).where(eq(game.id, g.id));
-      return { effects: [] };
-    }
-    if (g.status !== "in_progress") throw new DomainError("game_not_leavable", "Cette partie est terminée.", 409);
+    if (g.status !== "open" && g.status !== "in_progress") throw new DomainError("game_not_leavable", "Cette partie est terminée.", 409);
     const [played] = await tx
       .select({ id: contribution.id })
       .from(contribution)
@@ -427,26 +458,6 @@ export async function leaveGame(db: Db, p: { userId: string; gameId: string; now
       .where(and(eq(turn.gameId, g.id), eq(contribution.userId, p.userId)))
       .limit(1);
     if (played) throw new DomainError("already_played", "Vous avez déjà joué dans cette partie : vous ne pouvez plus la quitter.", 409);
-
-    const mine = await tx
-      .select()
-      .from(turn)
-      .where(and(eq(turn.gameId, g.id), eq(turn.assignedUserId, p.userId), inArray(turn.status, ["active", "pending"])))
-      .for("update");
-    for (const t of mine) {
-      if (t.status === "active") {
-        await tx.update(turn).set({ status: "open_call", assignedUserId: null, deadline: null, startedAt: null }).where(eq(turn.id, t.id));
-        await tx.delete(draft).where(eq(draft.turnId, t.id));
-      } else {
-        await tx.update(turn).set({ assignedUserId: null }).where(eq(turn.id, t.id));
-      }
-    }
-    await tx.update(participant).set({ leftAt: now }).where(eq(participant.id, me.id));
-    if (others.length === 0) {
-      await tx.update(game).set({ status: "cancelled" }).where(eq(game.id, g.id));
-      await tx.update(turn).set({ status: "expired" }).where(and(eq(turn.gameId, g.id), eq(turn.status, "open_call")));
-      return { effects: [{ kind: "finalize-game", gameId: g.id }] };
-    }
-    return { effects: [] };
+    return { effects: await releaseSeat(tx, g, p.userId, now) };
   });
 }

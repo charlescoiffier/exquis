@@ -10,5 +10,6 @@ export class MemoryStorage implements Storage {
     return f;
   }
   async exists(key: string) { return this.files.has(key); }
+  async delete(key: string) { this.files.delete(key); }
   async signedUrl(key: string) { return `memory://${key}`; }
 }

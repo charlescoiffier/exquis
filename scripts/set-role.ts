@@ -1,4 +1,4 @@
-/** Donne ou retire le rôle de modérateur : `npm run role -- adresse@exemple.fr moderator` (ou `player`). */
+/** Donne ou retire un rôle : `npm run role -- adresse@exemple.fr admin` (ou `moderator`, `player`). */
 import { eq } from "drizzle-orm";
 import { createDb } from "../src/lib/db/client";
 import { user } from "../src/lib/db/auth-schema";
@@ -6,8 +6,8 @@ import { setRole } from "../src/lib/services/moderation";
 
 async function main() {
   const [email, role] = process.argv.slice(2);
-  if (!email || (role !== "moderator" && role !== "player")) {
-    console.error("Usage : npm run role -- <email> <moderator|player>");
+  if (!email || (role !== "moderator" && role !== "player" && role !== "admin")) {
+    console.error("Usage : npm run role -- <email> <admin|moderator|player>");
     process.exit(1);
   }
   const { db, close } = createDb(process.env.DATABASE_URL ?? "postgres://exquis:exquis@localhost:5432/exquis");

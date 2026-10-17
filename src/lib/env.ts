@@ -25,6 +25,8 @@ const schema = z.object({
   // true : TLS implicite (port 465) ; false : STARTTLS (port 587) si le serveur le propose.
   SMTP_SECURE: z.enum(["true", "false"]).default("false"),
   MAIL_FROM: z.string().default("Exquis <no-reply@localhost>"),
+  // Adresses (séparées par des virgules) des comptes administrateurs, en plus du rôle « admin » donné par npm run role.
+  ADMIN_EMAILS: z.string().default(""),
 });
 
 export type Env = z.infer<typeof schema>;

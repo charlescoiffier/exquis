@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Storage } from "./index";
 import { signToken } from "./token";
@@ -24,6 +24,7 @@ export class LocalStorage implements Storage {
   async exists(key: string) {
     try { await stat(this.resolve(key)); return true; } catch { return false; }
   }
+  async delete(key: string) { await rm(this.resolve(key), { force: true }); }
   async signedUrl(key: string, ttlSeconds: number) {
     const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
     return `${this.baseUrl}/api/storage/${signToken(key, exp, this.secret)}`;

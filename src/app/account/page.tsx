@@ -5,7 +5,7 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { Banner } from "@/components/ui/Banner";
 import { Card } from "@/components/ui/Card";
 import { ButtonLink } from "@/components/ui/Button";
-import { countOpenReports, isModerator } from "@/lib/services/moderation";
+import { countOpenReports, isAdmin, isModerator } from "@/lib/services/moderation";
 import { Pagination } from "@/components/ui/Pagination";
 import { getDb } from "@/lib/db/client";
 import { plural } from "@/lib/format";
@@ -22,11 +22,12 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   if (!session) redirect("/login");
   const sp = await searchParams;
   const db = getDb();
-  const [past, p, stats, moderator] = await Promise.all([
+  const [past, p, stats, moderator, admin] = await Promise.all([
     listMyPastGames(db, session.user.id, { page: parsePage(sp.pp) }),
     getProfile(db, session.user.id),
     getProfileStats(db, session.user.id),
     isModerator(db, session.user.id),
+    isAdmin(db, session.user.id),
   ]);
   const openReports = moderator ? await countOpenReports(db) : 0;
   return (
@@ -76,10 +77,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
       {moderator && (
         <section aria-labelledby="moderation">
-          <h2 id="moderation">Modération</h2>
+          <h2 id="moderation">{admin ? "Administration" : "Modération"}</h2>
           <Card>
             <p style={{ marginTop: 0 }}>{openReports > 0 ? `${openReports} ${plural(openReports, "signalement", "signalements")} à traiter.` : "Aucun signalement à traiter."}</p>
-            <ButtonLink href="/moderation" variant="secondary">Ouvrir la modération</ButtonLink>
+            <p className="turn-actions" style={{ margin: 0 }}>
+              <ButtonLink href="/moderation" variant="secondary">Ouvrir la modération</ButtonLink>
+              {admin && <ButtonLink href="/admin" variant="secondary">Administration : inscrits et œuvres</ButtonLink>}
+            </p>
           </Card>
         </section>
       )}

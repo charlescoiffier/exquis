@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
 import { comment, contribution, game, participant, profile, report, turn } from "@/lib/db/schema";
+import { env } from "@/lib/env";
 import { DomainError } from "@/lib/errors";
 import { REPORT_REASONS } from "@/lib/report-reasons";
 import { queueNotification } from "./notifications";
@@ -11,9 +12,26 @@ export const MAX_REPORT_DETAILS = 500;
 
 export type ReportTarget = "comment" | "work";
 
+/** Administrateur : rôle « admin », ou adresse listée dans ADMIN_EMAILS. Il a aussi tous les droits d'un modérateur. */
+export async function isAdmin(db: Db, userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ role: profile.role, email: user.email })
+    .from(user)
+    .leftJoin(profile, eq(profile.userId, user.id))
+    .where(eq(user.id, userId));
+  if (!row) return false;
+  if (row.role === "admin") return true;
+  const listed = env().ADMIN_EMAILS.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+  return listed.includes(row.email.toLowerCase());
+}
+
 export async function isModerator(db: Db, userId: string): Promise<boolean> {
   const [p] = await db.select({ role: profile.role }).from(profile).where(eq(profile.userId, userId));
-  return p?.role === "moderator";
+  return p?.role === "moderator" || (await isAdmin(db, userId));
+}
+
+export async function requireAdmin(db: Db, userId: string): Promise<void> {
+  if (!(await isAdmin(db, userId))) throw new DomainError("forbidden", "Réservé à l'administration.", 403);
 }
 
 export async function requireModerator(db: Db, userId: string): Promise<void> {
@@ -21,7 +39,7 @@ export async function requireModerator(db: Db, userId: string): Promise<void> {
 }
 
 /** Change le rôle d'un compte (script d'administration) : « player » ou « moderator ». */
-export async function setRole(db: Db, userId: string, role: "player" | "moderator"): Promise<void> {
+export async function setRole(db: Db, userId: string, role: "player" | "moderator" | "admin"): Promise<void> {
   await db.insert(profile).values({ userId, role }).onConflictDoUpdate({ target: profile.userId, set: { role } });
 }
 
