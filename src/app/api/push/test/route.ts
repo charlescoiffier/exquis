@@ -9,7 +9,8 @@ export const runtime = "nodejs";
 export const POST = route(
   async () => {
     const user = await requireUser();
-    return { sent: await sendTestPush(getDb(), getPushSender(), user.id) };
+    const devices = await sendTestPush(getDb(), getPushSender(), user.id);
+    return { sent: devices.filter((d) => d.ok).length, devices };
   },
   { limit: { name: "push-test", max: 10, windowMs: 3600_000 } },
 );

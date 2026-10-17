@@ -50,21 +50,34 @@ export async function countSubscriptions(db: Db, userId: string): Promise<number
   return (await db.select({ id: pushSubscription.id }).from(pushSubscription).where(eq(pushSubscription.userId, userId))).length;
 }
 
-async function deliver(db: Db, sender: PushSender, userId: string, payload: PushPayload): Promise<number> {
+export type DeviceResult = { device: string; ok: boolean; status?: number; error?: string };
+
+/** Nom lisible d'un appareil d'après son user-agent (« Chrome sur Mac »). */
+export function deviceLabel(userAgent: string | null): string {
+  const ua = userAgent ?? "";
+  const browser = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Navigateur";
+  const os = /iPhone|iPad/.test(ua) ? "iPhone" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "";
+  return os ? `${browser} sur ${os}` : browser;
+}
+
+async function deliver(db: Db, sender: PushSender, userId: string, payload: PushPayload): Promise<DeviceResult[]> {
   const subs = await db.select().from(pushSubscription).where(eq(pushSubscription.userId, userId));
-  let sent = 0;
+  const results: DeviceResult[] = [];
   for (const s of subs) {
+    const device = deviceLabel(s.userAgent);
     try {
       await sender({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
-      sent++;
+      results.push({ device, ok: true });
     } catch (err) {
       const status = (err as { statusCode?: number }).statusCode;
+      const message = err instanceof Error ? err.message : String(err);
       // Appareil désinscrit ou abonnement expiré : on l'oublie ; toute autre erreur est réessayée au prochain passage.
       if (status === 404 || status === 410) await db.delete(pushSubscription).where(eq(pushSubscription.id, s.id));
-      else console.error("[push] échec d'envoi", status ?? "", err instanceof Error ? err.message : err);
+      else console.error("[push] échec d'envoi", status ?? "", message);
+      results.push({ device, ok: false, status, error: message.slice(0, 200) });
     }
   }
-  return sent;
+  return results;
 }
 
 /** Envoie les notifications en attente aux appareils de chaque joueur. Renvoie le nombre de messages remis. */
@@ -89,15 +102,15 @@ export async function flushPush(db: Db, sender: PushSender, now = new Date()): P
   for (const r of rows) {
     if (now.getTime() - r.createdAt.getTime() <= PUSH_MAX_AGE_MS) {
       const d = describeNotification(r);
-      sent += await deliver(db, sender, r.userId, { title: "Exquis", body: d.text, url: d.href, tag: r.id });
+      sent += (await deliver(db, sender, r.userId, { title: "Exquis", body: d.text, url: d.href, tag: r.id })).filter((x) => x.ok).length;
     }
     await db.update(notification).set({ pushedAt: now }).where(eq(notification.id, r.id));
   }
   return sent;
 }
 
-/** Notification de test sur tous les appareils du compte. Renvoie le nombre d'appareils atteints. */
-export async function sendTestPush(db: Db, sender: PushSender, userId: string): Promise<number> {
+/** Notification de test sur tous les appareils du compte. Renvoie le résultat pour chaque appareil (accepté ou refusé par son service de notification). */
+export async function sendTestPush(db: Db, sender: PushSender, userId: string): Promise<DeviceResult[]> {
   if (!pushConfigured()) throw new DomainError("push_unavailable", "Les notifications sur téléphone ne sont pas configurées sur ce serveur.", 503);
   return deliver(db, sender, userId, { title: "Exquis", body: "Les notifications fonctionnent sur cet appareil.", url: "/account", tag: "test" });
 }

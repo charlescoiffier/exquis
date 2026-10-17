@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { notification, pushSubscription } from "@/lib/db/schema";
 import { updateProfile } from "@/lib/services/account";
-import { PUSH_MAX_AGE_MS, MAX_DEVICES_PER_USER, countSubscriptions, flushPush, removeSubscription, saveSubscription, sendTestPush, type PushSender } from "@/lib/services/push";
+import { PUSH_MAX_AGE_MS, MAX_DEVICES_PER_USER, countSubscriptions, deviceLabel, flushPush, removeSubscription, saveSubscription, sendTestPush, type PushSender } from "@/lib/services/push";
 import { queueNotification } from "@/lib/services/notifications";
 import { makeUser, resetDb, testDb } from "../helpers/db";
 import { startedGame, textParams } from "../helpers/games";
@@ -102,7 +102,25 @@ describe("envoi des notifications", () => {
     const { sent, sender } = recorder();
     expect(await flushPush(db, sender)).toBe(1);
     expect(sent[0]).toMatchObject({ body: "a vous a envoyé une demande d'ami", url: "/friends" });
-    expect(await sendTestPush(db, sender, b)).toBe(1);
-    expect(await sendTestPush(db, sender, a)).toBe(0);
+    expect(await sendTestPush(db, sender, b)).toEqual([{ device: "Navigateur", ok: true }]);
+    expect(await sendTestPush(db, sender, a)).toEqual([]);
+  });
+});
+
+describe("test d'envoi", () => {
+  it("donne le résultat de chaque appareil, avec le code d'erreur du service de notification, et nomme les appareils", async () => {
+    const u = await makeUser(db, "a");
+    await saveSubscription(db, { userId: u, ...sub(1), userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0 Safari/537.36" });
+    await saveSubscription(db, { userId: u, ...sub(2), userAgent: "Mozilla/5.0 (Linux; Android 10; K) Chrome/154.0 Mobile Safari/537.36" });
+    await saveSubscription(db, { userId: u, ...sub(3), userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile Safari/604.1" });
+    const { sender } = recorder({ [sub(2).endpoint]: 403, [sub(3).endpoint]: 410 });
+    const results = await sendTestPush(db, sender, u);
+    expect(results).toMatchObject([
+      { device: "Chrome sur Mac", ok: true },
+      { device: "Chrome sur Android", ok: false, status: 403 },
+      { device: "Safari sur iPhone", ok: false, status: 410 },
+    ]);
+    expect(await countSubscriptions(db, u)).toBe(2); // l'abonnement périmé (410) est oublié
+    expect(deviceLabel(null)).toBe("Navigateur");
   });
 });
