@@ -444,7 +444,7 @@ règles d'usage : [`docs/design/manifeste.md`](docs/design/manifeste.md).
 - **Essai sur smartphone** : `npm run dev:phone` lance le serveur et le worker accessibles sur le réseau local ; la copie
   dans le presse-papiers retombe sur une méthode de secours, l'API moderne exigeant HTTPS.
 - **Emails** : `npm run mail:test -- adresse@exemple.fr` envoie un message avec la configuration actuelle et affiche le service
-  utilisé ; `/api/health` indique aussi `"mailer": "smtp" | "resend" | "console"` (console = rien n'est réellement envoyé). Les emails de
+  utilisé ; `/api/health` indique aussi `"mailer": "smtp" | "resend" | "console"` (console = rien n'est réellement envoyé) et `"push": true | false` (clés VAPID renseignées). Les emails de
   notification ne partent que pour les tours d'au moins 5 minutes, et ceux de plus de 24 heures sont abandonnés.
 - **Administration et modération** : un compte au rôle `admin` (ou dont l'adresse figure dans `ADMIN_EMAILS`) voit la page
   « Administration » : liste de tous les inscrits (recherche, rôle de modérateur, suppression), toutes les œuvres terminées avec
