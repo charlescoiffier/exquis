@@ -8,7 +8,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { getDb } from "@/lib/db/client";
 import { formatDate, plural } from "@/lib/format";
 import { listCompletedWorks, listUsers } from "@/lib/services/admin";
-import { isAdmin } from "@/lib/services/moderation";
+import { countOpenReports, isAdmin } from "@/lib/services/moderation";
 import { parsePage } from "@/lib/services/games";
 import { getSession } from "@/lib/session";
 
@@ -23,6 +23,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   if (!(await isAdmin(db, session.user.id))) notFound();
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
+  const reports = await countOpenReports(db);
   const [users, works] = await Promise.all([
     listUsers(db, { adminId: session.user.id, q, page: parsePage(sp.pu) }),
     listCompletedWorks(db, { adminId: session.user.id, page: parsePage(sp.pw) }),
@@ -31,7 +32,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     <main>
       <Banner title="Administration" />
       <p className="turn-actions" style={{ marginTop: 0 }}>
-        <ButtonLink href="/moderation" variant="secondary">Signalements à traiter</ButtonLink>
+        <ButtonLink href="/moderation" variant="secondary">Modération : signalements à traiter{reports > 0 ? ` (${reports})` : ""}</ButtonLink>
       </p>
 
       <section aria-labelledby="inscrits">

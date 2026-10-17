@@ -76,14 +76,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </Card>
       </section>
 
-      {moderator && (
+      {moderator && !admin && (
         <section aria-labelledby="moderation">
-          <h2 id="moderation">{admin ? "Administration" : "Modération"}</h2>
+          <h2 id="moderation">Modération</h2>
           <Card>
             <p style={{ marginTop: 0 }}>{openReports > 0 ? `${openReports} ${plural(openReports, "signalement", "signalements")} à traiter.` : "Aucun signalement à traiter."}</p>
             <p className="turn-actions" style={{ margin: 0 }}>
               <ButtonLink href="/moderation" variant="secondary">Ouvrir la modération</ButtonLink>
-              {admin && <ButtonLink href="/admin" variant="secondary">Administration : inscrits et œuvres</ButtonLink>}
             </p>
           </Card>
         </section>

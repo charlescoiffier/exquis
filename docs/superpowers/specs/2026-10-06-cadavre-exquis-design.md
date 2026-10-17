@@ -213,3 +213,4 @@ Ces révisions remplacent les règles correspondantes ci-dessus.
 | Mot de passe masqué | Bouton « Afficher / Masquer » sur les champs de mot de passe (connexion, inscription). |
 | Mention « invitation requise » toujours affichée | Affichée seulement si `REGISTRATION_MODE=invite`. |
 | Comptes existants bloqués par la vérification d'adresse | Validation des adresses par script (`npm run verify-users`) ou depuis « Administration » (par compte ou toutes d'un coup) ; renvoi de l'email de confirmation depuis la page de connexion. |
+| Administration accessible depuis « Mon compte » | Onglet « Admin » dans le menu principal, visible des seuls administrateurs (badge : signalements à traiter) ; la modération est accessible depuis cette page. Les modérateurs non administrateurs gardent un lien dans « Mon compte ». |
