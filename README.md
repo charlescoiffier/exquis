@@ -446,6 +446,11 @@ règles d'usage : [`docs/design/manifeste.md`](docs/design/manifeste.md).
 - **Emails** : `npm run mail:test -- adresse@exemple.fr` envoie un message avec la configuration actuelle et affiche le service
   utilisé ; `/api/health` indique aussi `"mailer": "smtp" | "resend" | "console"` (console = rien n'est réellement envoyé) et `"push": true | false` (clés VAPID renseignées). Les emails de
   notification ne partent que pour les tours d'au moins 5 minutes, et ceux de plus de 24 heures sont abandonnés.
+- **Adresses non vérifiées** : quand la vérification d'adresse est activée (un service d'email vient d'être configuré), les comptes
+  existants ne peuvent plus se connecter (« Vérifiez votre email avant de vous connecter »). `npm run verify-users` les valide
+  d'un coup, sans envoyer de message (ou seulement certaines adresses : `npm run verify-users -- a@x.fr b@y.fr`) ; la page
+  « Administration » propose aussi « Valider l'adresse » par compte et « Valider toutes les adresses ». Sur la page de connexion,
+  un compte non vérifié peut demander un nouvel email de confirmation.
 - **Administration et modération** : un compte au rôle `admin` (ou dont l'adresse figure dans `ADMIN_EMAILS`) voit la page
   « Administration » : liste de tous les inscrits (recherche, rôle de modérateur, suppression), toutes les œuvres terminées avec
   leurs commentaires (suppression d'un commentaire ou de l'œuvre) et les signalements. Supprimer un compte efface ses données

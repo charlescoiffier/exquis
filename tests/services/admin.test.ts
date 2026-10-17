@@ -4,7 +4,7 @@ import { account, session, user } from "@/lib/db/auth-schema";
 import { comment, game, participant, profile } from "@/lib/db/schema";
 import { MemoryStorage } from "@/lib/storage/memory";
 import {
-  deleteCommentAsAdmin, deleteUser, deleteWorkAsAdmin, getWorkForAdmin, listCompletedWorks, listUsers, setUserRole,
+  deleteCommentAsAdmin, deleteUser, deleteWorkAsAdmin, getWorkForAdmin, listCompletedWorks, listUsers, setUserRole, verifyAllEmails, verifyUserEmail,
 } from "@/lib/services/admin";
 import { addComment, listComments } from "@/lib/services/comments";
 import { createGame, getGameView } from "@/lib/services/games";
@@ -81,6 +81,37 @@ describe("inscrits", () => {
 });
 
 const ADMIN_COUNT = 24;
+
+describe("validation des adresses", () => {
+  async function unverified(name: string) {
+    const id = crypto.randomUUID();
+    await db.insert(user).values({ id, name, email: `${name}-${id}@test.dev`, emailVerified: false });
+    return id;
+  }
+
+  it("la liste signale les adresses non vérifiées ; on en valide une, ou toutes d'un coup (sans toucher aux comptes supprimés)", async () => {
+    const a = await makeAdmin();
+    const [u1, u2] = [await unverified("u1"), await unverified("u2")];
+    await makeUser(db, "deja-verifie");
+    const first = await listUsers(db, { adminId: a });
+    expect(first.unverified).toBe(2);
+    expect(first.items.filter((u) => !u.emailVerified).map((u) => u.id).sort()).toEqual([u1, u2].sort());
+    await verifyUserEmail(db, { adminId: a, userId: u1 });
+    expect((await listUsers(db, { adminId: a })).unverified).toBe(1);
+    await db.insert(user).values({ id: "deleted-x", name: "Compte supprimé", email: "deleted-x@exquis.invalid", emailVerified: false });
+    expect(await verifyAllEmails(db, { adminId: a })).toBe(1);
+    expect((await db.select().from(user).where(eq(user.id, u2)))[0].emailVerified).toBe(true);
+    expect((await db.select().from(user).where(eq(user.id, "deleted-x")))[0].emailVerified).toBe(false);
+    expect(await verifyAllEmails(db, { adminId: a })).toBe(0);
+    await expect(verifyUserEmail(db, { adminId: a, userId: "inconnu" })).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("réservé aux administrateurs", async () => {
+    const p = await makeUser(db, "joueur");
+    await expect(verifyAllEmails(db, { adminId: p })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(verifyUserEmail(db, { adminId: p, userId: p })).rejects.toMatchObject({ code: "forbidden" });
+  });
+});
 
 describe("suppression d'un compte", () => {
   it("les œuvres restent, avec un auteur « Compte supprimé » ; identifiants et sessions disparaissent", async () => {

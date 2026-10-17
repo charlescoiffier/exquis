@@ -210,3 +210,6 @@ Ces révisions remplacent les règles correspondantes ci-dessus.
 | Texte final sans repère des phrases communes | Avec « Afficher les noms des auteurs », la partie transmise de chaque contribution (vue par l'auteur suivant) est un peu plus claire. |
 | Pluriels | Accord à la française par `plural()` : 0 et 1 au singulier (statistiques, compteurs). |
 | Session PostgreSQL | Fuseau UTC imposé à la connexion : les colonnes `timestamp` alimentées par `now()` sont lues de la même façon quel que soit le fuseau du serveur. |
+| Mot de passe masqué | Bouton « Afficher / Masquer » sur les champs de mot de passe (connexion, inscription). |
+| Mention « invitation requise » toujours affichée | Affichée seulement si `REGISTRATION_MODE=invite`. |
+| Comptes existants bloqués par la vérification d'adresse | Validation des adresses par script (`npm run verify-users`) ou depuis « Administration » (par compte ou toutes d'un coup) ; renvoi de l'email de confirmation depuis la page de connexion. |

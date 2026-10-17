@@ -18,6 +18,7 @@
     "db:dev": "tsx scripts/dev-db.ts",
     "mail:test": "tsx --env-file-if-exists=.env.local scripts/test-mail.ts",
     "vapid": "tsx scripts/generate-vapid.ts",
+    "verify-users": "tsx --env-file-if-exists=.env.local scripts/verify-users.ts",
     "role": "tsx --env-file-if-exists=.env.local scripts/set-role.ts",
     "capture:readme": "tsx scripts/capture-readme.ts"
   },

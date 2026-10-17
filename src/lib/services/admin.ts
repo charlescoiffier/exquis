@@ -23,6 +23,7 @@ export type AdminUser = {
   email: string;
   createdAt: Date;
   role: string;
+  emailVerified: boolean;
   gamesJoined: number;
 };
 
@@ -40,6 +41,7 @@ export async function listUsers(db: Db, p: { adminId: string; q?: string; page?:
       email: user.email,
       createdAt: user.createdAt,
       role: profile.role,
+      emailVerified: user.emailVerified,
       gamesJoined: sql<number>`(select count(*)::int from participant pp where pp.user_id = ${user.id})`,
     })
     .from(user)
@@ -49,7 +51,26 @@ export async function listUsers(db: Db, p: { adminId: string; q?: string; page?:
     .limit(ADMIN_PAGE_SIZE)
     .offset(w.offset);
   const items: AdminUser[] = rows.map((r) => ({ ...r, role: r.role ?? "player" }));
-  return { items, total, page: w.page, pageCount: w.pageCount };
+  const [{ n: unverified }] = await db.select({ n: count() }).from(user).where(and(eq(user.emailVerified, false), sql`${user.email} not like '%@exquis.invalid'`));
+  return { items, total, unverified, page: w.page, pageCount: w.pageCount };
+}
+
+/** Valide l'adresse d'un compte (sans email de confirmation). */
+export async function verifyUserEmail(db: Db, p: { adminId: string; userId: string }): Promise<void> {
+  await requireAdmin(db, p.adminId);
+  const res = await db.update(user).set({ emailVerified: true, updatedAt: new Date() }).where(eq(user.id, p.userId)).returning({ id: user.id });
+  if (res.length === 0) throw new DomainError("not_found", "Compte introuvable.", 404);
+}
+
+/** Valide d'un coup toutes les adresses non vérifiées (comptes existants avant la vérification d'adresse). Renvoie leur nombre. */
+export async function verifyAllEmails(db: Db, p: { adminId: string }): Promise<number> {
+  await requireAdmin(db, p.adminId);
+  const res = await db
+    .update(user)
+    .set({ emailVerified: true, updatedAt: new Date() })
+    .where(and(eq(user.emailVerified, false), sql`${user.email} not like '%@exquis.invalid'`))
+    .returning({ id: user.id });
+  return res.length;
 }
 
 /** Passe un compte en modérateur ou le ramène joueur (le rôle d'administrateur se donne par `npm run role` ou ADMIN_EMAILS). */
