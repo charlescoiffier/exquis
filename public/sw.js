@@ -15,6 +15,8 @@ self.addEventListener("push", (event) => {
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       tag: data.tag,
+      // Sans cela, une notification de même tag en remplace une autre sans alerte.
+      renotify: Boolean(data.tag),
       data: { url: data.url || "/" },
     }),
   );
