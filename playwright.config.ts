@@ -14,6 +14,6 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 120_000,
-    env: { ...process.env, REQUIRE_EMAIL_VERIFICATION: "false", REGISTRATION_MODE: "invite" } as Record<string, string>,
+    env: { ...process.env, REQUIRE_EMAIL_VERIFICATION: "false", REGISTRATION_MODE: "open" } as Record<string, string>,
   },
 });

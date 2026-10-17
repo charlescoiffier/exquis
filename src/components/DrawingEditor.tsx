@@ -40,6 +40,8 @@ const PALETTE: { name: string; hex: string }[] = [
 type History = { ops: Op[]; redo: Op[] };
 /** Écart minimal (px du canvas) entre deux points enregistrés : filtre le tremblement et allège le tracé. */
 const MIN_STEP = 1.5;
+/** Zoom maximal de la vue (×5). */
+const MAX_ZOOM = 5;
 /** Tailles des trois crayons (fin, moyen, épais). */
 const PENCIL_SIZES = [["Fin", 3], ["Moyen", 8], ["Épais", 20]] as const;
 type Tool = "pencil" | "highlighter" | "spray" | "eraser" | "fill" | ShapeKind;
@@ -65,6 +67,14 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
   const [perf, setPerf] = useState<string | null>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
+  // Zoom et déplacement (deux doigts) : transformation CSS de la « scène » (canvas + guides), sans toucher à la résolution du canvas.
+  const frameRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef({ s: 1, tx: 0, ty: 0 });
+  const touchesRef = useRef(new Map<number, { x: number; y: number }>());
+  const gestureRef = useRef<{ dist: number; px: number; py: number; s: number } | null>(null);
+  const ignoredRef = useRef(new Set<number>());
+  const [zoom, setZoom] = useState(1);
   // Rang du prochain point de contrôle (ou grain) du tracé en cours à dessiner.
   const drawnRef = useRef(1);
 
@@ -417,7 +427,103 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     return [((e.clientX - rect.left) * width) / rect.width, ((e.clientY - rect.top) * height) / rect.height, e.pressure || 0.5];
   }
 
+  // ----- Zoom et déplacement -----
+  function applyView(s: number, tx: number, ty: number) {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const w = stage.offsetWidth, h = stage.offsetHeight;
+    const ns = Math.min(MAX_ZOOM, Math.max(1, s));
+    // La scène couvre toujours le cadre : on ne peut pas faire sortir le dessin de la vue.
+    const nx = Math.min(0, Math.max(w - w * ns, tx));
+    const ny = Math.min(0, Math.max(h - h * ns, ty));
+    viewRef.current = { s: ns, tx: nx, ty: ny };
+    stage.style.transform = ns === 1 ? "" : `translate(${nx}px, ${ny}px) scale(${ns})`;
+  }
+  function zoomBy(factor: number) {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const { s, tx, ty } = viewRef.current;
+    const cx = stage.offsetWidth / 2, cy = stage.offsetHeight / 2;
+    const px = (cx - tx) / s, py = (cy - ty) / s;
+    const ns = Math.min(MAX_ZOOM, Math.max(1, s * factor));
+    applyView(ns, cx - px * ns, cy - py * ns);
+    setZoom(viewRef.current.s);
+  }
+  function resetZoom() {
+    applyView(1, 0, 0);
+    setZoom(1);
+  }
+  /** Position d'un pointeur dans le repère de la scène non transformée. */
+  function stagePoint(clientX: number, clientY: number): [number, number] {
+    const frame = frameRef.current!;
+    const r = frame.getBoundingClientRect();
+    return [clientX - r.left - frame.clientLeft, clientY - r.top - frame.clientTop];
+  }
+  /** Un trait en cours est abandonné (un deuxième doigt arrive) : le canvas retrouve l'état des calques. */
+  function cancelStroke() {
+    if (!currentRef.current) return;
+    currentRef.current = null;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = 0;
+    delete document.body.dataset.drawing;
+    paint(opsRef.current);
+  }
+  function startGesture() {
+    cancelStroke();
+    const pts = [...touchesRef.current.values()];
+    for (const id of touchesRef.current.keys()) ignoredRef.current.add(id);
+    const [a, b] = pts;
+    const [ax, ay] = stagePoint(a.x, a.y), [bx, by] = stagePoint(b.x, b.y);
+    const { s, tx, ty } = viewRef.current;
+    const cx = (ax + bx) / 2, cy = (ay + by) / 2;
+    gestureRef.current = { dist: Math.hypot(bx - ax, by - ay) || 1, px: (cx - tx) / s, py: (cy - ty) / s, s };
+  }
+  function updateGesture() {
+    const g = gestureRef.current;
+    const pts = [...touchesRef.current.values()];
+    if (!g || pts.length < 2) return;
+    const [a, b] = pts;
+    const [ax, ay] = stagePoint(a.x, a.y), [bx, by] = stagePoint(b.x, b.y);
+    const ns = Math.min(MAX_ZOOM, Math.max(1, (g.s * (Math.hypot(bx - ax, by - ay) || 1)) / g.dist));
+    const cx = (ax + bx) / 2, cy = (ay + by) / 2;
+    applyView(ns, cx - g.px * ns, cy - g.py * ns);
+  }
+  /** Gestion commune des doigts : renvoie vrai si l'événement est consommé par un geste de zoom ou un doigt ignoré. */
+  function handleTouch(e: React.PointerEvent<HTMLCanvasElement>, phase: "down" | "move" | "up"): boolean {
+    if (e.pointerType !== "touch") return false;
+    const touches = touchesRef.current;
+    if (phase === "down") {
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.size >= 2) {
+        startGesture();
+        return true;
+      }
+      return ignoredRef.current.has(e.pointerId);
+    }
+    if (phase === "move") {
+      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (gestureRef.current) {
+        updateGesture();
+        return true;
+      }
+      return ignoredRef.current.has(e.pointerId);
+    }
+    const wasIgnored = ignoredRef.current.has(e.pointerId);
+    touches.delete(e.pointerId);
+    ignoredRef.current.delete(e.pointerId);
+    if (gestureRef.current && touches.size < 2) {
+      gestureRef.current = null;
+      setZoom(viewRef.current.s);
+    }
+    return wasIgnored;
+  }
+  function onUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (handleTouch(e, "up")) return;
+    endStroke();
+  }
+
   function onDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (handleTouch(e, "down")) return;
     if (!e.isPrimary || e.button !== 0 || !stripReady || currentRef.current) return;
     const [x, y, p] = toCanvas(e);
     if (!isInsideCanvas(x, y, direction)) return;
@@ -456,13 +562,15 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
     }
     const rect = e.currentTarget.getBoundingClientRect();
     const d = Math.max(4, sizeRef.current * (rect.width / width));
+    const [fx, fy] = stagePoint(e.clientX, e.clientY);
     el.style.display = "block";
     el.style.width = `${d}px`;
     el.style.height = `${d}px`;
-    el.style.left = `${e.clientX - rect.left}px`;
-    el.style.top = `${e.clientY - rect.top}px`;
+    el.style.left = `${fx}px`;
+    el.style.top = `${fy}px`;
   }
   function onMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (handleTouch(e, "move")) return;
     moveRing(e);
     perfRef.current.moves += 1;
     const cur = currentRef.current;
@@ -623,24 +731,34 @@ export function DrawingEditor({ gameId, direction, rank, total, stripUrl, draft,
         </div>
       </div>
       {/* Le cadre est sur l'enveloppe : une bordure sur le canvas fausserait la conversion des coordonnées du pointeur. */}
-      <div className="canvas-frame">
-        <canvas
-          ref={canvasRef}
-          width={width}
-          height={height}
-          onPointerDown={onDown}
-          onPointerMove={onMove}
-          onPointerUp={endStroke}
-          onPointerCancel={endStroke}
-          onPointerLeave={() => {
-            if (ringRef.current) ringRef.current.style.display = "none";
-            endStroke();
-          }}
-          className="drawing-canvas"
-        />
+      <div ref={frameRef} className="canvas-frame">
+        {/* Scène : canvas et guides bougent ensemble quand on zoome (deux doigts : zoom et déplacement). */}
+        <div ref={stageRef} className="canvas-stage">
+          <canvas
+            ref={canvasRef}
+            width={width}
+            height={height}
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onUp}
+            onPointerLeave={(e) => {
+              if (ringRef.current) ringRef.current.style.display = "none";
+              if (e.pointerType === "touch") return;
+              endStroke();
+            }}
+            className="drawing-canvas"
+          />
+          {/* Calque de guides : visuel uniquement, jamais exporté */}
+          <div className="guides-layer" dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
+        </div>
         <div ref={ringRef} className="brush-ring" aria-hidden="true" style={{ display: "none" }} />
-        {/* Calque de guides : visuel uniquement, jamais exporté */}
-        <div className="guides-layer" dangerouslySetInnerHTML={{ __html: guides.replace("<svg ", '<svg style="width:100%;height:100%" ') }} />
+      </div>
+      <div role="group" aria-label="Zoom" className="zoom-bar">
+        <button type="button" className="secondary" onClick={() => zoomBy(1 / 1.5)} disabled={zoom <= 1} aria-label="Zoom arrière">−</button>
+        <button type="button" className="secondary" onClick={() => zoomBy(1.5)} disabled={zoom >= MAX_ZOOM} aria-label="Zoom avant">+</button>
+        {zoom > 1 && <button type="button" className="secondary" onClick={resetZoom}>Vue entière ({Math.round(zoom * 100)} %)</button>}
+        <span className="muted zoom-hint">Pincez avec deux doigts pour zoomer et déplacer.</span>
       </div>
       {confirmClear && (
         <ConfirmDialog title="Tout effacer ?" confirmLabel="Tout effacer" onConfirm={clearAll} onCancel={() => setConfirmClear(false)}>

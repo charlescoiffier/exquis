@@ -181,7 +181,7 @@ export function FinalViewer({ gameId, imageSrc, direction, width, height, joints
         <label className="switch">
           <input type="checkbox" role="switch" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} />
           <span className="switch-track" aria-hidden="true" />
-          <span>Afficher avec jointures et noms</span>
+          <span>Afficher les noms des dessinateurs</span>
         </label>
         <button type="button" onClick={download} disabled={busy}>Télécharger en PNG</button>
       </div>

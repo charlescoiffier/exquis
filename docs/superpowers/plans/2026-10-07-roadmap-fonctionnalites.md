@@ -10,7 +10,7 @@ avant le code.
 | D1 Crayons | crayon fin, moyen, épais ; surligneur translucide (opacité constante sur le trait, pas de surcharge aux croisements) ; aérographe | Chaque trait garde `tool`, `size`, `opacity` dans l'opération. Surligneur : trait dessiné en une passe puis fusionné avec une opacité globale (aperçu : calque d'aperçu à opacité CSS, déjà en place). Aérographe : semis de points déterministe (graine stockée dans l'opération). |
 | D2 Formes | ligne, rectangle, ovale ; contour ou rempli | Nouvelle opération `shape` (type, deux coins, contour/rempli, couleur, épaisseur). Aperçu sur le calque d'aperçu, redessiné à chaque image (coût constant). |
 | D3 Tout effacer | bouton avec la modale `ConfirmDialog` | Opération `clear` dans l'historique : annulable. |
-| ~~D4 Zoom et déplacement~~ | **Abandonné (décision du 8 octobre 2026).** Idée écartée : pincement et glisser à deux doigts, molette sur ordinateur. | Piste envisagée si la question revient : transformation CSS de l'enveloppe qui contient tous les calques (le canvas garde sa résolution), sans contexte de canvas désynchronisé, avec suivi manuel des pointeurs et tracé figé pendant un geste à deux doigts. Risques identifiés : conflit avec le zoom natif du navigateur, mémoire sur iOS. |
+| D4 Zoom et déplacement | **Abandonné le 8 octobre 2026, puis réalisé le 17 octobre pour le téléphone** (pincement, déplacement, boutons). Idée écartée : pincement et glisser à deux doigts, molette sur ordinateur. | Piste envisagée si la question revient : transformation CSS de l'enveloppe qui contient tous les calques (le canvas garde sa résolution), sans contexte de canvas désynchronisé, avec suivi manuel des pointeurs et tracé figé pendant un geste à deux doigts. Risques identifiés : conflit avec le zoom natif du navigateur, mémoire sur iOS. |
 
 ## Fonctionnalités
 
@@ -36,7 +36,7 @@ avant le code.
 
 1. Diagnostic de la lenteur du dessin sur smartphone : fait (un seul canvas visible, 44 images/s contre 9 mesurées sur un Android ; mesures `?perf=1`).
 2. Lots T, C et P : faits.
-3. Outils D1 à D3 : faits. D4 (zoom et déplacement) est abandonné.
+3. Outils D1 à D4 : faits (le zoom, d'abord écarté, a été réalisé pour le téléphone).
 4. Lots R, Pr, A et M : faits.
 5. À venir : déploiement, puis notifications sur téléphone (ci-dessous), puis éventuellement une application Android.
 
@@ -85,3 +85,17 @@ l'application), puis éventuellement une coque Capacitor avec FCM pour le Play S
   notifications FCM ; compte développeur Google (25 $, une fois) et site en ligne d'abord.
 - **Application native (Kotlin) ou React Native** : second projet à maintenir, avec une API mobile (authentification par
   jeton plutôt que par cookie) ; à n'envisager que si la PWA ne suffit pas.
+
+### Réalisé le 17 octobre 2026
+
+Inscription libre, administration (inscrits, œuvres, commentaires), emails (SMTP, diagnostic), notifications push (Web
+Push) avec choix du canal, zoom sur téléphone. Le déploiement sur VPS (exquis.charlescoiffier.fr) est en place.
+
+### Application Android et iOS en coque (à venir)
+
+Possible avec **Capacitor** : une application native qui affiche le site (`server.url` vers exquis.charlescoiffier.fr) ou une
+version embarquée. Étapes : projet Capacitor (`@capacitor/core`, `@capacitor/android`, `@capacitor/ios`), icônes et écran de
+démarrage, plugin `@capacitor/push-notifications` avec Firebase Cloud Messaging (Android) et APNs (iOS) à la place du Web Push
+dans la coque, cookies de session et stockage dans la WebView, publication (Play Store : compte à 25 $ ; App Store : compte
+développeur à 99 $ par an, avec une revue qui exige plus qu'un simple site emballé). Prérequis côté serveur : notifications
+natives (table d'appareils FCM/APNs), ouverture des liens profonds (`/games/…`).

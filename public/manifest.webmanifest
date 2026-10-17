@@ -1,0 +1,17 @@
+{
+  "name": "Exquis",
+  "short_name": "Exquis",
+  "description": "Cadavre exquis en ligne : écrivez ou dessinez à tour de rôle, sans voir ce qui précède.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "fr",
+  "background_color": "#FBFAF5",
+  "theme_color": "#101010",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

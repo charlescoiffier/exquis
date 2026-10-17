@@ -4,15 +4,17 @@ import type { Db } from "@/lib/db/client";
 import { profile, turn } from "@/lib/db/schema";
 import type { Effect } from "@/lib/effects";
 import { DEFAULT_REMINDER_STAGE } from "@/lib/jobs/queue";
-import type { Mailer } from "@/lib/notifications/mailer";
+import { ConsoleMailer, type Mailer } from "@/lib/notifications/mailer";
 import { flushNotifications } from "@/lib/services/email-outbox";
+import { flushPush, type PushSender } from "@/lib/services/push";
 import { purgeStaleGames } from "@/lib/services/games";
 import { assembleFinalWork } from "@/lib/services/final-work";
 import { queueNotification } from "@/lib/services/notifications";
 import { expireOverdue, expireTurn } from "@/lib/services/turns";
 import type { Storage } from "@/lib/storage";
 
-export type Deps = { db: Db; storage: Storage; mailer: Mailer; now?: () => Date };
+/** `push` : émetteur Web Push, absent quand les clés VAPID ne sont pas configurées. */
+export type Deps = { db: Db; storage: Storage; mailer: Mailer; push?: PushSender; now?: () => Date };
 const nowOf = (d: Deps) => (d.now ? d.now() : new Date());
 
 export async function handleExpire(deps: Deps, data: { turnId: string; deadline: string }): Promise<Effect[]> {
@@ -52,6 +54,18 @@ export async function handlePurge(deps: Deps): Promise<void> {
   if (n > 0) console.log(`[purge] ${n} partie(s) sans activité supprimée(s)`);
 }
 
+let warnedNoMailer = false;
 export async function handleFlush(deps: Deps): Promise<void> {
+  // Notifications sur téléphone : indépendantes de l'email.
+  if (deps.push) await flushPush(deps.db, deps.push, nowOf(deps));
+  // Sans service d'email configuré, les messages ne partiraient que dans les journaux : on les laisse en attente
+  // (ils seront envoyés, s'ils ont moins de 24 h, une fois RESEND_API_KEY ou SMTP_HOST renseigné) au lieu de les déclarer envoyés.
+  if (deps.mailer instanceof ConsoleMailer) {
+    if (!warnedNoMailer) {
+      warnedNoMailer = true;
+      console.warn("[email] aucun service d'email configuré (RESEND_API_KEY ou SMTP_HOST) : les emails restent en attente.");
+    }
+    return;
+  }
   await flushNotifications(deps.db, deps.mailer, nowOf(deps));
 }

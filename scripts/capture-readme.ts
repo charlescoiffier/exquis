@@ -32,7 +32,7 @@ const env = {
   STORAGE_DIR,
   STORAGE_DRIVER: "local",
   REQUIRE_EMAIL_VERIFICATION: "false",
-  REGISTRATION_MODE: "invite",
+  REGISTRATION_MODE: "open",
 } as NodeJS.ProcessEnv;
 Object.assign(process.env, env);
 
@@ -337,16 +337,14 @@ async function main() {
     }
 
     // Invitations et comptes
-    const { createInvitation } = await import("../src/lib/services/invitations");
     const { createDb } = await import("../src/lib/db/client");
     const drizzleDb = createDb(SHOTS_URL);
     const names = ["Alice", "Bastien", "Chloé", "Dylan"];
     const users: Record<string, User> = {};
     for (const name of names) {
-      const code = await createInvitation(drizzleDb.db, null);
       const email = `${name.toLowerCase().replace("é", "e")}@exemple.fr`;
       const ctx = await request.newContext({ baseURL: BASE });
-      await api(await ctx.post("/api/register", { data: { name, email, password: PASSWORD, invitationCode: code } }));
+      await api(await ctx.post("/api/register", { data: { name, email, password: PASSWORD } }));
       const [row] = await db`select id from "user" where email = ${email}`;
       users[name] = { name, email, id: row.id as string, api: ctx };
     }
@@ -511,7 +509,7 @@ async function main() {
       await shot(page, "tour-dessin-bureau");
       await page.setViewportSize({ width: 1280, height: 1000 });
       await page.goto(`${BASE}/games/${monstre}/final`);
-      await page.getByText("Afficher avec jointures et noms").click();
+      await page.getByText("Afficher les noms des dessinateurs").click();
       await shot(page, "oeuvre-dessin-bureau", "main");
       await page.goto(`${BASE}/games/${jardin}/final`);
       await shot(page, "oeuvre-texte-bureau", "main");
@@ -532,7 +530,7 @@ async function main() {
       await shot(page, "tour-dessin-mobile");
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(`${BASE}/games/${monstre}/final`);
-      await page.getByText("Afficher avec jointures et noms").click();
+      await page.getByText("Afficher les noms des dessinateurs").click();
       await shot(page, "oeuvre-dessin-mobile");
       await page.setViewportSize({ width: 390, height: 1300 });
       await page.goto(`${BASE}/friends`);

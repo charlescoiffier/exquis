@@ -18,7 +18,7 @@ env:
   BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
   STORAGE_SECRET: ci-only-storage-secret-ci-only-secret
   APP_URL: http://localhost:3000
-  REGISTRATION_MODE: invite
+  REGISTRATION_MODE: open
   STORAGE_DRIVER: local
 
 jobs:

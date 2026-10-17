@@ -36,7 +36,7 @@ describe("updateProfile", () => {
 describe("rappel et avatar", () => {
   it("valeurs par défaut : rappel à 25 %, avatar dérivé du compte", async () => {
     const id = await makeUser(db, "a");
-    expect(await getProfile(db, id)).toEqual({ emailEnabled: true, reminderStage: 25, avatar: defaultAvatar(id) });
+    expect(await getProfile(db, id)).toEqual({ emailEnabled: true, notifyMode: "both", reminderStage: 25, avatar: defaultAvatar(id) });
   });
   it("enregistre le moment du rappel (0, 10, 25 ou 50) et refuse les autres", async () => {
     const id = await makeUser(db, "a");
@@ -56,6 +56,20 @@ describe("rappel et avatar", () => {
     // Les autres préférences ne touchent pas à l'avatar.
     await updateProfile(db, id, { emailEnabled: false });
     expect((await getProfile(db, id)).avatar.shape).toBe("star");
+  });
+});
+
+describe("canal de notification", () => {
+  it("email, téléphone, les deux ou aucun : deux interrupteurs enregistrés d'un coup", async () => {
+    const id = await makeUser(db, "a");
+    for (const mode of ["email", "push", "none", "both"] as const) {
+      await updateProfile(db, id, { notifyMode: mode });
+      expect((await getProfile(db, id)).notifyMode).toBe(mode);
+    }
+    await updateProfile(db, id, { notifyMode: "push" });
+    const [row] = await db.select().from(profile).where(eq(profile.userId, id));
+    expect([row.emailEnabled, row.notifyPush]).toEqual([false, true]);
+    await expect(updateProfile(db, id, { notifyMode: "sms" as never })).rejects.toMatchObject({ code: "invalid_notify_mode" });
   });
 });
 

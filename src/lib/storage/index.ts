@@ -6,6 +6,8 @@ export interface Storage {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer>;
   exists(key: string): Promise<boolean>;
+  /** Supprime un objet (sans erreur s'il n'existe pas). */
+  delete(key: string): Promise<void>;
   signedUrl(key: string, ttlSeconds: number): Promise<string>;
 }
 

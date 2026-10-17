@@ -195,3 +195,18 @@ Ces révisions remplacent les règles correspondantes ci-dessus.
 | Aperçu du tracé sur des calques superposés | Un seul canvas visible : le crayon opaque et l'aérographe ajoutent les nouveaux points ; le crayon translucide, le surligneur, la gomme et les formes restaurent la zone touchée depuis une copie du canvas puis se redessinent en une passe. Mesure sur un smartphone Android : 44 images/s contre 9 avec des calques d'aperçu. `?perf=1` affiche et envoie des mesures de fluidité. |
 | Copie dans le presse-papiers par l'API moderne | Repli sur une copie via un champ temporaire hors contexte sécurisé (essai en HTTP sur le réseau local). |
 | Zoom et déplacement du canvas | Abandonnés (voir la feuille de route). |
+
+### Compléments du 2026-10-17
+
+| Règle d'origine | Règle révisée |
+|---|---|
+| Inscription sur invitation (`REGISTRATION_MODE=invite` par défaut) | Inscription libre par défaut (`open`) ; la page d'inscription ne demande un code qu'en mode `invite`. L'outil de génération d'invitations d'inscription est retiré de « Mon compte » (le script `create-invite.ts` reste pour le mode `invite`). Vérification d'adresse : valeur explicite de `REQUIRE_EMAIL_VERIFICATION`, sinon exigée seulement si un service d'email est configuré. |
+| Emails par Resend uniquement ; échec silencieux sans clé | SMTP (`SMTP_HOST`…) ou Resend, `MAIL_FROM` ; le worker ne déclare plus « envoyés » des emails qui n'ont fait que passer dans les journaux (ils restent en attente, 24 h au plus) ; erreur Resend détaillée ; `npm run mail:test` ; `/api/health` indique le service utilisé. |
+| Canal d'email seul | Choix du canal dans « Mon compte » : email, téléphone, les deux ou aucune (`profile.email_enabled` et `profile.notify_push`). **Web Push** : table `push_subscription` (un compte, plusieurs appareils), service worker `public/sw.js`, manifeste d'application installable, clés VAPID (`npm run vapid`), envoi par le worker (`notification.push_pending` / `pushed_at`, abandon au-delà de 24 h, oubli des abonnements périmés 404/410), notification de test. Hors HTTPS ou sur iPhone non installé : message d'explication. |
+| Administration absente | Rôle `admin` (ou `ADMIN_EMAILS`), qui inclut la modération : liste et recherche des inscrits, passage en modérateur, suppression d'un compte (données personnelles effacées, places libérées, contributions et commentaires conservés sous « Compte supprimé »), toutes les œuvres terminées avec leurs commentaires (suppression d'un commentaire ou de l'œuvre et de ses images), signalements. |
+| Zoom et déplacement du canvas abandonnés (2026-10-08) | Zoom ajouté pour le téléphone : pincement à deux doigts (×1 à ×5), déplacement à deux doigts, boutons « − », « + » et « Vue entière » ; transformation CSS de la scène (canvas et guides), sans coût de dessin ; un deuxième doigt pendant un trait l'annule. |
+| Quitter une partie à tout moment | Impossible après y avoir joué. |
+| Liste « Parties à rejoindre » | Exclut les parties où l'on a une invitation (elles sont dans « Invitations reçues ») ; une partie en attente indique combien de joueurs manquent ; « Créer une partie » en bas de page. |
+| Texte final sans repère des phrases communes | Avec « Afficher les noms des auteurs », la partie transmise de chaque contribution (vue par l'auteur suivant) est un peu plus claire. |
+| Pluriels | Accord à la française par `plural()` : 0 et 1 au singulier (statistiques, compteurs). |
+| Session PostgreSQL | Fuseau UTC imposé à la connexion : les colonnes `timestamp` alimentées par `now()` sont lues de la même façon quel que soit le fuseau du serveur. |

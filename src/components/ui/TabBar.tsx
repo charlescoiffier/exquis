@@ -6,7 +6,7 @@ const TABS = [
   { href: "/", label: "Parties", match: (p: string) => p === "/" || (p.startsWith("/games") && p !== "/games/new") },
   { href: "/games/new", label: "Créer", match: (p: string) => p === "/games/new" },
   { href: "/inbox", label: "Notifications", match: (p: string) => p.startsWith("/inbox") },
-  { href: "/account", label: "Compte", match: (p: string) => p.startsWith("/account") || p.startsWith("/friends") || p.startsWith("/moderation") },
+  { href: "/account", label: "Compte", match: (p: string) => p.startsWith("/account") || p.startsWith("/friends") || p.startsWith("/moderation") || p.startsWith("/admin") },
 ] as const;
 
 /** Barre d'onglets fixe en bas (mobile) ; navigation horizontale en haut à partir de 900 px. */

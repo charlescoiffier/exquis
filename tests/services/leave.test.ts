@@ -48,6 +48,17 @@ describe("leaveGame", () => {
     expect(row.leftAt).not.toBeNull();
   });
 
+  it("on ne quitte plus une partie où l'on a déjà joué", async () => {
+    const { gameId, users } = await startedGame(db, textParams(3));
+    const first = await activeTurn(db, gameId);
+    await submitText(db, { userId: first.assignedUserId, gameId, text: "un deux" });
+    await expect(leaveGame(db, { userId: first.assignedUserId, gameId })).rejects.toMatchObject({ code: "already_played" });
+    expect((await listMyCurrentGames(db, first.assignedUserId)).items[0].hasPlayed).toBe(true);
+    const other = users.find((u) => u !== first.assignedUserId)!;
+    expect((await listMyCurrentGames(db, other)).items[0].hasPlayed).toBe(false);
+    await leaveGame(db, { userId: other, gameId });
+  });
+
   it("partie en cours : sans joueur restant, la partie est annulée ; une partie terminée ne se quitte pas", async () => {
     const { gameId, users } = await startedGame(db, textParams(2));
     for (const u of users) await leaveGame(db, { userId: u, gameId });

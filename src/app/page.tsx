@@ -11,6 +11,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { getDb } from "@/lib/db/client";
+import { plural } from "@/lib/format";
 import { listMyInvitations } from "@/lib/services/game-invites";
 import { listJoinableGames, listMyCurrentGames, parsePage } from "@/lib/services/games";
 import { getSession } from "@/lib/session";
@@ -18,6 +19,9 @@ import { getSession } from "@/lib/session";
 export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
+
+/** « il manque 2 joueurs » (jamais négatif). */
+const missing = (n: number) => `il manque ${Math.max(0, n)} ${plural(n, "joueur", "joueurs")}`;
 
 export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const session = await getSession();
@@ -34,7 +38,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     <main>
       <AutoRefresh />
       <TurnTitle myTurn={mine.items.some((g) => g.isMyTurn)} />
-      <Banner title="Exquis" />
+      <Banner title="Les parties" />
 
       <section aria-labelledby="mes-parties">
         <h2 id="mes-parties">Mes parties en cours</h2>
@@ -53,7 +57,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                         <div className="game-title">{g.name}</div>
                         <GameTag kind={g.status === "open" ? "open" : "in_progress"} />
                       </div>
-                      <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} theme={g.theme} />
+                      <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} theme={g.theme} extra={g.status === "open" ? [missing(g.turns - g.participantCount)] : undefined} />
                     </div>
                     <div className="game-side">
                       {g.isMyTurn ? (
@@ -64,7 +68,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                       ) : (
                         <ButtonLink href={`/games/${g.id}`}>Ouvrir</ButtonLink>
                       )}
-                      <LeaveButton gameId={g.id} gameName={g.name} inProgress={g.status === "in_progress"} />
+                      {!g.hasPlayed && <LeaveButton gameId={g.id} gameName={g.name} inProgress={g.status === "in_progress"} />}
                     </div>
                   </Card>
                 </li>
@@ -90,7 +94,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                     <GameMeta type={i.type} turns={i.turns} turnDurationSeconds={i.turnDurationSeconds} theme={i.theme} extra={[`invité par ${i.inviterName}`]} />
                   </div>
                   <div className="game-side">
-                    <ButtonLink href={`/games/${i.gameId}`}>Voir la partie</ButtonLink>
+                    <ButtonLink href={`/games/${i.gameId}`}>Rejoindre</ButtonLink>
                   </div>
                 </Card>
               </li>
@@ -100,10 +104,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
       )}
 
       <section aria-labelledby="ouvertes">
-        <div className="section-head">
-          <h2 id="ouvertes">Parties à rejoindre</h2>
-          <ButtonLink href="/games/new">Créer une partie</ButtonLink>
-        </div>
+        <h2 id="ouvertes">Parties à rejoindre</h2>
         {joinable.total === 0 ? (
           <Card>
             <p style={{ margin: 0 }}>Aucune partie à rejoindre pour l&apos;instant : lancez-en une et invitez vos amis.</p>
@@ -113,7 +114,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
             <ul className="cards">
               {joinable.items.map((g) => {
                 const call = g.openCallRank !== null;
-                const extra = call ? [`tour à jouer ${g.openCallRank}/${g.turns}`] : [`${g.participantCount}/${g.turns} inscrits`];
+                const extra = call ? [`tour à jouer ${g.openCallRank}/${g.turns}`] : [`${g.participantCount}/${g.turns} inscrits`, missing(g.turns - g.participantCount)];
                 return (
                   <li key={g.id}>
                     <Card call={call} className="game-card">
@@ -136,6 +137,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
           </>
         )}
       </section>
+
+      <p className="page-foot">
+        <ButtonLink href="/games/new">Créer une partie</ButtonLink>
+      </p>
     </main>
   );
 }

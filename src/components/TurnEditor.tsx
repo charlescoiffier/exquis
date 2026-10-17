@@ -15,6 +15,8 @@ export type SerializedTurn = {
   total: number;
   /** Intitulé facultatif de ce tour (« Corps »), sinon chaîne vide. */
   label?: string;
+  /** Nom de la partie, rappelé en tête du tour. */
+  gameName?: string;
   /** Thème de la partie, rappelé pendant le tour. */
   theme?: string | null;
   deadline: string;
@@ -97,6 +99,7 @@ export function TurnEditor({ gameId, turn }: { gameId: string; turn: SerializedT
   const heading = turn.game.type === "text" ? "À vous d'écrire" : "À vous de dessiner";
   const rankLine = (
     <>
+      {turn.gameName && <h3 className="turn-game-name">{turn.gameName}</h3>}
       <p className="turn-rank">{turnTitle(turn.rank, turn.total, turn.label)}</p>
       {turn.theme && <p className="turn-theme">Thème : <strong>{turn.theme}</strong></p>}
     </>

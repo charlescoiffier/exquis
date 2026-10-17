@@ -2,6 +2,7 @@ import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { user } from "@/lib/db/auth-schema";
 import type { Db, Executor } from "@/lib/db/client";
 import { game, notification, profile } from "@/lib/db/schema";
+import { pushConfigured } from "@/lib/env";
 
 export type NotificationType =
   | "game_started" | "your_turn" | "turn_reminder" | "turn_reassigned"
@@ -26,12 +27,14 @@ export async function queueNotification(
   },
 ): Promise<void> {
   const [g] = n.gameId ? await tx.select({ d: game.turnDurationSeconds }).from(game).where(eq(game.id, n.gameId)) : [];
-  const [p] = await tx.select({ e: profile.emailEnabled }).from(profile).where(eq(profile.userId, n.userId));
+  const [p] = await tx.select({ e: profile.emailEnabled, push: profile.notifyPush }).from(profile).where(eq(profile.userId, n.userId));
   const emailPending = !n.inAppOnly && !!n.gameId && (p?.e ?? true) && (g?.d ?? 0) >= EMAIL_MIN_DURATION_SECONDS;
+  // Push : tous les types (y compris demandes d'ami et invitations), même pour les tours courts ; seulement si la fonction est configurée.
+  const pushPending = (p?.push ?? true) && pushConfigured();
   const dedupeKey = `${n.type}:${n.turnId ?? n.gameId ?? n.actorId}:${n.userId}${n.suffix ? `:${n.suffix}` : ""}`;
   await tx
     .insert(notification)
-    .values({ userId: n.userId, type: n.type, gameId: n.gameId, actorId: n.actorId, turnId: n.turnId, dedupeKey, emailPending })
+    .values({ userId: n.userId, type: n.type, gameId: n.gameId, actorId: n.actorId, turnId: n.turnId, dedupeKey, emailPending, pushPending })
     .onConflictDoNothing({ target: notification.dedupeKey });
 }
 

@@ -52,7 +52,7 @@ export default async function FinalPage({ params }: { params: Promise<{ id: stri
           <Card><p role="status" style={{ margin: 0 }}>L&apos;œuvre est en cours d&apos;assemblage, revenez dans un instant.</p></Card>
         )
       ) : (
-        <FinalText contributions={view.contributions} />
+        <FinalText contributions={view.contributions} rule={view.excerpt} />
       )}
       {completed && <p className="report-work"><ReportButton targetType="work" targetId={id} label="Signaler cette œuvre" className="secondary" /></p>}
       {completed && share && <ShareCard gameId={id} token={share.token} isCreator={share.isCreator} />}

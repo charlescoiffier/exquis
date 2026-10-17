@@ -1,17 +1,8 @@
-import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 // Base de dev (voir .env.local, chargé par playwright.config.ts) : les données du test y restent, avec des noms uniques.
-const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://exquis:exquis@localhost:5432/exquis";
-
-const invite = () =>
-  execSync("npx tsx scripts/create-invite.ts", { env: { ...process.env, DATABASE_URL } })
-    .toString()
-    .trim()
-    .split("\n")
-    .pop()!;
-
+// L'inscription est libre (REGISTRATION_MODE=open) : aucun code d'invitation.
 async function register(browser: Browser, name: string, run: string) {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
@@ -19,7 +10,6 @@ async function register(browser: Browser, name: string, run: string) {
   await page.getByLabel("Nom").fill(name);
   await page.getByLabel("Email").fill(`${name.toLowerCase()}-${run}@example.com`);
   await page.getByLabel("Mot de passe").fill("motdepasse-long-1");
-  await page.getByLabel("Code d'invitation").fill(invite());
   await page.getByRole("button", { name: "Créer mon compte" }).click();
   await page.waitForURL("/");
   return page;

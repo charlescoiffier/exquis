@@ -2,10 +2,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
+import { PushDevice } from "@/components/PushDevice";
 import { Button } from "@/components/ui/Button";
 import { AVATAR_COLORS, AVATAR_SHAPES, isValidAvatar, type AvatarSpec } from "@/lib/avatar";
 
-async function saveProfile(patch: { name?: string; emailEnabled?: boolean; reminderStage?: number; avatar?: { shape: string; color: string; bg: string } }): Promise<string | null> {
+async function saveProfile(patch: { name?: string; emailEnabled?: boolean; notifyMode?: "both" | "email" | "push" | "none"; reminderStage?: number; avatar?: { shape: string; color: string; bg: string } }): Promise<string | null> {
   try {
     const res = await fetch("/api/profile", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) });
     const data = await res.json().catch(() => ({}));
@@ -44,30 +45,45 @@ export function NameForm({ initialName }: { initialName: string }) {
   );
 }
 
-/** Préférence d'envoi des notifications par email. */
-export function EmailPreference({ initial }: { initial: boolean }) {
-  const [email, setEmail] = useState(initial);
-  const [error, setError] = useState<string | null>(null);
+const NOTIFY_LABELS: [string, string][] = [
+  ["both", "Email et téléphone"],
+  ["email", "Email seulement"],
+  ["push", "Téléphone seulement"],
+  ["none", "Aucune (je consulte l'application)"],
+];
 
-  async function toggle(v: boolean) {
-    const previous = email;
-    setEmail(v);
-    setError(null);
-    const err = await saveProfile({ emailEnabled: v });
+/** Canal des notifications : email, téléphone (push), les deux ou aucun. Les notifications de l'application restent toujours visibles. */
+export function NotificationPreference({ initial, pushAvailable, publicKey }: { initial: string; pushAvailable: boolean; publicKey: string }) {
+  const [mode, setMode] = useState(initial);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const options = NOTIFY_LABELS.filter(([v]) => pushAvailable || (v !== "push" && v !== "both") || v === initial);
+
+  async function change(value: string) {
+    const previous = mode;
+    setMode(value);
+    setMessage(null);
+    const err = await saveProfile({ notifyMode: value as "both" | "email" | "push" | "none" });
     if (err) {
-      setEmail(previous);
-      setError(err);
+      setMode(previous);
+      setMessage({ ok: false, text: err });
+    } else {
+      setMessage({ ok: true, text: "Préférence enregistrée." });
     }
   }
 
   return (
     <div>
-      <label className="switch">
-        <input type="checkbox" role="switch" checked={email} onChange={(e) => toggle(e.target.checked)} />
-        <span className="switch-track" aria-hidden="true" />
-        <span>Recevoir les notifications par email</span>
-      </label>
-      {error && <p role="alert" className="error">{error}</p>}
+      <label htmlFor="notify-mode" style={{ marginTop: 0 }}>Me prévenir par</label>
+      <select id="notify-mode" value={mode} onChange={(e) => change(e.target.value)}>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      <p className="hint">Les emails ne sont envoyés que pour les tours d&apos;au moins 5 minutes.{!pushAvailable ? " Les notifications sur téléphone ne sont pas disponibles sur ce serveur." : ""}</p>
+      {message && <p role={message.ok ? "status" : "alert"} className={message.ok ? "feedback" : "error"}>{message.text}</p>}
+      {pushAvailable && (mode === "push" || mode === "both") && (
+        <div style={{ marginTop: 12 }}>
+          <PushDevice publicKey={publicKey} />
+        </div>
+      )}
     </div>
   );
 }
