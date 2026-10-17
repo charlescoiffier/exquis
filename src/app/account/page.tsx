@@ -9,6 +9,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { countOpenReports, isModerator } from "@/lib/services/moderation";
 import { Pagination } from "@/components/ui/Pagination";
 import { getDb } from "@/lib/db/client";
+import { plural } from "@/lib/format";
 import { getProfile, getProfileStats } from "@/lib/services/account";
 import { listMyPastGames, parsePage } from "@/lib/services/games";
 import { getSession } from "@/lib/session";
@@ -46,14 +47,14 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <h3>Statistiques</h3>
         <Card>
           <dl className="stats">
-            <div><dt>Parties jouées</dt><dd>{stats.gamesJoined}</dd></div>
-            <div><dt>Terminées</dt><dd>{stats.gamesCompleted}</dd></div>
+            <div><dt>{plural(stats.gamesJoined, "Partie jouée", "Parties jouées")}</dt><dd>{stats.gamesJoined}</dd></div>
+            <div><dt>{plural(stats.gamesCompleted, "Terminée", "Terminées")}</dt><dd>{stats.gamesCompleted}</dd></div>
             <div><dt>En cours</dt><dd>{stats.gamesInProgress}</dd></div>
-            <div><dt>Créées</dt><dd>{stats.gamesCreated}</dd></div>
-            <div><dt>Tours joués</dt><dd>{stats.turnsPlayed}</dd></div>
-            <div><dt>Dessins</dt><dd>{stats.drawings}</dd></div>
-            <div><dt>Textes</dt><dd>{stats.texts}</dd></div>
-            <div><dt>Commentaires</dt><dd>{stats.commentsWritten}</dd></div>
+            <div><dt>{plural(stats.gamesCreated, "Créée", "Créées")}</dt><dd>{stats.gamesCreated}</dd></div>
+            <div><dt>{plural(stats.turnsPlayed, "Tour joué", "Tours joués")}</dt><dd>{stats.turnsPlayed}</dd></div>
+            <div><dt>{plural(stats.drawings, "Dessin", "Dessins")}</dt><dd>{stats.drawings}</dd></div>
+            <div><dt>{plural(stats.texts, "Texte", "Textes")}</dt><dd>{stats.texts}</dd></div>
+            <div><dt>{plural(stats.commentsWritten, "Commentaire", "Commentaires")}</dt><dd>{stats.commentsWritten}</dd></div>
           </dl>
         </Card>
       </section>
@@ -78,7 +79,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <section aria-labelledby="moderation">
           <h2 id="moderation">Modération</h2>
           <Card>
-            <p style={{ marginTop: 0 }}>{openReports > 0 ? `${openReports} signalement${openReports > 1 ? "s" : ""} à traiter.` : "Aucun signalement à traiter."}</p>
+            <p style={{ marginTop: 0 }}>{openReports > 0 ? `${openReports} ${plural(openReports, "signalement", "signalements")} à traiter.` : "Aucun signalement à traiter."}</p>
             <ButtonLink href="/moderation" variant="secondary">Ouvrir la modération</ButtonLink>
           </Card>
         </section>

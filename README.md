@@ -106,7 +106,7 @@ n'importe quel autre joueur peut reprendre depuis l'accueil.
 ### L'œuvre finale
 
 L'œuvre rappelle les informations de la partie (créateur, dates, participants, nombre de tours, durée, langue). Pour un
-dessin, la case **« Afficher avec jointures et noms »** affiche discrètement les jointures entre les contributions et le
+dessin, la case **« Afficher les noms des dessinateurs »** affiche discrètement les jointures entre les contributions et le
 nom de chaque dessinateur le long de sa zone ; **« Télécharger en PNG »** exporte l'image telle qu'elle est affichée
 (avec ou sans jointures et noms). Pour un texte, la case « Afficher les noms des auteurs » masque ou affiche le trait et
 le nom de chaque auteur.

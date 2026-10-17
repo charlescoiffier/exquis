@@ -79,6 +79,8 @@ export type FinalView = {
     theme: string | null;
     participants: string[];
   };
+  /** Règle de transmission du texte (extrait vu par l'auteur suivant), pour distinguer les phrases communes. */
+  excerpt: { mode: "paragraph" } | { mode: "words"; count: number };
 };
 
 export async function getFinal(db: Db, p: { userId: string; gameId: string }): Promise<FinalView> {
@@ -116,6 +118,7 @@ async function buildFinalView(db: Db, g: typeof game.$inferSelect): Promise<Fina
         ? authorSegments(rows.length).map((s, i) => ({ ...s, author: rows[i].author, label: rows[i].label }))
         : [],
     contributions: rows,
+    excerpt: g.excerptMode === "words" ? { mode: "words", count: g.excerptWords ?? 1 } : { mode: "paragraph" },
     info: {
       creatorName: creator?.name ?? "",
       createdAt: g.createdAt.toISOString(),

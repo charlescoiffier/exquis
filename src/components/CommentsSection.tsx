@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { ReportButton } from "@/components/ReportButton";
 import { Card } from "@/components/ui/Card";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { AvatarSpec } from "@/lib/avatar";
 import { formatDateTime } from "@/lib/format";
 
@@ -17,6 +18,8 @@ export function CommentsSection({ gameId, comments, currentUserId }: { gameId: s
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -41,6 +44,7 @@ export function CommentsSection({ gameId, comments, currentUserId }: { gameId: s
 
   async function remove(id: string) {
     setError(null);
+    setDeleting(true);
     try {
       const res = await fetch(`/api/games/${gameId}/comments/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -48,9 +52,12 @@ export function CommentsSection({ gameId, comments, currentUserId }: { gameId: s
         setError(data.error ?? "Suppression impossible.");
         return;
       }
+      setToDelete(null);
       router.refresh();
     } catch {
       setError("Impossible de joindre le serveur, réessayez.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -70,7 +77,7 @@ export function CommentsSection({ gameId, comments, currentUserId }: { gameId: s
                   <span className="muted">{formatDateTime(c.createdAt)}</span>
                   {c.authorId !== currentUserId && <ReportButton targetType="comment" targetId={c.id} />}
                   {c.authorId === currentUserId && (
-                    <button type="button" className="secondary comment-delete" onClick={() => remove(c.id)} aria-label={`Supprimer mon commentaire du ${formatDateTime(c.createdAt)}`}>Supprimer</button>
+                    <button type="button" className="secondary comment-delete" onClick={() => setToDelete(c.id)} aria-label={`Supprimer mon commentaire du ${formatDateTime(c.createdAt)}`}>Supprimer</button>
                   )}
                 </div>
                 <p className="comment-body">{c.body}</p>
@@ -78,6 +85,11 @@ export function CommentsSection({ gameId, comments, currentUserId }: { gameId: s
             </li>
           ))}
         </ul>
+      )}
+      {toDelete && (
+        <ConfirmDialog title="Supprimer ce commentaire ?" confirmLabel="Supprimer" busy={deleting} error={error} onConfirm={() => remove(toDelete)} onCancel={() => { setToDelete(null); setError(null); }}>
+          <p>Cette action est définitive : le commentaire disparaîtra pour tous les participants.</p>
+        </ConfirmDialog>
       )}
       <form onSubmit={send} className="comment-form">
         <label htmlFor="comment-body">Votre commentaire</label>

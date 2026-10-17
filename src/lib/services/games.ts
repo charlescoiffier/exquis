@@ -2,7 +2,7 @@ import { and, count, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-
 import { randomBytes } from "node:crypto";
 import type { Db, Executor, Tx } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
-import { draft, game, participant, turn } from "@/lib/db/schema";
+import { contribution, draft, game, participant, turn } from "@/lib/db/schema";
 import { parseGameParams, shuffle } from "@/lib/domain/game-rules";
 import type { Effect } from "@/lib/effects";
 import { DomainError } from "@/lib/errors";
@@ -217,7 +217,12 @@ export async function listMyCurrentGames(db: Db, userId: string, p: { page?: num
     .where(where);
   const w = pageWindow(total, p.page ?? 1);
   const rows = await db
-    .select({ ...listColumns, activeTurnId: turn.id, activeDeadline: turn.deadline })
+    .select({
+      ...listColumns,
+      activeTurnId: turn.id,
+      activeDeadline: turn.deadline,
+      hasPlayed: sql<boolean>`exists (select 1 from contribution c join turn t2 on t2.id = c.turn_id where t2.game_id = ${game.id} and c.user_id = ${userId})`,
+    })
     .from(participant)
     .innerJoin(game, eq(participant.gameId, game.id))
     .innerJoin(user, eq(user.id, game.creatorId))
@@ -290,6 +295,8 @@ export async function listJoinableGames(db: Db, p: { userId: string; page?: numb
   // Les parties où l'utilisateur a une inscription (même abandonnée : il ne peut plus reprendre de tour) n'y figurent pas.
   const where = and(
     sql`not exists (select 1 from participant pm where pm.game_id = ${game.id} and pm.user_id = ${p.userId})`,
+    // Une partie à laquelle on est invité figure dans « Invitations reçues », pas ici.
+    sql`not exists (select 1 from game_invitation gi where gi.game_id = ${game.id} and gi.user_id = ${p.userId})`,
     eq(game.visibility, "public"),
     or(eq(game.status, "open"), and(eq(game.status, "in_progress"), sql`${openCallRankSql} is not null`)),
   );
@@ -413,6 +420,13 @@ export async function leaveGame(db: Db, p: { userId: string; gameId: string; now
       return { effects: [] };
     }
     if (g.status !== "in_progress") throw new DomainError("game_not_leavable", "Cette partie est terminée.", 409);
+    const [played] = await tx
+      .select({ id: contribution.id })
+      .from(contribution)
+      .innerJoin(turn, eq(turn.id, contribution.turnId))
+      .where(and(eq(turn.gameId, g.id), eq(contribution.userId, p.userId)))
+      .limit(1);
+    if (played) throw new DomainError("already_played", "Vous avez déjà joué dans cette partie : vous ne pouvez plus la quitter.", 409);
 
     const mine = await tx
       .select()

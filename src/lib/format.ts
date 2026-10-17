@@ -71,3 +71,8 @@ export function formatDateTime(d: Date | string): string {
 export function formatDate(d: Date | string): string {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeZone: "Europe/Paris" }).format(new Date(d));
 }
+
+/** Accord en nombre à la française : 0 et 1 prennent le singulier (« 0 partie », « 1 partie », « 2 parties »). */
+export function plural(n: number, one: string, many: string): string {
+  return n < 2 ? one : many;
+}

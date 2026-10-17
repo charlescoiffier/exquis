@@ -164,6 +164,7 @@ async function renderTurn(db: ReturnType<typeof getDb>, gameId: string, userId: 
         rank: turn.rank,
         total: turn.total,
         theme: turn.game.theme,
+        gameName: turn.game.name,
         label: turnLabelOf(turn.game.turnLabels, turn.rank),
         deadline: turn.deadline.toISOString(),
         serverNow: new Date().toISOString(),

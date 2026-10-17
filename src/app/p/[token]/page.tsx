@@ -49,7 +49,7 @@ export default async function PublicWorkPage({ params }: { params: Promise<{ tok
           <Card><p style={{ margin: 0 }}>L&apos;œuvre est en cours d&apos;assemblage, revenez dans un instant.</p></Card>
         )
       ) : (
-        <FinalText contributions={view.contributions} />
+        <FinalText contributions={view.contributions} rule={view.excerpt} />
       )}
       <Card>
         <p style={{ margin: 0 }}>

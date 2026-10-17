@@ -511,7 +511,7 @@ async function main() {
       await shot(page, "tour-dessin-bureau");
       await page.setViewportSize({ width: 1280, height: 1000 });
       await page.goto(`${BASE}/games/${monstre}/final`);
-      await page.getByText("Afficher avec jointures et noms").click();
+      await page.getByText("Afficher les noms des dessinateurs").click();
       await shot(page, "oeuvre-dessin-bureau", "main");
       await page.goto(`${BASE}/games/${jardin}/final`);
       await shot(page, "oeuvre-texte-bureau", "main");
@@ -532,7 +532,7 @@ async function main() {
       await shot(page, "tour-dessin-mobile");
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(`${BASE}/games/${monstre}/final`);
-      await page.getByText("Afficher avec jointures et noms").click();
+      await page.getByText("Afficher les noms des dessinateurs").click();
       await shot(page, "oeuvre-dessin-mobile");
       await page.setViewportSize({ width: 390, height: 1300 });
       await page.goto(`${BASE}/friends`);

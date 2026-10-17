@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, statusLabel } from "@/lib/format";
+import { formatDuration, plural, statusLabel } from "@/lib/format";
 
 describe("formatDuration", () => {
   it.each([[30, "30 s"], [90, "1 min 30 s"], [3600, "1 h"], [5400, "1 h 30 min"], [86400, "1 j"], [604800, "7 j"]])("%i s -> %s", (s, out) => {
@@ -49,5 +49,11 @@ describe("DURATION_OPTIONS / formatDate", () => {
   });
   it("formate une date en français", () => {
     expect(formatDate("2026-10-06T10:00:00Z")).toBe("6 oct. 2026");
+  });
+});
+
+describe("plural", () => {
+  it("0 et 1 au singulier, 2 et plus au pluriel", () => {
+    expect([0, 1, 2, 10].map((n) => plural(n, "partie jouée", "parties jouées"))).toEqual(["partie jouée", "partie jouée", "parties jouées", "parties jouées"]);
   });
 });

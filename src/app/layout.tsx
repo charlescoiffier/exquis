@@ -36,7 +36,7 @@ export default async function RootLayout({
     <html lang="fr" className={`${display.variable} ${body.variable}`}>
       <body className={session ? "has-tabbar" : undefined}>
         <header className="site-header">
-          <Link href="/" className="brand">Cadavre exquis</Link>
+          <Link href="/" className="brand">Exquis</Link>
           {session && <TabBar unread={unread} />}
         </header>
         {children}

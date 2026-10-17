@@ -6,7 +6,7 @@ import {
   ensureFriendCode, listFriendRequests, listFriends, listMetPlayers, normalizeFriendCode,
   removeFriend, respondToFriendRequest, sendFriendRequestByCode, sendFriendRequestToMetPlayer,
 } from "@/lib/services/friends";
-import { createGame, getGameView, joinGame } from "@/lib/services/games";
+import { createGame, getGameView, joinGame, listJoinableGames } from "@/lib/services/games";
 import { makeUser, resetDb, testDb } from "../helpers/db";
 import { startedGame, textParams } from "../helpers/games";
 
@@ -97,7 +97,13 @@ describe("invitations ciblées", () => {
     expect(await listInvitableFriends(db, { userId: a, gameId })).toEqual([]);
     expect((await getGameView(db, { gameId, userId: b })).game.name).toBe("Privée");
     expect(await listMyInvitations(db, b)).toMatchObject([{ gameId, name: "Privée", inviterName: "a" }]);
-    expect((await db.select().from(notification).where(eq(notification.type, "game_invite"))).map((n) => [n.userId, n.actorId])).toEqual([[b, a]]);
+    // Une partie publique à laquelle on est invité figure dans « Invitations reçues », pas dans « Parties à rejoindre ».
+    const pub = await createGame(db, a, textParams(3, { name: "Publique" }));
+    await inviteFriendsToGame(db, { userId: a, gameId: pub.gameId, friendIds: [b] });
+    expect((await listJoinableGames(db, { userId: b })).items.map((g) => g.name)).toEqual([]);
+    expect((await listJoinableGames(db, { userId: c })).items.map((g) => g.name)).toEqual(["Publique"]);
+    await joinGame(db, { userId: b, gameId: pub.gameId });
+    expect((await db.select().from(notification).where(eq(notification.type, "game_invite"))).map((n) => [n.userId, n.actorId])).toEqual([[b, a], [b, a]]);
     // L'invité rejoint ; l'invitation disparaît de sa liste. Un non-invité reste refusé.
     await joinGame(db, { userId: b, gameId });
     expect(await listMyInvitations(db, b)).toEqual([]);

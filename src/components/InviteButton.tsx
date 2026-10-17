@@ -8,7 +8,7 @@ export function InviteButton() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const link = code ? `${window.location.origin}/register` : "";
-  const message = code ? `Rejoins-moi sur Cadavre exquis : ${link} — code d'invitation : ${code}` : "";
+  const message = code ? `Rejoins-moi sur Exquis : ${link} — code d'invitation : ${code}` : "";
 
   async function generate() {
     setBusy(true);
