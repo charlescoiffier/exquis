@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
+import { pushConfigured } from "@/lib/env";
 import { mailerKind } from "@/lib/notifications/mailer";
 
 export const runtime = "nodejs";
@@ -28,6 +29,6 @@ export async function GET() {
     last = null;
   }
   const workerOk = last !== null && Date.now() - new Date(last).getTime() < WORKER_FRESHNESS_MS;
-  // `mailer` : service d'email utilisé (smtp, resend ou console = aucun envoi réel).
-  return Response.json({ db: true, worker: workerOk, lastSweep: last, mailer: mailerKind() }, { status: workerOk ? 200 : 503 });
+  // `mailer` : service d'email utilisé (smtp, resend ou console = aucun envoi réel) ; `push` : clés des notifications sur téléphone renseignées.
+  return Response.json({ db: true, worker: workerOk, lastSweep: last, mailer: mailerKind(), push: pushConfigured() }, { status: workerOk ? 200 : 503 });
 }
