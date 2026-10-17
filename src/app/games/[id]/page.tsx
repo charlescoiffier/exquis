@@ -73,6 +73,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
             <span className="count-label">joueurs inscrits</span>
             <span className="sr-only"> : {view.participantCount} sur {game.turns}</span>
           </p>
+          {view.players.length > 0 && <p style={{ margin: "0 0 12px" }}>Inscrits : {view.players.join(", ")}</p>}
           {!view.isParticipant && <JoinButton gameId={game.id} token={token} />}
           {invitable.length > 0 && (
             <div className="invite">

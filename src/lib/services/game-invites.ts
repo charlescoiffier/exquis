@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { user } from "@/lib/db/auth-schema";
 import { game, gameInvitation, participant } from "@/lib/db/schema";
@@ -51,12 +51,21 @@ export async function inviteFriendsToGame(db: Db, p: { userId: string; gameId: s
   });
 }
 
-export type ReceivedInvitation = { gameId: string; name: string; type: "drawing" | "text"; theme: string | null; inviterName: string; turns: number; turnDurationSeconds: number };
+export type ReceivedInvitation = { gameId: string; name: string; type: "drawing" | "text"; theme: string | null; inviterName: string; turns: number; turnDurationSeconds: number; players: string[] };
 
 /** Invitations reçues pour des parties encore en attente de joueurs où l'on n'est pas inscrit. */
 export async function listMyInvitations(db: Db, userId: string): Promise<ReceivedInvitation[]> {
   return db
-    .select({ gameId: game.id, name: game.name, type: game.type, theme: game.theme, inviterName: user.name, turns: game.turns, turnDurationSeconds: game.turnDurationSeconds })
+    .select({
+      gameId: game.id,
+      name: game.name,
+      type: game.type,
+      theme: game.theme,
+      inviterName: user.name,
+      turns: game.turns,
+      turnDurationSeconds: game.turnDurationSeconds,
+      players: sql<string[]>`coalesce(array(select pu.name from participant pp join "user" pu on pu.id = pp.user_id where pp.game_id = ${game.id} and pp.left_at is null order by pp.joined_at, pu.name), '{}'::text[])`,
+    })
     .from(gameInvitation)
     .innerJoin(game, eq(game.id, gameInvitation.gameId))
     .innerJoin(user, eq(user.id, gameInvitation.invitedBy))

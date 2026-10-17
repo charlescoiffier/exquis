@@ -57,7 +57,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                         <div className="game-title">{g.name}</div>
                         <GameTag kind={g.status === "open" ? "open" : "in_progress"} />
                       </div>
-                      <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} theme={g.theme} extra={g.status === "open" ? [missing(g.turns - g.participantCount)] : undefined} />
+                      <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} theme={g.theme} players={g.players} extra={g.status === "open" ? [missing(g.turns - g.participantCount)] : undefined} />
                     </div>
                     <div className="game-side">
                       {g.isMyTurn ? (
@@ -91,7 +91,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                       <div className="game-title">{i.name}</div>
                       <GameTag kind="join" />
                     </div>
-                    <GameMeta type={i.type} turns={i.turns} turnDurationSeconds={i.turnDurationSeconds} theme={i.theme} extra={[`invité par ${i.inviterName}`]} />
+                    <GameMeta type={i.type} turns={i.turns} turnDurationSeconds={i.turnDurationSeconds} theme={i.theme} players={i.players} extra={[`invité par ${i.inviterName}`]} />
                   </div>
                   <div className="game-side">
                     <ButtonLink href={`/games/${i.gameId}`}>Rejoindre</ButtonLink>
@@ -123,7 +123,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                           <div className="game-title">{g.name}</div>
                           <GameTag kind={call ? "call" : "join"} />
                         </div>
-                        <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} theme={g.theme} extra={extra} />
+                        <GameMeta type={g.type} turns={g.turns} turnDurationSeconds={g.turnDurationSeconds} language={g.language} creatorName={g.creatorName} theme={g.theme} players={g.players} extra={extra} />
                       </div>
                       <div className="game-side">
                         <JoinButton gameId={g.id} claim={call} />

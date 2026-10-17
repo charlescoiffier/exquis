@@ -165,6 +165,12 @@ function pageWindow(total: number, requested: number) {
 
 const participantCountSql = sql<number>`(select count(*)::int from participant pp where pp.game_id = ${game.id} and pp.left_at is null)`;
 
+/**
+ * Noms des joueurs inscrits d'une partie qui n'a pas encore commencé (par ordre d'inscription) ; vide dès qu'elle est lancée :
+ * les participants d'une partie en cours ne sont révélés qu'à la fin.
+ */
+const playersSql = sql<string[]>`case when ${game.status} = 'open' then coalesce(array(select pu.name from participant pp join "user" pu on pu.id = pp.user_id where pp.game_id = ${game.id} and pp.left_at is null order by pp.joined_at, pu.name), '{}'::text[]) else '{}'::text[] end`;
+
 const listColumns = {
   id: game.id,
   name: game.name,
@@ -177,11 +183,12 @@ const listColumns = {
   completedAt: game.completedAt,
   creatorName: user.name,
   participantCount: participantCountSql,
+  players: playersSql,
   theme: game.theme,
 };
 
 /** Parties ouvertes publiques, les plus récentes d'abord. */
-export async function listOpenGames(db: Db, p: { page?: number } = {}): Promise<Page<{ id: string; name: string; type: "drawing" | "text"; turns: number; turnDurationSeconds: number; language: string | null; creatorName: string; participantCount: number; theme: string | null; createdAt: Date }>> {
+export async function listOpenGames(db: Db, p: { page?: number } = {}): Promise<Page<{ id: string; name: string; type: "drawing" | "text"; turns: number; turnDurationSeconds: number; language: string | null; creatorName: string; participantCount: number; players: string[]; theme: string | null; createdAt: Date }>> {
   const where = and(eq(game.status, "open"), eq(game.visibility, "public"));
   const [{ n: total }] = await db.select({ n: count() }).from(game).where(where);
   const w = pageWindow(total, p.page ?? 1);
@@ -195,6 +202,7 @@ export async function listOpenGames(db: Db, p: { page?: number } = {}): Promise<
       language: listColumns.language,
       creatorName: listColumns.creatorName,
       participantCount: listColumns.participantCount,
+      players: listColumns.players,
       theme: listColumns.theme,
       createdAt: listColumns.createdAt,
     })
@@ -312,6 +320,7 @@ export async function listJoinableGames(db: Db, p: { userId: string; page?: numb
       language: game.language,
       creatorName: user.name,
       participantCount: participantCountSql,
+      players: playersSql,
       theme: game.theme,
       openCallRank: openCallRankSql,
       createdAt: game.createdAt,
@@ -367,11 +376,20 @@ export type GameView = {
   game: PublicGame;
   creatorName: string;
   participantCount: number;
+  /** Noms des inscrits, tant que la partie n'a pas commencé. */
+  players: string[];
   isParticipant: boolean;
   isCreator: boolean;
   inviteToken: string | null;
   openCall: boolean;
 };
+
+async function playerNames(db: Db, ps: { userId: string; joinedAt: Date }[]): Promise<string[]> {
+  if (ps.length === 0) return [];
+  const rows = await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, ps.map((p) => p.userId)));
+  const nameOf = new Map(rows.map((r) => [r.id, r.name]));
+  return [...ps].sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime()).map((p) => nameOf.get(p.userId) ?? "");
+}
 
 export async function getGameView(db: Db, p: { gameId: string; userId: string; token?: string }): Promise<GameView> {
   const [g] = await db.select().from(game).where(eq(game.id, p.gameId));
@@ -391,6 +409,7 @@ export async function getGameView(db: Db, p: { gameId: string; userId: string; t
     game: publicGame(g),
     creatorName: creator?.name ?? "",
     participantCount: ps.filter((x) => !x.leftAt).length,
+    players: g.status === "open" ? await playerNames(db, ps.filter((x) => !x.leftAt)) : [],
     isParticipant,
     isCreator,
     inviteToken: isCreator ? g.inviteToken : null,
