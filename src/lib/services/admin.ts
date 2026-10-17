@@ -11,6 +11,9 @@ import { isAdmin, requireAdmin } from "./moderation";
 
 export const ADMIN_PAGE_SIZE = 20;
 
+/** Échappe les jokers de LIKE (`%`, `_`, `\\`) d'un texte de recherche saisi par l'utilisateur. */
+const likeOf = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
 const windowOf = (total: number, requested: number) => {
   const pageCount = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
   const page = Math.min(Math.max(1, requested), pageCount);
@@ -31,7 +34,7 @@ export type AdminUser = {
 export async function listUsers(db: Db, p: { adminId: string; q?: string; page?: number }) {
   await requireAdmin(db, p.adminId);
   const q = p.q?.trim();
-  const where = q ? or(ilike(user.name, `%${q}%`), ilike(user.email, `%${q}%`)) : undefined;
+  const where = q ? or(ilike(user.name, likeOf(q)), ilike(user.email, likeOf(q))) : undefined;
   const [{ n: total }] = await db.select({ n: count() }).from(user).where(where);
   const w = windowOf(total, p.page ?? 1);
   const rows = await db
@@ -125,20 +128,37 @@ export async function deleteUser(db: Db, p: { adminId: string; userId: string; n
   });
 }
 
-export type AdminWorkRow = { id: string; name: string; type: "drawing" | "text"; creatorName: string; completedAt: Date | null; comments: number; hidden: boolean };
+export type AdminWorkRow = { id: string; name: string; type: "drawing" | "text"; theme: string | null; creatorName: string; players: string[]; completedAt: Date | null; comments: number; hidden: boolean };
 
-/** Toutes les parties terminées, les plus récentes d'abord. */
-export async function listCompletedWorks(db: Db, p: { adminId: string; page?: number }) {
+/**
+ * Toutes les parties terminées, les plus récentes d'abord, avec leurs joueurs. `q` filtre sur le titre, le thème, le créateur
+ * ou le nom d'un joueur.
+ */
+export async function listCompletedWorks(db: Db, p: { adminId: string; q?: string; page?: number }) {
   await requireAdmin(db, p.adminId);
-  const where = eq(game.status, "completed");
-  const [{ n: total }] = await db.select({ n: count() }).from(game).where(where);
+  const q = p.q?.trim();
+  const like = q ? likeOf(q) : "";
+  const where = q
+    ? and(
+        eq(game.status, "completed"),
+        or(
+          ilike(game.name, like),
+          ilike(game.theme, like),
+          ilike(user.name, like),
+          sql`exists (select 1 from participant pp join "user" pu on pu.id = pp.user_id where pp.game_id = ${game.id} and pu.name ilike ${like})`,
+        ),
+      )
+    : eq(game.status, "completed");
+  const [{ n: total }] = await db.select({ n: count() }).from(game).innerJoin(user, eq(user.id, game.creatorId)).where(where);
   const w = windowOf(total, p.page ?? 1);
   const rows = await db
     .select({
       id: game.id,
       name: game.name,
       type: game.type,
+      theme: game.theme,
       creatorName: user.name,
+      players: sql<string[]>`coalesce(array(select pu.name from participant pp join "user" pu on pu.id = pp.user_id where pp.game_id = ${game.id} order by pp.joined_at, pu.name), '{}')`,
       completedAt: game.completedAt,
       hiddenAt: game.hiddenAt,
       comments: sql<number>`(select count(*)::int from comment c where c.game_id = ${game.id})`,

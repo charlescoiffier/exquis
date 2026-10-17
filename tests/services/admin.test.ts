@@ -173,6 +173,32 @@ describe("œuvres terminées et commentaires", () => {
     await expect(deleteCommentAsAdmin(db, { adminId: a, commentId: id })).rejects.toMatchObject({ code: "not_found" });
   });
 
+  it("la liste donne les joueurs de chaque œuvre et se filtre par titre, thème, créateur ou joueur (jokers de LIKE neutralisés)", async () => {
+    const a = await makeAdmin();
+    const g1 = await startedGame(db, textParams(2, { name: "Voyage immobile", theme: "Un train sans fin" }));
+    const g2 = await startedGame(db, textParams(2, { name: "Les quatre saisons" }));
+    for (const g of [g1, g2]) {
+      for (let i = 0; i < 2; i++) {
+        const t = await activeTurn(db, g.gameId);
+        await submitText(db, { userId: t.assignedUserId, gameId: g.gameId, text: `tour ${i + 1} du texte` });
+      }
+    }
+    const [x] = await db.select({ id: user.id }).from(user).where(eq(user.id, g2.users[1]));
+    await db.update(user).set({ name: "Zéphyrine_100%" }).where(eq(user.id, x.id));
+    const all = await listCompletedWorks(db, { adminId: a });
+    expect(all.total).toBe(2);
+    expect(all.items.find((w) => w.name === "Voyage immobile")).toMatchObject({ players: ["p0", "p1"], theme: "Un train sans fin" });
+    const names = async (q: string) => (await listCompletedWorks(db, { adminId: a, q })).items.map((w) => w.name);
+    expect(await names("voyage")).toEqual(["Voyage immobile"]);
+    expect(await names("train")).toEqual(["Voyage immobile"]);
+    expect(await names("zéphyrine")).toEqual(["Les quatre saisons"]);
+    expect((await names("p0")).sort()).toEqual(["Les quatre saisons", "Voyage immobile"]);
+    expect(await names("100%")).toEqual(["Les quatre saisons"]);
+    expect(await names("%")).toEqual(["Les quatre saisons"]); // le joker n'est pas interprété
+    expect(await names("introuvable")).toEqual([]);
+    expect((await listCompletedWorks(db, { adminId: a, q: "p0" })).total).toBe(2);
+  });
+
   it("supprimer une œuvre : base et fichiers ; refusé pour une partie en cours", async () => {
     const a = await makeAdmin();
     const { gameId } = await completedGame();

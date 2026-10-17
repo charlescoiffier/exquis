@@ -23,10 +23,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   if (!(await isAdmin(db, session.user.id))) notFound();
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
+  const qw = typeof sp.qw === "string" ? sp.qw : "";
   const reports = await countOpenReports(db);
   const [users, works] = await Promise.all([
     listUsers(db, { adminId: session.user.id, q, page: parsePage(sp.pu) }),
-    listCompletedWorks(db, { adminId: session.user.id, page: parsePage(sp.pw) }),
+    listCompletedWorks(db, { adminId: session.user.id, q: qw, page: parsePage(sp.pw) }),
   ]);
   return (
     <main>
@@ -45,6 +46,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         )}
         <form method="get" className="field-row" role="search" style={{ marginBottom: 12 }}>
           <input name="q" defaultValue={q} placeholder="Rechercher par nom ou adresse" aria-label="Rechercher un inscrit" />
+          {qw && <input type="hidden" name="qw" value={qw} />}
           <button type="submit" className="secondary">Rechercher</button>
         </form>
         {users.items.length === 0 ? (
@@ -85,8 +87,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <section aria-labelledby="oeuvres">
         <h2 id="oeuvres">Œuvres terminées ({works.total})</h2>
+        <form method="get" className="field-row" role="search" style={{ marginBottom: 12 }}>
+          <input name="qw" defaultValue={qw} placeholder="Rechercher par titre, thème ou joueur" aria-label="Rechercher une œuvre terminée" />
+          {q && <input type="hidden" name="q" value={q} />}
+          <button type="submit" className="secondary">Rechercher</button>
+        </form>
         {works.items.length === 0 ? (
-          <Card><p style={{ margin: 0 }}>Aucune œuvre terminée.</p></Card>
+          <Card><p style={{ margin: 0 }}>{qw ? "Aucune œuvre ne correspond." : "Aucune œuvre terminée."}</p></Card>
         ) : (
           <ul className="cards">
             {works.items.map((w) => (
@@ -97,6 +104,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                     <p className="meta">
                       {w.type === "drawing" ? "Dessin" : "Texte"} · par {w.creatorName}{w.completedAt ? ` · terminée le ${formatDate(w.completedAt)}` : ""} · {w.comments} {plural(w.comments, "commentaire", "commentaires")}{w.hidden ? " · masquée" : ""}
                     </p>
+                    {w.theme && <p className="meta theme-line">Thème : <strong>{w.theme}</strong></p>}
+                    {w.players.length > 0 && <p className="meta">{w.type === "drawing" ? "Dessinateurs" : "Écrivains"} : {w.players.join(", ")}</p>}
                   </div>
                   <div className="game-side">
                     <ButtonLink href={`/admin/works/${w.id}`} variant="secondary">Ouvrir</ButtonLink>

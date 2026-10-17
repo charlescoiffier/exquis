@@ -452,7 +452,7 @@ règles d'usage : [`docs/design/manifeste.md`](docs/design/manifeste.md).
   « Administration » propose aussi « Valider l'adresse » par compte et « Valider toutes les adresses ». Sur la page de connexion,
   un compte non vérifié peut demander un nouvel email de confirmation.
 - **Administration et modération** : un compte au rôle `admin` (ou dont l'adresse figure dans `ADMIN_EMAILS`) voit un onglet **Admin** dans le menu principal (réservé aux administrateurs, avec le nombre de signalements à
-  traiter) qui ouvre la page « Administration » : liste de tous les inscrits (recherche, rôle de modérateur, suppression), toutes les œuvres terminées avec
+  traiter) qui ouvre la page « Administration » : liste de tous les inscrits (recherche, rôle de modérateur, suppression), toutes les œuvres terminées (avec leurs joueurs, et une recherche par titre, thème, créateur ou joueur) et
   leurs commentaires (suppression d'un commentaire ou de l'œuvre) et les signalements. Supprimer un compte efface ses données
   personnelles ; ses contributions restent, anonymisées (« Compte supprimé »). Pour donner un rôle :
 
