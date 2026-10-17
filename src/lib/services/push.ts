@@ -112,5 +112,5 @@ export async function flushPush(db: Db, sender: PushSender, now = new Date()): P
 /** Notification de test sur tous les appareils du compte. Renvoie le résultat pour chaque appareil (accepté ou refusé par son service de notification). */
 export async function sendTestPush(db: Db, sender: PushSender, userId: string): Promise<DeviceResult[]> {
   if (!pushConfigured()) throw new DomainError("push_unavailable", "Les notifications sur téléphone ne sont pas configurées sur ce serveur.", 503);
-  return deliver(db, sender, userId, { title: "Exquis", body: "Les notifications fonctionnent sur cet appareil.", url: "/account", tag: "test" });
+  return deliver(db, sender, userId, { title: "Exquis", body: "Les notifications fonctionnent sur cet appareil.", url: "/account", tag: `test-${Date.now()}` });
 }
