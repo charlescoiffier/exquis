@@ -86,8 +86,11 @@ export function PushDevice({ publicKey }: { publicKey: string }) {
     setMessage(null);
     try {
       const res = await fetch("/api/push/test", { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      setMessage(res.ok ? (data.sent > 0 ? { ok: true, text: "Notification de test envoyée." } : { ok: false, text: "Aucun appareil n'a pu être atteint." }) : { ok: false, text: data.error ?? "Envoi impossible." });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; sent?: number; devices?: { device: string; ok: boolean; status?: number }[] };
+      if (!res.ok) return setMessage({ ok: false, text: data.error ?? "Envoi impossible." });
+      const lines = (data.devices ?? []).map((d) => `${d.device} : ${d.ok ? "acceptée par le service de notification" : `refusée${d.status ? ` (code ${d.status})` : ""}`}`);
+      if (!data.sent) return setMessage({ ok: false, text: `Aucun appareil n'a pu être atteint. ${lines.join(" ; ")}` });
+      setMessage({ ok: true, text: `Notification de test envoyée — ${lines.join(" ; ")}. Si rien ne s'affiche : autorisez les notifications du navigateur dans les réglages du système (sur Mac : Réglages Système, Notifications) et désactivez le mode Concentration.` });
     } catch {
       setMessage({ ok: false, text: "Impossible de joindre le serveur, réessayez." });
     } finally {

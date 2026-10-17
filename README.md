@@ -442,6 +442,10 @@ règles d'usage : [`docs/design/manifeste.md`](docs/design/manifeste.md).
   (événements et images par seconde, coût par image, tâches longues) et les envoie automatiquement au serveur (moyennes sur
   les secondes où l'on dessine, toutes les 10 s et en quittant la page). Les rapports sont écrits dans la sortie du serveur
   (`[perf] …`) et dans `.perf/reports.jsonl`, ignoré par git. Utile pour comparer un smartphone à un ordinateur.
+- **Tests de notification** : dans « Mon compte », « Envoyer un email de test » écrit à l'adresse du compte et affiche la cause en cas
+  d'échec ; « Envoyer un test » (notifications sur cet appareil) indique, pour chaque appareil enregistré, si son service de
+  notification a accepté ou refusé le message. Un message « accepté » qui ne s'affiche pas vient en général des réglages du système
+  (autorisation du navigateur dans les notifications du Mac ou du téléphone, mode Concentration).
 - **Essai sur smartphone** : `npm run dev:phone` lance le serveur et le worker accessibles sur le réseau local ; la copie
   dans le presse-papiers retombe sur une méthode de secours, l'API moderne exigeant HTTPS.
 - **Emails** : `npm run mail:test -- adresse@exemple.fr` envoie un message avec la configuration actuelle et affiche le service

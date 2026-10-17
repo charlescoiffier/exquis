@@ -52,6 +52,31 @@ const NOTIFY_LABELS: [string, string][] = [
   ["none", "Aucune (je consulte l'application)"],
 ];
 
+/** Envoie un email de test à l'adresse du compte et affiche le résultat (ou la cause de l'échec). */
+function TestEmailButton() {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  async function send() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/profile/test-email", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      setMessage(res.ok ? { ok: true, text: `Email de test envoyé à ${data.to}. Vérifiez aussi vos courriers indésirables.` } : { ok: false, text: data.error ?? "Envoi impossible." });
+    } catch {
+      setMessage({ ok: false, text: "Impossible de joindre le serveur, réessayez." });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div style={{ marginTop: 12 }}>
+      <button type="button" className="secondary" onClick={send} disabled={busy}>Envoyer un email de test</button>
+      {message && <p role={message.ok ? "status" : "alert"} className={message.ok ? "feedback" : "error"}>{message.text}</p>}
+    </div>
+  );
+}
+
 /** Canal des notifications : email, téléphone (push), les deux ou aucun. Les notifications de l'application restent toujours visibles. */
 export function NotificationPreference({ initial, pushAvailable, publicKey }: { initial: string; pushAvailable: boolean; publicKey: string }) {
   const [mode, setMode] = useState(initial);
@@ -79,6 +104,7 @@ export function NotificationPreference({ initial, pushAvailable, publicKey }: { 
       </select>
       <p className="hint">Les emails ne sont envoyés que pour les tours d&apos;au moins 5 minutes.{!pushAvailable ? " Les notifications sur téléphone ne sont pas disponibles sur ce serveur." : ""}</p>
       {message && <p role={message.ok ? "status" : "alert"} className={message.ok ? "feedback" : "error"}>{message.text}</p>}
+      {(mode === "email" || mode === "both") && <TestEmailButton />}
       {pushAvailable && (mode === "push" || mode === "both") && (
         <div style={{ marginTop: 12 }}>
           <PushDevice publicKey={publicKey} />
