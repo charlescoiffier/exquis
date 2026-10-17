@@ -429,7 +429,7 @@ async function main() {
       const page = await ctx.newPage();
       await page.goto(`${BASE}/login`);
       await page.getByLabel("Email").fill(user.email);
-      await page.getByLabel("Mot de passe").fill(PASSWORD);
+      await page.getByLabel("Mot de passe", { exact: true }).fill(PASSWORD);
       await page.getByRole("button", { name: "Se connecter" }).click();
       await page.waitForURL(`${BASE}/`);
       return { ctx, page };

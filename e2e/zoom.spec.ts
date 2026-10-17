@@ -6,7 +6,7 @@ async function register(browser: Browser, name: string, run: string, mobile = fa
   await page.goto("/register");
   await page.getByLabel("Nom").fill(name);
   await page.getByLabel("Email").fill(`${name.toLowerCase()}-${run}@example.com`);
-  await page.getByLabel("Mot de passe").fill("motdepasse-long-1");
+  await page.getByLabel("Mot de passe", { exact: true }).fill("motdepasse-long-1");
   await page.getByRole("button", { name: "Créer mon compte" }).click();
   await page.waitForURL("/");
   return page;
