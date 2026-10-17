@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { draft, game, notification, participant, turn } from "@/lib/db/schema";
-import { STALE_GAME_MS, purgeStaleGames, MAX_ACTIVE_GAMES, MAX_CREATED_PER_DAY, createGame, getGameView, joinGame, listMyCurrentGames, listMyPastGames, listOpenGames, PAGE_SIZE, parsePage } from "@/lib/services/games";
+import { STALE_GAME_MS, purgeStaleGames, MAX_ACTIVE_GAMES, MAX_CREATED_PER_DAY, createGame, getGameView, joinGame, listJoinableGames, listMyCurrentGames, listMyPastGames, listOpenGames, PAGE_SIZE, parsePage } from "@/lib/services/games";
 import { makeUser, resetDb, testDb } from "../helpers/db";
 import { activeTurn, drawingParams, startedGame, textParams } from "../helpers/games";
 
@@ -155,6 +155,21 @@ describe("purge des parties sans activité", () => {
     expect(await purgeStaleGames(db, now)).toBe(2);
     const names = (await db.select({ n: game.name }).from(game)).map((g) => g.n).sort();
     expect(names).toEqual(["attente récente", "en cours active", "en cours récente"]);
+  });
+});
+
+describe("joueurs inscrits", () => {
+  it("les listes et la vue d'une partie en attente donnent les inscrits par ordre d'inscription ; rien une fois la partie lancée", async () => {
+    const [a, b, c] = [await makeUser(db, "alice"), await makeUser(db, "bastien"), await makeUser(db, "chloe")];
+    const { gameId } = await createGame(db, a, textParams(3, { name: "En attente" }));
+    await joinGame(db, { userId: b, gameId });
+    expect((await listOpenGames(db)).items[0].players).toEqual(["alice", "bastien"]);
+    expect((await listJoinableGames(db, { userId: c })).items[0].players).toEqual(["alice", "bastien"]);
+    expect((await listMyCurrentGames(db, a)).items[0].players).toEqual(["alice", "bastien"]);
+    expect((await getGameView(db, { gameId, userId: b })).players).toEqual(["alice", "bastien"]);
+    await joinGame(db, { userId: c, gameId });
+    expect((await listMyCurrentGames(db, a)).items[0].players).toEqual([]);
+    expect((await getGameView(db, { gameId, userId: a })).players).toEqual([]);
   });
 });
 

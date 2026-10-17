@@ -12,6 +12,11 @@ type MetaProps = {
   extra?: string[];
 };
 
+/** Joueurs déjà inscrits à une partie qui n'a pas commencé. */
+export function PlayersLine({ players }: { players?: string[] }) {
+  return players && players.length > 0 ? <p className="meta">Inscrits : {players.join(", ")}</p> : null;
+}
+
 /**
  * Informations d'une partie, identiques dans toutes les listes : type (feuille ou pinceau), nombre de joueurs suivi d'un
  * personnage, durée, langue, créateur. Chaque icône est monochrome et porte un libellé accessible.
@@ -40,10 +45,11 @@ export function GameMetaItems({ type, turns, turnDurationSeconds, language, crea
 }
 
 /** Ligne d'informations d'une partie, suivie de son thème s'il y en a un. */
-export function GameMeta({ theme, ...props }: MetaProps & { theme?: string | null }) {
+export function GameMeta({ theme, players, ...props }: MetaProps & { theme?: string | null; players?: string[] }) {
   return (
     <>
       <p className="meta"><GameMetaItems {...props} /></p>
+      <PlayersLine players={players} />
       {theme && <p className="meta theme-line">Thème : <strong>{theme}</strong></p>}
     </>
   );
