@@ -1,7 +1,7 @@
 > [!WARNING]
 > Ce projet a été vibecodé avec l’aide de l’intelligence artificielle.
 
-# Cadavre exquis
+# Exquis
 
 [![CI](https://github.com/charlescoiffier/exquis/actions/workflows/ci.yml/badge.svg)](https://github.com/charlescoiffier/exquis/actions/workflows/ci.yml)
 ![Node.js 22](https://img.shields.io/badge/Node.js-22-5FA04E?logo=nodedotjs&logoColor=white)
@@ -21,7 +21,7 @@ lance sur votre machine en quelques commandes (voir [Démarrage](#démarrage)). 
 |---|---|
 | ![Accueil : mes parties en cours, les parties à rejoindre](docs/images/accueil-bureau.png) | ![Un tour de texte : fin du texte précédent, zone de saisie avec la partie transmise surlignée, jauge de mots](docs/images/tour-texte-bureau.png) |
 
-| Dessiner un tour | L'œuvre dessinée, avec jointures et noms |
+| Dessiner un tour | L'œuvre dessinée, avec les noms des dessinateurs |
 |---|---|
 | ![Un tour de dessin : outils, bande du dessin précédent en haut, zone de dessin carrée](docs/images/tour-dessin-bureau.png) | ![Un monstre dessiné à trois, avec le nom de chaque dessinateur le long de sa zone](docs/images/oeuvre-dessin-bureau.png) |
 
@@ -60,19 +60,21 @@ minutes à une semaine) pour jouer son tour, sans avoir à être connecté en m�
 
 ## Utiliser l'application
 
-- **Créer un compte** : sur invitation. Chaque joueur peut en générer depuis la page « Mon compte » (5 invitations
-  ouvertes au maximum).
+- **Créer un compte** : librement, avec un nom, une adresse et un mot de passe (l'inscription sur invitation reste
+  possible par réglage du serveur).
 - **L'accueil** montre vos parties en cours (le bouton « À vous de jouer ! » signale votre tour, avec le temps
   restant), vos **invitations reçues** et les **parties à rejoindre**, les appels à participation en tête (icône de
   haut-parleur). Chaque carte porte une étiquette d'état (« En cours », « À rejoindre »…) et indique le type, le nombre
   d'écrivains ou de dessinateurs, la durée d'un tour, la langue, le créateur et le thème. Les listes sont paginées par 8,
-  les plus récentes d'abord. Le bouton « Quitter » permet de sortir d'une partie. La page se met à jour toute seule
+  les plus récentes d'abord ; une partie en attente indique combien de joueurs manquent. Le bouton « Quitter » (avec
+  confirmation) permet de sortir d'une partie, tant qu'on n'y a pas encore joué. La page se met à jour toute seule
   (toutes les 5 secondes) et l'onglet du navigateur affiche « (1) C'est votre tour » quand c'est à vous.
 - **Pendant que l'on attend**, l'écran d'une partie indique qui joue (« Écrivain 2 est en train d'écrire ») et le temps
   qu'il lui reste.
 - **Notifications** : « C'est votre tour », rappel avant l'échéance, tour remis en jeu, partie terminée, œuvre prête,
-  nouveau commentaire, demande d'ami, invitation à une partie, décision de la modération. Les notifications de partie
-  sont aussi envoyées par email pour les tours d'au moins 5 minutes (désactivable dans « Mon compte »).
+  nouveau commentaire, demande d'ami, invitation à une partie, décision de la modération. Elles sont toujours visibles dans
+  l'onglet « Notifications ». Dans « Mon compte », chaque joueur choisit de plus d'être prévenu **par email** (tours d'au moins
+  5 minutes), **sur son téléphone** (notification push, à activer appareil par appareil), **les deux** ou **aucun**.
 - **Mon compte** : nom affiché, **avatar** et **statistiques**, préférences (email, moment du rappel), amis,
   génération d'invitations, déconnexion, et **« Mes anciennes parties »** (terminées ou annulées, les plus récentes
   d'abord) : un clic ouvre directement l'œuvre.
@@ -93,6 +95,8 @@ demandée est atteinte (« ✓ 22 mots, longueur suffisante »). Le brouillon es
   croise), **aérographe**, **gomme**, **pot de peinture**, **formes** (ligne, rectangle, ovale, en contour ou remplies),
   annuler / rétablir, **tout effacer** (avec confirmation, annulable), 12 couleurs rapides et un sélecteur de couleur
   libre, **taille** et **opacité** du trait. Un petit cercle gris suit le curseur et montre la taille du trait.
+- **Zoom** : sur téléphone, pincez avec deux doigts pour zoomer (jusqu'à ×5) et déplacer le dessin ; un deuxième doigt
+  posé en plein trait annule ce trait. Les boutons « − », « + » et « Vue entière » font de même sans écran tactile.
 - Vous pouvez dessiner **par-dessus la bande du dessin précédent**, mais pas l'effacer : la gomme n'agit que sur vos
   propres traits et le pot de peinture ne remplit jamais la bande.
 
@@ -108,15 +112,15 @@ n'importe quel autre joueur peut reprendre depuis l'accueil.
 L'œuvre rappelle les informations de la partie (créateur, dates, participants, nombre de tours, durée, langue). Pour un
 dessin, la case **« Afficher les noms des dessinateurs »** affiche discrètement les jointures entre les contributions et le
 nom de chaque dessinateur le long de sa zone ; **« Télécharger en PNG »** exporte l'image telle qu'elle est affichée
-(avec ou sans jointures et noms). Pour un texte, la case « Afficher les noms des auteurs » masque ou affiche le trait et
-le nom de chaque auteur.
+(avec ou sans les noms des dessinateurs). Pour un texte, la case « Afficher les noms des auteurs » masque ou affiche le trait et
+le nom de chaque auteur, et éclaircit légèrement les phrases communes (la fin de chaque contribution, vue par l'auteur suivant).
 
 ### Commentaires, partage et signalement
 
 - Sous une œuvre terminée, les **participants** peuvent laisser des **commentaires** (500 caractères) et supprimer les
   leurs ; les autres participants sont prévenus dans l'application.
 - Le **créateur** de la partie peut activer un **lien public** : toute personne qui l'a peut voir l'œuvre, **sans compte**
-  (avec la même option « jointures et noms » pour un dessin). Les commentaires restent réservés aux participants. Le
+  (avec la même option « noms des dessinateurs » pour un dessin). Les commentaires restent réservés aux participants. Le
   créateur peut désactiver le lien à tout moment ; le réactiver crée un nouveau lien. Tout participant peut copier le lien.
 - Un participant peut **signaler** un commentaire (sauf le sien) ou une œuvre, avec un motif et des précisions
   facultatives. Les **modérateurs** traitent les signalements dans la page « Modération » : ils masquent le contenu
@@ -300,24 +304,19 @@ calques d'aperçu superposés avaient été essayés : ils divisaient la fluidit
 `transmittedRange` (indices de la partie transmise dans le texte d'origine) et `extractExcerpt` (le texte transmis).
 L'éditeur grise le reste avec `transmittedRange` sur le texte normalisé par `sanitizeText`, exactement comme le serveur.
 
-## Inscriptions et invitations
+## Inscription
 
-Les inscriptions sont sur invitation par défaut (`REGISTRATION_MODE=invite`). Pour amorcer la première :
+L'inscription est **libre** par défaut (`REGISTRATION_MODE=open`) : un nom, une adresse et un mot de passe suffisent. Si un
+service d'email est configuré, l'adresse doit être vérifiée avant la première connexion ; sinon la vérification n'est pas
+exigée (voir `REQUIRE_EMAIL_VERIFICATION`). Pour réserver l'inscription à des personnes invitées, passer
+`REGISTRATION_MODE=invite` : la page d'inscription demande alors un code, que l'on crée avec
 
 ```bash
 npx tsx scripts/create-invite.ts
 ```
 
-Le script affiche un code à saisir sur `/register`. Ensuite, chaque joueur peut en générer depuis « Mon compte »
-(5 invitations ouvertes au maximum, valables 7 jours).
-
-| `REGISTRATION_MODE` | Effet |
-|---|---|
-| `invite` (défaut) | un code d'invitation valide est requis |
-| `open` | inscription libre |
-
-Google OAuth n'est volontairement pas inclus : en mode invitation, tout compte passe par `/api/register`. À ajouter si
-l'on passe en `REGISTRATION_MODE=open`.
+(les invitations d'inscription n'ont plus d'écran dans l'application ; les **invitations à une partie** entre amis sont
+inchangées). Google OAuth n'est volontairement pas inclus ; il serait à ajouter pour l'inscription libre.
 
 ## Variables d'environnement
 
@@ -327,11 +326,14 @@ l'on passe en `REGISTRATION_MODE=open`.
 | `APP_URL` | URL publique de l'application (défaut `http://localhost:3000`) |
 | `BETTER_AUTH_SECRET` | secret d'authentification, 32 caractères aléatoires recommandés (`openssl rand -base64 32`) |
 | `STORAGE_SECRET` | secret de signature des URLs de stockage local, 16 caractères minimum |
-| `REGISTRATION_MODE` | `invite` ou `open` |
-| `REQUIRE_EMAIL_VERIFICATION` | `true` (défaut) ou `false` |
+| `REGISTRATION_MODE` | `open` (défaut, inscription libre) ou `invite` (code d'invitation requis) |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` ou `false` ; non renseignée : exigée seulement si un service d'email est configuré |
+| `ADMIN_EMAILS` | adresses (séparées par des virgules) des comptes administrateurs, en plus du rôle donné par `npm run role` |
 | `STORAGE_DRIVER` | `local` (défaut, dossier `STORAGE_DIR`, `.storage`) ou `s3` |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | stockage S3 compatible (AWS, Cloudflare R2, Backblaze B2) |
-| `RESEND_API_KEY`, `MAIL_FROM` | envoi d'emails ; sans clé, les emails sont écrits dans la console |
+| `RESEND_API_KEY`, `MAIL_FROM` | envoi d'emails par Resend ; le domaine de `MAIL_FROM` doit être vérifié chez Resend |
+| `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE` | envoi par SMTP (prioritaire sur Resend) ; `SMTP_SECURE=true` pour le port 465. Sans service configuré, les emails restent en attente (journal du worker) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | notifications sur téléphone (Web Push) ; clés créées par `npm run vapid`, `VAPID_SUBJECT` = `mailto:vous@exemple.fr` |
 
 ## Stockage S3 : CORS
 
@@ -441,8 +443,14 @@ règles d'usage : [`docs/design/manifeste.md`](docs/design/manifeste.md).
   (`[perf] …`) et dans `.perf/reports.jsonl`, ignoré par git. Utile pour comparer un smartphone à un ordinateur.
 - **Essai sur smartphone** : `npm run dev:phone` lance le serveur et le worker accessibles sur le réseau local ; la copie
   dans le presse-papiers retombe sur une méthode de secours, l'API moderne exigeant HTTPS.
-- **Modération** : pour donner ou retirer le rôle de modérateur :
+- **Emails** : `npm run mail:test -- adresse@exemple.fr` envoie un message avec la configuration actuelle et affiche le service
+  utilisé ; `/api/health` indique aussi `"mailer": "smtp" | "resend" | "console"` (console = rien n'est réellement envoyé). Les emails de
+  notification ne partent que pour les tours d'au moins 5 minutes, et ceux de plus de 24 heures sont abandonnés.
+- **Administration et modération** : un compte au rôle `admin` (ou dont l'adresse figure dans `ADMIN_EMAILS`) voit la page
+  « Administration » : liste de tous les inscrits (recherche, rôle de modérateur, suppression), toutes les œuvres terminées avec
+  leurs commentaires (suppression d'un commentaire ou de l'œuvre) et les signalements. Supprimer un compte efface ses données
+  personnelles ; ses contributions restent, anonymisées (« Compte supprimé »). Pour donner un rôle :
 
 ```bash
-npm run role -- adresse@exemple.fr moderator   # ou : player
+npm run role -- adresse@exemple.fr admin   # ou : moderator, player
 ```
