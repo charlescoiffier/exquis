@@ -10,7 +10,9 @@ export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export type Executor = Db | Tx;
 
 export function createDb(url: string): { db: Db; close: () => Promise<void> } {
-  const client = postgres(url, { max: 10, onnotice: () => {} });
+  // Session en UTC : les colonnes `timestamp` (sans fuseau) alimentées par `now()` côté base doivent être lues comme des instants UTC par
+  // Drizzle, quel que soit le fuseau du serveur PostgreSQL (poste de développement en heure locale).
+  const client = postgres(url, { max: 10, onnotice: () => {}, connection: { TimeZone: "UTC" } });
   return { db: drizzle(client, { schema: fullSchema }), close: () => client.end() };
 }
 

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AvatarForm, EmailPreference, NameForm, ReminderPreference } from "@/components/AccountForms";
+import { AvatarForm, NameForm, NotificationPreference, ReminderPreference } from "@/components/AccountForms";
 import { PastGameList } from "@/components/GameList";
 import { SignOutButton } from "@/components/SignOutButton";
 import { Banner } from "@/components/ui/Banner";
@@ -8,6 +8,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { countOpenReports, isAdmin, isModerator } from "@/lib/services/moderation";
 import { Pagination } from "@/components/ui/Pagination";
 import { getDb } from "@/lib/db/client";
+import { env, pushConfigured } from "@/lib/env";
 import { plural } from "@/lib/format";
 import { getProfile, getProfileStats } from "@/lib/services/account";
 import { listMyPastGames, parsePage } from "@/lib/services/games";
@@ -62,7 +63,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       <section aria-labelledby="preferences">
         <h2 id="preferences">Préférences</h2>
         <Card>
-          <EmailPreference initial={p.emailEnabled} />
+          <NotificationPreference initial={p.notifyMode} pushAvailable={pushConfigured()} publicKey={env().VAPID_PUBLIC_KEY ?? ""} />
           <ReminderPreference initial={p.reminderStage} />
         </Card>
       </section>

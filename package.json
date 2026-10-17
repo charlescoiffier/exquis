@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "db:dev": "tsx scripts/dev-db.ts",
     "mail:test": "tsx --env-file-if-exists=.env.local scripts/test-mail.ts",
+    "vapid": "tsx scripts/generate-vapid.ts",
     "role": "tsx --env-file-if-exists=.env.local scripts/set-role.ts",
     "capture:readme": "tsx scripts/capture-readme.ts"
   },
@@ -32,6 +33,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "sharp": "^0.35.5",
+    "web-push": "^3.6.7",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -41,6 +43,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "dotenv": "^18.0.5",
     "drizzle-kit": "^0.31.11",
     "embedded-postgres": "16.14.0-beta.17",

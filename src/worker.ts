@@ -4,7 +4,9 @@ import { env } from "@/lib/env";
 import type { Effect } from "@/lib/effects";
 import { handleExpire, handleFinalize, handleFlush, handlePurge, handleRemind, handleSweep, type Deps } from "@/lib/jobs/handlers";
 import { QUEUES, createQueues, runEffectsWithRetry } from "@/lib/jobs/queue";
+import { pushConfigured } from "@/lib/env";
 import { getMailer } from "@/lib/notifications/mailer";
+import { getPushSender } from "@/lib/services/push";
 import { getStorage } from "@/lib/storage";
 
 async function main() {
@@ -13,7 +15,7 @@ async function main() {
   await boss.start();
   await createQueues(boss);
 
-  const deps: Deps = { db: getDb(), storage: getStorage(), mailer: getMailer() };
+  const deps: Deps = { db: getDb(), storage: getStorage(), mailer: getMailer(), push: pushConfigured() ? getPushSender() : undefined };
   const wrap =
     <T>(fn: (d: Deps, data: T) => Promise<Effect[] | void>) =>
     async (jobs: { data: T }[]) => {

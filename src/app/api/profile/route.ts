@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 const body = z.object({
   name: z.string().optional(),
   emailEnabled: z.boolean().optional(),
+  notifyMode: z.enum(["both", "email", "push", "none"]).optional(),
   reminderStage: z.number().int().optional(),
   avatar: z.object({ shape: z.string(), color: z.string(), bg: z.string() }).optional(),
 });

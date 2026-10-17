@@ -57,6 +57,13 @@
       "when": 1791398419130,
       "tag": "0007_skinny_mauler",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792268361360,
+      "tag": "0008_flawless_red_ghost",
+      "breakpoints": true
     }
   ]
 }

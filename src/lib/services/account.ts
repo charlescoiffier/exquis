@@ -11,7 +11,13 @@ export const MAX_NAME_LENGTH = 60;
 /** Étapes de rappel acceptées : 0 (aucun) ou une étape programmée par le worker. */
 export const REMINDER_CHOICES: readonly number[] = [0, ...REMINDER_STAGES];
 
-export type ProfilePatch = { name?: string; emailEnabled?: boolean; reminderStage?: number; avatar?: { shape: string; color: string; bg: string } };
+/** Canaux de notification choisis : email, téléphone (push), les deux ou aucun. */
+export type NotifyMode = "both" | "email" | "push" | "none";
+export const NOTIFY_MODES: readonly NotifyMode[] = ["both", "email", "push", "none"];
+export const notifyModeOf = (emailEnabled: boolean, notifyPush: boolean): NotifyMode =>
+  emailEnabled && notifyPush ? "both" : emailEnabled ? "email" : notifyPush ? "push" : "none";
+
+export type ProfilePatch = { name?: string; emailEnabled?: boolean; notifyMode?: NotifyMode; reminderStage?: number; avatar?: { shape: string; color: string; bg: string } };
 
 /** Modifie le nom affiché, la préférence d'email, le moment du rappel et/ou l'avatar d'un compte. Au moins un champ est requis. */
 export async function updateProfile(db: Db, userId: string, patch: ProfilePatch): Promise<void> {
@@ -19,17 +25,21 @@ export async function updateProfile(db: Db, userId: string, patch: ProfilePatch)
   if (patch.name !== undefined && (!name || name.length > MAX_NAME_LENGTH)) {
     throw new DomainError("invalid_name", `Le nom doit faire entre 1 et ${MAX_NAME_LENGTH} caractères.`, 400);
   }
+  if (patch.notifyMode !== undefined && !NOTIFY_MODES.includes(patch.notifyMode)) {
+    throw new DomainError("invalid_notify_mode", "Type de notification inconnu.", 400);
+  }
   if (patch.reminderStage !== undefined && !REMINDER_CHOICES.includes(patch.reminderStage)) {
     throw new DomainError("invalid_reminder", "Moment de rappel inconnu.", 400);
   }
   if (patch.avatar !== undefined && !isValidAvatar(patch.avatar)) {
     throw new DomainError("invalid_avatar", "Avatar invalide : forme et fond doivent être différents et pris dans la palette.", 400);
   }
-  if (name === undefined && patch.emailEnabled === undefined && patch.reminderStage === undefined && patch.avatar === undefined) {
+  if (name === undefined && patch.emailEnabled === undefined && patch.notifyMode === undefined && patch.reminderStage === undefined && patch.avatar === undefined) {
     throw new DomainError("invalid_params", "Rien à modifier.", 400);
   }
   const set = {
     ...(patch.emailEnabled !== undefined ? { emailEnabled: patch.emailEnabled } : {}),
+    ...(patch.notifyMode !== undefined ? { emailEnabled: patch.notifyMode === "both" || patch.notifyMode === "email", notifyPush: patch.notifyMode === "both" || patch.notifyMode === "push" } : {}),
     ...(patch.reminderStage !== undefined ? { reminderStage: patch.reminderStage } : {}),
     ...(patch.avatar !== undefined ? { avatarShape: patch.avatar.shape, avatarColor: patch.avatar.color, avatarBg: patch.avatar.bg } : {}),
   };
@@ -41,12 +51,12 @@ export async function updateProfile(db: Db, userId: string, patch: ProfilePatch)
   });
 }
 
-export type ProfileView = { emailEnabled: boolean; reminderStage: number; avatar: AvatarSpec };
+export type ProfileView = { emailEnabled: boolean; notifyMode: NotifyMode; reminderStage: number; avatar: AvatarSpec };
 
 /** Préférences et avatar d'un compte (valeurs par défaut tant qu'il n'a rien choisi). */
 export async function getProfile(db: Db, userId: string): Promise<ProfileView> {
   const [p] = await db.select().from(profile).where(eq(profile.userId, userId));
-  return { emailEnabled: p?.emailEnabled ?? true, reminderStage: p?.reminderStage ?? DEFAULT_REMINDER_STAGE, avatar: resolveAvatar(userId, p) };
+  return { emailEnabled: p?.emailEnabled ?? true, notifyMode: notifyModeOf(p?.emailEnabled ?? true, p?.notifyPush ?? true), reminderStage: p?.reminderStage ?? DEFAULT_REMINDER_STAGE, avatar: resolveAvatar(userId, p) };
 }
 
 export type ProfileStats = {

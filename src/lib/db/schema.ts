@@ -11,6 +11,8 @@ export const profile = pgTable("profile", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
   role: text("role").notNull().default("player"),
   emailEnabled: boolean("email_enabled").notNull().default(true),
+  // Notifications sur téléphone (Web Push) : effectives sur les appareils que le joueur a activés.
+  notifyPush: boolean("notify_push").notNull().default(true),
   // Rappel avant la fin d'un tour : part du temps restant (50, 25 ou 10 %) ; 0 = aucun rappel.
   reminderStage: integer("reminder_stage").notNull().default(25),
   // Avatar géométrique : forme imposée, couleur de la forme et du fond (palette fixe) ; null = avatar par défaut dérivé du compte.
@@ -125,6 +127,8 @@ export const notification = pgTable(
     dedupeKey: text("dedupe_key").notNull().unique(),
     readAt: timestamp("read_at"),
     emailPending: boolean("email_pending").notNull().default(false),
+    pushPending: boolean("push_pending").notNull().default(false),
+    pushedAt: timestamp("pushed_at"),
     emailedAt: timestamp("emailed_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
@@ -193,3 +197,18 @@ export const finalWork = pgTable("final_work", {
   joints: jsonb("joints").$type<{ start: number; end: number }[]>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+/** Appareil abonné aux notifications Web Push d'un compte (un compte peut en avoir plusieurs). */
+export const pushSubscription = pgTable(
+  "push_subscription",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("push_subscription_user_idx").on(t.userId)],
+);

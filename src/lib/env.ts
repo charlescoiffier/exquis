@@ -27,6 +27,10 @@ const schema = z.object({
   MAIL_FROM: z.string().default("Exquis <no-reply@localhost>"),
   // Adresses (séparées par des virgules) des comptes administrateurs, en plus du rôle « admin » donné par npm run role.
   ADMIN_EMAILS: z.string().default(""),
+  // Notifications sur téléphone (Web Push) : clés générées par `npm run vapid`. Sans elles, la fonction est désactivée.
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -43,4 +47,9 @@ export function emailConfigured(e: Env = env()): boolean {
 /** Vérification de l'adresse à l'inscription : valeur explicite, sinon exigée seulement si l'on sait envoyer des emails. */
 export function requireEmailVerification(e: Env = env()): boolean {
   return e.REQUIRE_EMAIL_VERIFICATION ? e.REQUIRE_EMAIL_VERIFICATION === "true" : emailConfigured(e);
+}
+
+/** Les clés VAPID sont renseignées : les notifications sur téléphone sont disponibles. */
+export function pushConfigured(e: Env = env()): boolean {
+  return !!e.VAPID_PUBLIC_KEY && !!e.VAPID_PRIVATE_KEY;
 }
