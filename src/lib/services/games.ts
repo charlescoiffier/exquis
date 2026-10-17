@@ -166,10 +166,12 @@ function pageWindow(total: number, requested: number) {
 const participantCountSql = sql<number>`(select count(*)::int from participant pp where pp.game_id = ${game.id} and pp.left_at is null)`;
 
 /**
- * Noms des joueurs inscrits d'une partie qui n'a pas encore commencé (par ordre d'inscription) ; vide dès qu'elle est lancée :
- * les participants d'une partie en cours ne sont révélés qu'à la fin.
+ * Noms des joueurs inscrits (par ordre d'inscription), pour une liste publique : seulement tant que la partie n'a pas commencé.
+ * Pour ses propres parties, un joueur voit toujours ses co-participants (voir `myPlayersSql`).
  */
 const playersSql = sql<string[]>`case when ${game.status} = 'open' then coalesce(array(select pu.name from participant pp join "user" pu on pu.id = pp.user_id where pp.game_id = ${game.id} and pp.left_at is null order by pp.joined_at, pu.name), '{}'::text[]) else '{}'::text[] end`;
+
+const myPlayersSql = sql<string[]>`coalesce(array(select pu.name from participant pp join "user" pu on pu.id = pp.user_id where pp.game_id = ${game.id} and pp.left_at is null order by pp.joined_at, pu.name), '{}'::text[])`;
 
 const listColumns = {
   id: game.id,
@@ -227,6 +229,7 @@ export async function listMyCurrentGames(db: Db, userId: string, p: { page?: num
   const rows = await db
     .select({
       ...listColumns,
+      players: myPlayersSql,
       activeTurnId: turn.id,
       activeDeadline: turn.deadline,
       hasPlayed: sql<boolean>`exists (select 1 from contribution c join turn t2 on t2.id = c.turn_id where t2.game_id = ${game.id} and c.user_id = ${userId})`,
@@ -409,7 +412,8 @@ export async function getGameView(db: Db, p: { gameId: string; userId: string; t
     game: publicGame(g),
     creatorName: creator?.name ?? "",
     participantCount: ps.filter((x) => !x.leftAt).length,
-    players: g.status === "open" ? await playerNames(db, ps.filter((x) => !x.leftAt)) : [],
+    // Partie en attente : visible de tous ceux qui la voient ; partie lancée : de ses seuls participants.
+    players: g.status === "open" || (isParticipant && g.status === "in_progress") ? await playerNames(db, ps.filter((x) => !x.leftAt)) : [],
     isParticipant,
     isCreator,
     inviteToken: isCreator ? g.inviteToken : null,

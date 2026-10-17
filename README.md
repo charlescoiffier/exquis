@@ -66,8 +66,8 @@ minutes à une semaine) pour jouer son tour, sans avoir à être connecté en m�
   restant), vos **invitations reçues** et les **parties à rejoindre**, les appels à participation en tête (icône de
   haut-parleur). Chaque carte porte une étiquette d'état (« En cours », « À rejoindre »…) et indique le type, le nombre
   d'écrivains ou de dessinateurs, la durée d'un tour, la langue, le créateur et le thème. Les listes sont paginées par 8,
-  les plus récentes d'abord ; une partie en attente indique les joueurs déjà inscrits et combien manquent (les noms ne sont plus montrés
-  une fois la partie lancée, jusqu'à l'œuvre finale). Le bouton « Quitter » (avec
+  les plus récentes d'abord ; une partie en attente indique les joueurs déjà inscrits et combien manquent (une fois la partie lancée, seuls ses
+  participants voient les noms de leurs co-joueurs ; les appels à participation n'en montrent pas). Le bouton « Quitter » (avec
   confirmation) permet de sortir d'une partie, tant qu'on n'y a pas encore joué. La page se met à jour toute seule
   (toutes les 5 secondes) et l'onglet du navigateur affiche « (1) C'est votre tour » quand c'est à vous.
 - **Pendant que l'on attend**, l'écran d'une partie indique qui joue (« Écrivain 2 est en train d'écrire ») et le temps
